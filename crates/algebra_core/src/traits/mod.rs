@@ -2,7 +2,7 @@
 //!
 //! This module groups all public algebraic structures:
 //!
-//! - [`identities`] – additive and multiplicative identity traits (`Zero`, `One`).
+//! - [`identity`] – additive and multiplicative identity traits (`Zero`, `One`).
 //! - [`additive`] – additive semigroup / monoid / group traits.
 //! - [`multiplicative`] – multiplicative semigroup / monoid traits.
 //! - [`semiring`] – semiring structure (additive + multiplicative).
@@ -14,7 +14,7 @@
 
 pub mod additive;
 pub mod field;
-pub mod identities;
+pub mod identity;
 pub mod multiplicative;
 pub mod ring;
 pub mod semiring;
@@ -23,7 +23,7 @@ pub mod semiring;
 
 pub use additive::{AddGroup, AddMonoid, AddSemigroup, Additive};
 pub use field::{CheckedDiv, DivByZero, Field, TryInverse};
-pub use identities::{One, Zero};
+pub use identity::{One, Zero};
 pub use multiplicative::{MulMonoid, MulSemigroup, Multiplicative};
 pub use ring::Ring;
 pub use semiring::Semiring;

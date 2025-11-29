@@ -69,6 +69,7 @@
 //! traits, then opt into higher structures like `Semiring`, `Ring`, or `Field`
 //! when the laws are satisfied.
 
+pub mod impls;
 /// Core algebraic traits.
 pub mod traits;
 
@@ -80,7 +81,7 @@ pub mod traits;
 pub mod prelude {
     pub use crate::traits::additive::{AddGroup, AddMonoid, AddSemigroup, Additive};
     pub use crate::traits::field::{CheckedDiv, DivByZero, Field, TryInverse};
-    pub use crate::traits::identities::{One, Zero};
+    pub use crate::traits::identity::{One, Zero};
     pub use crate::traits::multiplicative::{MulMonoid, MulSemigroup, Multiplicative};
     pub use crate::traits::ring::Ring;
     pub use crate::traits::semiring::Semiring;
@@ -92,10 +93,11 @@ pub mod prelude {
 /// ```rust
 /// use algebra_core::{Additive, Multiplicative, Semiring};
 /// ```
-pub use traits::additive::{AddGroup, AddMonoid, AddSemigroup, Additive};
-pub use traits::field::{CheckedDiv, DivByZero, Field, TryInverse};
-pub use traits::identities::{One, Zero};
-pub use traits::multiplicative::{MulMonoid, MulSemigroup, Multiplicative};
-pub use traits::ring::Ring;
-pub use traits::semiring::Semiring;
+pub use traits::{
+    additive::AddGroup,
+    field::{CheckedDiv, Field, TryInverse},
+    identity::{One, Scalar, Zero},
+    multiplicative::{MulMonoid, Multiplicative},
+    ring::Ring,
+};
 
