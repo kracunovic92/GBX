@@ -1,0 +1,10 @@
+[build]
+
+[target.'cfg(all())']
+
+[env]
+RUSTFLAGS_COVERAGE = { value = "", force = false }
+RUST_BACKTRACE = { value = "1", force = false }
+
+[profile.dev]
+debug = 2

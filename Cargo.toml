@@ -1,0 +1,84 @@
+[workspace]
+members = [
+    "crates/algebra_core",
+    "crates/algebra_field",
+    "crates/algebra_poly",
+    "crates/graph"
+]
+
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/your-user/your-repo"
+
+[workspace.dependencies]
+algebra_core = { path = "crates/algebra_core" }
+algebra_field = { path = "crates/algebra_field" }
+algebra_poly = { path = "crates/algebra_poly" }
+graph = { path = "crates/graph" }
+
+thiserror = "2"
+rand = "0.9"
+proptest = "1"
+criterion = "0.7"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unused_extern_crates = "warn"
+anonymous_parameters = "warn"
+missing_debug_implementations = "warn"
+missing_copy_implementations = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+warnings = "warn"
+variant_size_differences = "warn"
+
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+cargo = "warn"
+nursery = "warn"
+restriction = "allow"   # base restriction group off
+
+unwrap_used = "warn"
+expect_used = "warn"
+todo = "warn"
+unimplemented = "warn"
+missing_panics_doc = "warn"
+missing_errors_doc = "warn"
+explicit_iter_loop = "warn"
+needless_collect = "warn"
+enum_glob_use = "warn"
+
+[profile.dev]
+opt-level = 0
+debug = true
+overflow-checks = true
+debug-assertions = true
+lto = "off"
+
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+debug = true
+
+[profile.test]
+opt-level = 1
+debug = true
+overflow-checks = true
+debug-assertions = true
+lto = "off"
+

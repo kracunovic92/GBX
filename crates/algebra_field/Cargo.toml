@@ -1,0 +1,30 @@
+[package]
+name = "algebra_field"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository = "GBX"
+readme = "README.md"
+keywords = ["algebra", "ring", "field", "polynomial", "math"]
+categories = ["science", "data-structures", "algorithms"]
+
+description = "Concrete fields for algebra: prime fields Zp and generic Complex<F>."
+
+[features]
+default = ["std"]
+std = []
+validate-modulus = []
+prop = []
+
+[dependencies]
+algebra_core = { workspace = true }
+proptest = "1.9.0"
+criterion = "0.7.0"
+
+[lints]
+workspace = true
+
+[[bench]]
+name = "zp_ops"
+harness = false

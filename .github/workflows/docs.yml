@@ -1,0 +1,23 @@
+name: Docs
+on:
+    push:
+        branches: [ main ]
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    pages: write
+    id-token: write
+
+jobs:
+    build-deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: dtolnay/rust-toolchain@master
+              with: { toolchain: 1.85.0 }
+            - run: cargo doc --workspace --no-deps
+            - run: mkdir ./public && cp -r target/doc/* ./public/
+            - uses: actions/upload-pages-artifact@v3
+              with: { path: ./public }
+            - uses: actions/deploy-pages@v4

@@ -1,0 +1,6 @@
+max_width = 100
+newline_style = "Unix"
+indent_style = "Block"
+use_small_heuristics = "Max"
+chain_width = 0
+fn_call_width = 60
