@@ -22,7 +22,6 @@
 //!
 //! ```rust
 //! use algebra_core::prelude::*;
-//! use core::ops::{Add, Mul};
 //!
 //! #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 //! struct MyMod2(u8);
@@ -69,6 +68,7 @@
 //! traits, then opt into higher structures like `Semiring`, `Ring`, or `Field`
 //! when the laws are satisfied.
 
+/// Implementation for basic primitives.
 pub mod impls;
 /// Core algebraic traits.
 pub mod traits;
@@ -79,7 +79,9 @@ pub mod traits;
 /// use algebra_core::prelude::*;
 /// ```
 pub mod prelude {
-    pub use crate::traits::additive::{AddGroup, AddMonoid, AddSemigroup, Additive};
+    pub use crate::traits::additive::{
+        AddAbelianGroup, AddGroup, AddMonoid, AddSemigroup, Additive,
+    };
     pub use crate::traits::field::{CheckedDiv, DivByZero, Field, TryInverse};
     pub use crate::traits::identity::{One, Zero};
     pub use crate::traits::multiplicative::{MulMonoid, MulSemigroup, Multiplicative};

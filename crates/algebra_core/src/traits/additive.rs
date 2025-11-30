@@ -27,7 +27,7 @@ pub trait Additive: Sized + core::ops::Add<Output = Self> {
     #[must_use]
     #[inline]
     fn add(self, rhs: Self) -> Self {
-        self + rhs
+        core::ops::Add::add(self, rhs)
     }
 }
 
@@ -81,7 +81,7 @@ pub trait AddGroup: AddMonoid + core::ops::Neg<Output = Self> {
     #[must_use]
     #[inline]
     fn neg(self) -> Self {
-        -self
+        core::ops::Neg::neg(self)
     }
 }
 
