@@ -94,7 +94,7 @@ pub mod prelude {
 /// use algebra_core::{Additive, Multiplicative, Semiring};
 /// ```
 pub use traits::{
-    additive::AddGroup,
+    additive::{AddGroup, AddMonoid, AddSemigroup, Additive},
     field::{CheckedDiv, Field, TryInverse},
     identity::{One, Scalar, Zero},
     multiplicative::{MulMonoid, Multiplicative},

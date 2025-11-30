@@ -2,16 +2,19 @@
 //!
 //! The *operation* (`+`) is separated from its **algebraic laws**:
 //!
-//! - [`Additive`] – raw operation, thin wrapper over [`core::ops::Add`].
-//! - [`AddSemigroup`] – associative addition.
-//! - [`AddMonoid`] – associative + identity (`Zero`).
-//! - [`AddGroup`] – additive group (identity + inverse).
+//! - [`Additive`]        – raw operation, thin wrapper over [`core::ops::Add`]
+//! - [`AdditiveAssign`]  – in-place addition, wrapper over [`core::ops::AddAssign`]
+//! - [`AddSemigroup`]    – associative addition
+//! - [`AddMonoid`]       – associative + identity (`Zero`)
+//! - [`AddGroup`]        – additive group (identity + inverse)
+//! - [`AddAbelianGroup`] – additive *commutative* (Abelian) group
 //!
 //! The laws themselves are not enforced at the type level; they are intended
 //! to be checked via *law tests* in this crate’s test suite and in consumer
 //! crates.
 
-use core::ops::{Add, Neg};
+use crate::Zero;
+use core::ops::{Add, AddAssign, Neg};
 
 /// Raw additive operation: `self + rhs`.
 ///
@@ -35,6 +38,13 @@ pub trait Additive: Sized + Add<Output = Self> {
 /// user-defined types that implement `Add` appropriately.
 impl<T> Additive for T where T: Add<Output = T> {}
 
+/// In-place additive update: `x += y`.
+///
+/// This is a thin wrapper over [`core::ops::AddAssign`]. It is useful for
+/// algorithms that want to work with in-place updates without committing to
+/// a specific representation.
+pub trait AdditiveAssign: Additive + AddAssign<Self> {}
+
 /// Marker trait: additive semigroup.
 ///
 /// This indicates that:
@@ -49,14 +59,14 @@ pub trait AddSemigroup: Additive {}
 /// Marker trait: additive monoid.
 ///
 /// This extends [`AddSemigroup`] by requiring an additive identity element,
-/// provided by [`crate::Zero`]:
+/// provided by [`Zero`]:
 ///
 /// - There exists `0` such that:
 ///   - `0 + a == a`
 ///   - `a + 0 == a`
 ///
-/// Implementors must also implement [`crate::Zero`] consistently.
-pub trait AddMonoid: AddSemigroup + crate::Zero {}
+/// Implementors must also implement [`Zero`] consistently.
+pub trait AddMonoid: AddSemigroup + Zero {}
 
 /// Full additive group: every element has an additive inverse.
 ///
@@ -76,53 +86,78 @@ pub trait AddGroup: AddMonoid + Neg<Output = Self> {
     }
 }
 
-/// Blanket impl: any type that satisfies the bounds is an `AddGroup`.
+/// Marker trait: additive *commutative* (Abelian) group.
+///
+/// In a ring or field, the underlying additive group is always Abelian.
+/// This trait makes that explicit in the type system, even though the
+/// commutativity law itself is not enforced.
+pub trait AddAbelianGroup: AddGroup {}
+
+/// Blanket impls for the marker traits.
+///
+/// Any type that satisfies the bounds is considered to have the corresponding
+/// algebraic structure.
+impl<T> AddSemigroup for T where T: Additive {}
+impl<T> AddMonoid for T where T: AddSemigroup + Zero {}
 impl<T> AddGroup for T where T: AddMonoid + Neg<Output = T> {}
-
-/// Implement additive markers for signed primitive integers.
-///
-/// **Note:** With Rust’s overflow semantics, group laws are only strictly valid
-/// when staying within non-overflowing ranges. Law tests should account for
-/// this (e.g. by restricting the domain).
-macro_rules! impl_add_markers_for_signed {
-    ($($t:ty),* $(,)?) => { $(
-        impl AddSemigroup for $t {}
-        impl AddMonoid    for $t {}
-        // `AddGroup` comes from the blanket impl once `AddMonoid + Neg` hold.
-    )* };
-}
-
-impl_add_markers_for_signed!(i8, i16, i32, i64, i128, isize);
-
-/// Implement additive markers for unsigned primitive integers.
-///
-/// These form a monoid under wrapping addition (`+`), but not a group in the
-/// usual sense (there is no inverse in the standard integer model).
-macro_rules! impl_add_markers_for_unsigned {
-    ($($t:ty),* $(,)?) => { $(
-        impl AddSemigroup for $t {}
-        impl AddMonoid    for $t {}
-        // No `AddGroup` impl: additive inverses are not available.
-    )* };
-}
-
-impl_add_markers_for_unsigned!(u8, u16, u32, u64, u128, usize);
+impl<T> AddAbelianGroup for T where T: AddGroup {}
 
 #[cfg(test)]
 mod tests {
-    use super::Additive;
-    use crate::AddGroup;
+    use super::*;
+
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    struct MyAdditive(i32);
+
+    impl Add for MyAdditive {
+        type Output = Self;
+
+        fn add(self, rhs: Self) -> Self::Output {
+            MyAdditive(self.0 + rhs.0)
+        }
+    }
+
+    impl AddAssign for MyAdditive {
+        fn add_assign(&mut self, rhs: Self) {
+            self.0 += rhs.0;
+        }
+    }
+
+    impl Neg for MyAdditive {
+        type Output = Self;
+
+        fn neg(self) -> Self::Output {
+            MyAdditive(-self.0)
+        }
+    }
+
+    impl Zero for MyAdditive {
+        const ZERO: Self = MyAdditive(0);
+    }
+
+    fn assert_add_abelian_group<T: AddAbelianGroup>(_x: T) {}
 
     #[test]
-    fn add_i32() {
-        assert_eq!(3i32.add(4), 7);
-        // via `AddGroup::neg` default method
-        assert_eq!(5i32.neg(), -5);
+    fn additive_and_group_methods_work_for_custom_type() {
+        let a = MyAdditive(3);
+        let b = MyAdditive(4);
+
+        assert_eq!(
+            a.add(b)
+                .0,
+            7
+        );
+
+        let neg_a = a.neg();
+        assert_eq!(neg_a.0, -3);
+
+        assert_add_abelian_group(a);
     }
 
     #[test]
-    fn add_u32() {
-        assert_eq!(3u32.add(4), 7);
-        // `AddGroup` is *not* implemented for `u32`; that’s intentional.
+    fn additive_assign_updates_in_place() {
+        let mut x = MyAdditive(5);
+        x += MyAdditive(7);
+        assert_eq!(x.0, 12);
     }
 }
