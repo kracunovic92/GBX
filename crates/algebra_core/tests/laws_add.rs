@@ -4,7 +4,7 @@
 //! on some concrete types (i32, u32). The helpers are generic, so
 //! they can be reused in other crates.
 
-use algebra_core::{AddAbelianGroup, AddGroup, AddMonoid, AddSemigroup, Additive, Zero};
+use algebra_core::{AddAbelianGroup, AddGroup, AddMonoid, AddSemigroup, Additive};
 use std::fmt::Debug;
 
 /// Check associativity: (a + b) + c == a + (b + c)

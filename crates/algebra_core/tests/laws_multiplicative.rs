@@ -41,6 +41,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 /// Check multiplicative inverses: a * a⁻¹ == 1 and a⁻¹ * a == 1
 ///
 /// Caller is responsible for ensuring `values` does not contain
@@ -62,7 +63,6 @@ where
         assert_eq!(right, one, "inv(a) * a != 1 for {a:?}");
     }
 }
-
 /// Check commutativity: a * b == b * a
 fn check_mul_commutative<T>(values: &[T])
 where
@@ -91,6 +91,7 @@ fn mul_monoid_laws_for_u32() {
 
     check_mul_associative(&values);
     check_mul_identity(&values);
+    check_mul_commutative(&values);
 
     // We do *not* call `check_mul_inverse` or `check_mul_commutative` with
     // `MulAbelianGroup` bounds here, because u32 under multiplication is NOT

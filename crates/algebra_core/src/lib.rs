@@ -22,6 +22,7 @@
 //!
 //! ```rust
 //! use algebra_core::prelude::*;
+//! use std::ops::{Mul,Add};
 //!
 //! #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 //! struct MyMod2(u8);
