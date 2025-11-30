@@ -1,17 +1,22 @@
+#![allow(clippy::needless_path_prefix)]
 //! Multiplicative operation traits and structure markers.
 //!
 //! As with the additive side, we separate the raw *operation* (`*`) from its
 //! algebraic *laws*:
 //!
-//! - [`Multiplicative`]  – raw operation, thin wrapper over [`core::ops::Mul`].
-//! - [`MulSemigroup`]   – associative multiplication.
-//! - [`MulMonoid`]      – associative + identity (`One`).
+//! - [`Multiplicative`]       – raw operation, thin wrapper over [`core::ops::Mul`]
+//! - [`MultiplicativeAssign`] – in-place multiplication, wrapper over [`core::ops::MulAssign`]
+//! - [`MulSemigroup`]         – associative multiplication
+//! - [`MulMonoid`]            – associative + identity (`One`)
+//! - [`MulAbelianMonoid`]     – commutative multiplicative monoid
 //!
-//! Higher structures such as [`crate::Semiring`], [`crate::Ring`], and
-//! [`crate::Field`] build on these traits. The laws are not enforced by the
-//! type system; they are intended to be verified via law tests.
+//! Higher structures such as rings and fields build on these traits. The laws
+//! are not enforced by the type system; they are intended to be verified via
+//! law tests.
 
-use core::ops::Mul;
+use core::ops::{Mul, MulAssign};
+
+use crate::One;
 
 /// Raw multiplicative operation: `self * rhs`.
 ///
@@ -33,6 +38,15 @@ pub trait Multiplicative: Sized + Mul<Output = Self> {
 /// automatically gets [`Multiplicative`].
 impl<T> Multiplicative for T where T: Mul<Output = T> {}
 
+/// In-place multiplicative update: `x *= y`.
+///
+/// This is a thin wrapper over [`core::ops::MulAssign`]. It is useful for
+/// algorithms that want to work with in-place updates without committing to
+/// a specific representation.
+pub trait MultiplicativeAssign: Multiplicative + MulAssign<Self> {}
+
+impl<T> MultiplicativeAssign for T where T: Multiplicative + MulAssign<Self> {}
+
 /// Marker trait: multiplicative semigroup.
 ///
 /// Indicates that:
@@ -47,36 +61,94 @@ pub trait MulSemigroup: Multiplicative {}
 /// Marker trait: multiplicative monoid.
 ///
 /// Extends [`MulSemigroup`] by requiring a multiplicative identity, provided by
-/// [`crate::One`]:
+/// [`One`]:
 ///
 /// - There exists `1` such that:
 ///   - `1 * a == a`
 ///   - `a * 1 == a`
-pub trait MulMonoid: MulSemigroup + crate::One {}
-
-/// Implement multiplicative markers for primitive integers.
 ///
-/// **Note:** With Rust’s overflow semantics, monoid laws strictly hold only
-/// when staying within non-overflowing ranges. Law tests should take this
-/// into account by restricting the domain or using wrapping semantics
-/// explicitly where desired.
-macro_rules! impl_mul_markers_for_ints {
-    ($($t:ty),* $(,)?) => { $(
-        impl MulSemigroup for $t {}
-        impl MulMonoid    for $t {}
-    )* };
-}
+/// Implementors must also implement [`One`] consistently.
+pub trait MulMonoid: MulSemigroup + One {}
 
-impl_mul_markers_for_ints!(
-    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize,
-);
+/// Marker trait: commutative multiplicative monoid.
+///
+/// In a (commutative) ring or field, multiplication is intended to be
+/// associative and commutative with an identity. The commutativity law is
+/// documented here but not enforced at the type level.
+pub trait MulAbelianMonoid: MulMonoid {}
+
+/// Blanket marker impls: any type satisfying the bounds gets the corresponding
+/// multiplicative structure automatically.
+impl<T> MulSemigroup for T where T: Multiplicative {}
+impl<T> MulMonoid for T where T: MulSemigroup + One {}
+impl<T> MulAbelianMonoid for T where T: MulMonoid {}
 
 #[cfg(test)]
 mod tests {
-    use super::Multiplicative;
+    use super::*;
+
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    struct MyMul(i32);
+
+    impl Mul for MyMul {
+        type Output = Self;
+
+        fn mul(self, rhs: Self) -> Self::Output {
+            MyMul(self.0 * rhs.0)
+        }
+    }
+
+    impl MulAssign for MyMul {
+        fn mul_assign(&mut self, rhs: Self) {
+            self.0 *= rhs.0;
+        }
+    }
+
+    impl One for MyMul {
+        const ONE: Self = MyMul(1);
+    }
+
+    // We do NOT manually implement MulSemigroup/MulMonoid/etc:
+    // they are supplied by the blanket impls in this module.
+
+    fn _requires_abelian_monoid<T: MulAbelianMonoid>(_x: T) {}
 
     #[test]
-    fn mul_i64() {
+    fn multiplicative_and_markers_work_for_custom_type() {
+        let a = MyMul(3);
+        let b = MyMul(4);
+
+        assert_eq!(
+            a.mul(b)
+                .0,
+            12
+        );
+
+        // This compiles only if MyMul satisfies all marker trait bounds
+        // via the blanket implementations.
+        _requires_abelian_monoid(a);
+    }
+
+    #[test]
+    fn multiplicative_assign_updates_in_place() {
+        let mut x = MyMul(5);
+        x *= MyMul(7);
+        assert_eq!(x.0, 35);
+    }
+
+    #[test]
+    fn primitive_ints_are_multiplicative_monoids() {
+        // Thanks to:
+        // - Mul<Output = Self>
+        // - One (from identity impls)
+        // they automatically implement
+        // - Multiplicative
+        // - MulSemigroup
+        // - MulMonoid
+        //
         assert_eq!(3i64.mul(4), 12);
+
+        fn _requires_monoid<T: MulMonoid>(_x: T) {}
+        _requires_monoid(3i64);
     }
 }
