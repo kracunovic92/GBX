@@ -1,13 +1,16 @@
+#![allow(clippy::needless_path_prefix)]
 //! Fields: rings where every nonzero element has a multiplicative inverse.
 //!
 //! Inverses are partial (undefined at `0`), so we expose a fallible API
 //! via [`TryInverse`] and [`CheckedDiv`].
 
-use crate::{Multiplicative, Ring};
 use core::fmt;
-use std::ops::Mul;
+
+use crate::{Multiplicative, Ring};
 
 /// Error returned by checked division when dividing by zero.
+///
+/// This type is intentionally tiny and `Copy`, so it is cheap to propagate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DivByZero;
 
@@ -57,9 +60,10 @@ impl<T> CheckedDiv for T
 where
     T: TryInverse<Output = T> + Multiplicative,
 {
+    #[inline]
     fn checked_div(self, rhs: Self) -> Result<Self, DivByZero> {
         rhs.try_inv()
-            .map(|inv| Mul::mul(self, inv))
+            .map(|inv| core::ops::Mul::mul(self, inv))
             .ok_or(DivByZero)
     }
 }
@@ -69,6 +73,10 @@ where
 /// This trait is marker-only; algorithms typically use bounds like `T: Field`
 /// (optionally plus additional constraints such as `Copy`, `Eq`, etc.).
 pub trait Field: Ring + TryInverse<Output = Self> {}
+
+/// Blanket impl: any type that is a ring and implements [`TryInverse`] with
+/// `Output = Self` is considered a field by convention.
+impl<T> Field for T where T: Ring + TryInverse<Output = T> {}
 
 #[cfg(test)]
 mod tests {
@@ -95,12 +103,16 @@ mod tests {
         }
     }
 
-    impl Mul for Mod7 {
+    impl core::ops::Mul for Mod7 {
         type Output = Self;
 
         fn mul(self, rhs: Self) -> Self::Output {
             Mod7::new(self.0 * rhs.0)
         }
+    }
+
+    impl crate::One for Mod7 {
+        const ONE: Self = Mod7(1);
     }
 
     impl TryInverse for Mod7 {

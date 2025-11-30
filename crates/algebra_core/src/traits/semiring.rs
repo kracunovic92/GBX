@@ -8,30 +8,23 @@
 //!   - `(a + b) * c == a * c + b * c`
 //! - `0` is **multiplicatively absorbing**: `0 * a == 0 == a * 0`.
 //!
-//! Additive inverses are _not_ required (unlike rings), which lets semirings
-//! model many “weighted” structures: shortest paths, tropical algebra, and so on.
+//! These laws are documented but **not** enforced by the type system. They
+//! should be verified by law tests.
 
 use crate::{AddMonoid, MulMonoid};
 
 /// Basic semiring marker.
 ///
-/// The laws listed in the module-level documentation are **not** enforced by
-/// the type system; they are expected to hold by convention and to be checked
-/// by law tests. Implementing this trait signals that a type is *intended* to
-/// behave as a semiring.
+/// Implementing this trait signals that a type is intended to behave as a
+/// semiring with respect to its additive and multiplicative operations.
 pub trait Semiring: AddMonoid + MulMonoid {}
 
-// Signed and unsigned integers are semirings.
-// (Signed integers are also rings; every ring is a semiring.)
-macro_rules! impl_semiring_for_ints {
-    ($($t:ty),* $(,)?) => {
-        $( impl Semiring for $t {} )*
-    };
-}
-
-impl_semiring_for_ints!(
-    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize,
-);
+/// Blanket impl: any type that is both an additive monoid and a multiplicative
+/// monoid is considered a semiring by convention.
+///
+/// This does *not* guarantee the distributive laws or annihilation laws; those
+/// must be checked in tests.
+impl<T> Semiring for T where T: AddMonoid + MulMonoid {}
 
 #[cfg(test)]
 mod tests {
@@ -41,15 +34,16 @@ mod tests {
     fn semiring_spotcheck_u32() {
         let (a, b, c) = (2u32, 3, 5);
 
-        // Sanity-check left distributivity:
-        assert_eq!(a.mul(b.add(c)), a.mul(b).add(a.mul(c)));
+        assert_eq!(
+            a.mul(b.add(c)),
+            a.mul(b)
+                .add(a.mul(c))
+        );
 
-        // And annihilation by zero: 0 * a = 0, a * 0 = 0
         let z = u32::zero();
         assert_eq!(z.mul(a), z);
         assert_eq!(a.mul(z), z);
 
-        // Just to exercise the trait bound:
         fn _is_semiring<T: Semiring>(_x: T) {}
         _is_semiring(a);
     }

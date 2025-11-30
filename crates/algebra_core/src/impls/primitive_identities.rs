@@ -19,27 +19,6 @@ impl_zero_one_for_ints!(
 
 impl<T> Scalar for T where T: Zero + One + Copy + PartialEq {}
 
-/// Implement `Zero` for references when the underlying type is `Zero + Copy`.
-///
-/// This lets generic code work with `&T` as well as `T` in many cases.
-///
-/// Internally this uses the identity of the underlying type:
-/// `(&T)::ZERO == &T::ZERO`.
-impl<T> Zero for &T
-where
-    T: Zero + Copy + PartialEq,
-{
-    const ZERO: Self = &T::ZERO;
-}
-
-/// Implement `One` for references when the underlying type is `One + Copy`.
-impl<T> One for &T
-where
-    T: One + Copy + PartialEq,
-{
-    const ONE: Self = &T::ONE;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -61,11 +40,5 @@ mod tests {
         check_identities::<u32>(0, 1);
         check_identities::<i64>(0, 1);
         check_identities::<usize>(0, 1);
-    }
-
-    #[test]
-    fn references_have_zero_and_one_too() {
-        check_identities::<&u32>(&0, &1);
-        check_identities::<&i64>(&0, &1);
     }
 }

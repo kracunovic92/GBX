@@ -99,5 +99,6 @@ pub use traits::{
     identity::{One, Scalar, Zero},
     multiplicative::{MulAbelianMonoid, MulMonoid, MulSemigroup, Multiplicative},
     ring::Ring,
+    semiring::Semiring,
 };
 

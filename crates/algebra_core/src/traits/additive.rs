@@ -14,14 +14,13 @@
 //! crates.
 
 use crate::Zero;
-use core::ops::{Add, AddAssign, Neg};
 
 /// Raw additive operation: `self + rhs`.
 ///
 /// In practice, this is a thin wrapper around [`core::ops::Add`] with
 /// `Output = Self`. The blanket impl below means that any type implementing
 /// `Add<Output = Self>` is automatically `Additive`.
-pub trait Additive: Sized + Add<Output = Self> {
+pub trait Additive: Sized + core::ops::Add<Output = Self> {
     /// Adds `rhs` to `self`, returning the result.
     ///
     /// The default implementation simply delegates to the `+` operator.
@@ -36,14 +35,14 @@ pub trait Additive: Sized + Add<Output = Self> {
 ///
 /// This includes primitive integer and floating-point types, as well as
 /// user-defined types that implement `Add` appropriately.
-impl<T> Additive for T where T: Add<Output = T> {}
+impl<T> Additive for T where T: core::ops::Add<Output = T> {}
 
 /// In-place additive update: `x += y`.
 ///
 /// This is a thin wrapper over [`core::ops::AddAssign`]. It is useful for
 /// algorithms that want to work with in-place updates without committing to
 /// a specific representation.
-pub trait AdditiveAssign: Additive + AddAssign<Self> {}
+pub trait AdditiveAssign: Additive + core::ops::AddAssign<Self> {}
 
 /// Marker trait: additive semigroup.
 ///
@@ -77,7 +76,7 @@ pub trait AddMonoid: AddSemigroup + Zero {}
 ///   - `(-a) + a == 0`
 ///
 /// In Rust, this is expressed via [`core::ops::Neg`].
-pub trait AddGroup: AddMonoid + Neg<Output = Self> {
+pub trait AddGroup: AddMonoid + core::ops::Neg<Output = Self> {
     /// Convenience method: additive inverse (`-self`).
     #[must_use]
     #[inline]
@@ -99,7 +98,7 @@ pub trait AddAbelianGroup: AddGroup {}
 /// algebraic structure.
 impl<T> AddSemigroup for T where T: Additive {}
 impl<T> AddMonoid for T where T: AddSemigroup + Zero {}
-impl<T> AddGroup for T where T: AddMonoid + Neg<Output = T> {}
+impl<T> AddGroup for T where T: AddMonoid + core::ops::Neg<Output = T> {}
 impl<T> AddAbelianGroup for T where T: AddGroup {}
 
 #[cfg(test)]
@@ -109,7 +108,7 @@ mod tests {
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct MyAdditive(i32);
 
-    impl Add for MyAdditive {
+    impl core::ops::Add for MyAdditive {
         type Output = Self;
 
         fn add(self, rhs: Self) -> Self::Output {
@@ -117,13 +116,13 @@ mod tests {
         }
     }
 
-    impl AddAssign for MyAdditive {
+    impl core::ops::AddAssign for MyAdditive {
         fn add_assign(&mut self, rhs: Self) {
             self.0 += rhs.0;
         }
     }
 
-    impl Neg for MyAdditive {
+    impl core::ops::Neg for MyAdditive {
         type Output = Self;
 
         fn neg(self) -> Self::Output {

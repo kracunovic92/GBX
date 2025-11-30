@@ -14,8 +14,6 @@
 //! are not enforced by the type system; they are intended to be verified via
 //! law tests.
 
-use core::ops::{Mul, MulAssign};
-
 use crate::One;
 
 /// Raw multiplicative operation: `self * rhs`.
@@ -23,7 +21,7 @@ use crate::One;
 /// This is a thin wrapper around [`core::ops::Mul`] with `Output = Self`.
 /// The blanket implementation below means that any type implementing
 /// `Mul<Output = Self>` automatically implements [`Multiplicative`].
-pub trait Multiplicative: Sized + Mul<Output = Self> {
+pub trait Multiplicative: Sized + core::ops::Mul<Output = Self> {
     /// Multiplies `self` by `rhs`, returning the product.
     ///
     /// The default implementation simply delegates to the `*` operator.
@@ -36,16 +34,16 @@ pub trait Multiplicative: Sized + Mul<Output = Self> {
 
 /// Blanket impl: any type that already implements `Mul<Output = Self>`
 /// automatically gets [`Multiplicative`].
-impl<T> Multiplicative for T where T: Mul<Output = T> {}
+impl<T> Multiplicative for T where T: core::ops::Mul<Output = T> {}
 
 /// In-place multiplicative update: `x *= y`.
 ///
 /// This is a thin wrapper over [`core::ops::MulAssign`]. It is useful for
 /// algorithms that want to work with in-place updates without committing to
 /// a specific representation.
-pub trait MultiplicativeAssign: Multiplicative + MulAssign<Self> {}
+pub trait MultiplicativeAssign: Multiplicative + core::ops::MulAssign<Self> {}
 
-impl<T> MultiplicativeAssign for T where T: Multiplicative + MulAssign<Self> {}
+impl<T> MultiplicativeAssign for T where T: Multiplicative + core::ops::MulAssign<Self> {}
 
 /// Marker trait: multiplicative semigroup.
 ///
@@ -90,7 +88,7 @@ mod tests {
     #[derive(Clone, Copy, PartialEq, Debug)]
     struct MyMul(i32);
 
-    impl Mul for MyMul {
+    impl core::ops::Mul for MyMul {
         type Output = Self;
 
         fn mul(self, rhs: Self) -> Self::Output {
@@ -98,7 +96,7 @@ mod tests {
         }
     }
 
-    impl MulAssign for MyMul {
+    impl core::ops::MulAssign for MyMul {
         fn mul_assign(&mut self, rhs: Self) {
             self.0 *= rhs.0;
         }
