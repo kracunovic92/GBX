@@ -11,7 +11,7 @@
 mod dynamic;
 mod fixed;
 mod order;
-mod traits;
+pub(crate) mod traits;
 
 /// Errors that can occur when operating on monomials.
 ///
@@ -34,10 +34,10 @@ pub enum MonomialError {
         index: usize,
 
         /// The exponent from the left monomial at this index.
-        lhs: u32,
+        lhs: u64,
 
         /// The exponent from the right monomial at this index.
-        rhs: u32,
+        rhs: u64,
     },
 
     /// Total degree computation overflowed `u64`.

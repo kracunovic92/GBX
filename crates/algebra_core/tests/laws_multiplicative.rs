@@ -77,23 +77,11 @@ where
     }
 }
 
-// -------------------------------------------------------------------------
-// Concrete tests
-// -------------------------------------------------------------------------
-
 #[test]
 fn mul_monoid_laws_for_u32() {
-    // u32 with standard multiplication is a monoid:
-    // - associative
-    // - identity = 1
-    // but not a group (no inverses for all elements).
     let values: Vec<u32> = (0u32..=20u32).collect();
 
     check_mul_associative(&values);
     check_mul_identity(&values);
     check_mul_commutative(&values);
-
-    // We do *not* call `check_mul_inverse` or `check_mul_commutative` with
-    // `MulAbelianGroup` bounds here, because u32 under multiplication is NOT
-    // a group (0 has no inverse, non-zero elements don't form a group either).
 }

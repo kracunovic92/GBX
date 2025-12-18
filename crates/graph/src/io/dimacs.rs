@@ -45,15 +45,15 @@ pub enum DimacsError {
     },
 }
 
-/// Parse a DIMACS 'edge' / 'col' graph from any buffered reader
+/// Parse a DIMACS `edge` / `col` graph from any buffered reader
 /// into an undirected [`Graph`].
 ///
-/// Supported syntax (typical for graph coloring benchmarks):
+/// Supported syntax:
 ///
 /// - Comment lines:
 ///   `c this is a comment`
 ///
-/// - Problem line:
+/// - Problem line (must appear exactly once):
 ///   `p edge <num_vertices> <num_edges>`
 ///   or
 ///   `p col  <num_vertices> <num_edges>`
@@ -62,10 +62,17 @@ pub enum DimacsError {
 ///   `e <u> <v>`
 ///
 /// Vertices are 1-based and must satisfy `1 <= u, v <= n`.
+///
+/// # Errors
+///
+/// This function is **strict**:
+/// - Edge lines before the problem line are rejected.
+/// - The number of parsed edges must exactly match `m`.
+/// - Vertex indices must be within range.
 pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
-    let mut n: Option<usize> = None;
-    let mut m: Option<usize> = None;
-    let mut edges: Vec<(u32, u32)> = Vec::new();
+    let mut graph: Option<Graph> = None;
+    let mut expected_edges: Option<usize> = None;
+    let mut seen_edges: usize = 0;
 
     for line_res in reader.lines() {
         let line = line_res?;
@@ -75,78 +82,68 @@ pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
             continue;
         }
 
-        if let Some(first) = line
-            .chars()
-            .next()
-        {
-            match first {
-                'c' => {
-                    continue;
+        match line.as_bytes()[0] {
+            b'c' => continue,
+            b'p' => {
+                if graph.is_some() {
+                    return Err(DimacsError::MissingProblemLine);
                 }
-                'p' => {
-                    let parts: Vec<_> = line
-                        .split_whitespace()
-                        .collect();
-                    if parts.len() != 4 {
-                        return Err(DimacsError::InvalidProblemLine(line.to_string()));
-                    }
 
-                    let fmt = parts[1];
-                    if fmt != "edge" && fmt != "col" {
-                        return Err(DimacsError::InvalidProblemLine(line.to_string()));
-                    }
+                let parts: Vec<_> = line
+                    .split_whitespace()
+                    .collect();
 
-                    let num_vertices: usize = parts[2].parse()?;
-                    let num_edges: usize = parts[3].parse()?;
-
-                    n = Some(num_vertices);
-                    m = Some(num_edges);
+                if parts.len() != 4 {
+                    return Err(DimacsError::InvalidProblemLine(line.to_string()));
                 }
-                'e' => {
-                    if n.is_none() || m.is_none() {
-                        return Err(DimacsError::EdgeBeforeProblemLine);
-                    }
 
-                    let parts: Vec<_> = line
-                        .split_whitespace()
-                        .collect();
-                    if parts.len() != 3 {
-                        return Err(DimacsError::BadEdgeLine(line.to_string()));
-                    }
-
-                    let u: u32 = parts[1].parse()?;
-                    let v: u32 = parts[2].parse()?;
-
-                    let max_v = n.unwrap() as u32;
-                    if u == 0 || v == 0 || u > max_v || v > max_v {
-                        return Err(DimacsError::VertexOutOfRange(line.to_string()));
-                    }
-
-                    edges.push((u, v));
+                let format = parts[1];
+                if format != "edge" && format != "col" {
+                    return Err(DimacsError::InvalidProblemLine(line.to_string()));
                 }
-                _ => {
-                    continue;
-                }
+
+                let n: usize = parts[2].parse()?;
+                let m: usize = parts[3].parse()?;
+
+                graph = Some(Graph::new(n));
+                expected_edges = Some(m);
             }
+
+            b'e' => {
+                let g = graph
+                    .as_mut()
+                    .ok_or(DimacsError::EdgeBeforeProblemLine)?;
+
+                let parts: Vec<_> = line
+                    .split_whitespace()
+                    .collect();
+                if parts.len() != 3 {
+                    return Err(DimacsError::BadEdgeLine(line.to_string()));
+                }
+
+                let u: u32 = parts[1].parse()?;
+                let v: u32 = parts[2].parse()?;
+
+                let max_v = g.n as u32;
+                if u == 0 || v == 0 || u > max_v || v > max_v {
+                    return Err(DimacsError::VertexOutOfRange(line.to_string()));
+                }
+
+                g.add_edge(u, v)
+                    .expect("validated vertex indices");
+                seen_edges += 1;
+            }
+            _ => continue,
         }
     }
 
-    let n = n.ok_or(DimacsError::MissingProblemLine)?;
-    let expected_m = m.unwrap();
+    let expected = expected_edges.ok_or(DimacsError::MissingProblemLine)?;
 
-    if edges.len() != expected_m {
-        return Err(DimacsError::EdgeCountMismatch { expected: expected_m, found: edges.len() });
+    if seen_edges != expected {
+        return Err(DimacsError::EdgeCountMismatch { expected, found: seen_edges });
     }
 
-    let mut graph = Graph::new(n);
-
-    for (u, v) in edges {
-        graph
-            .add_edge(u, v)
-            .expect("validated vertex indices");
-    }
-
-    Ok(graph)
+    Ok(graph.expect("problem line implies graph exists"))
 }
 
 /// Convenience helper to read a DIMACS file from a given path into a [`Graph`].
@@ -181,5 +178,32 @@ mod tests {
         assert_eq!(g.adj[1], vec![2]);
         assert_eq!(g.adj[2], vec![1, 3]);
         assert_eq!(g.adj[3], vec![2]);
+    }
+
+    #[test]
+    fn missing_problem_line_is_error() {
+        let dimacs = b"e 1 2\n";
+        let err = read_dimacs(Cursor::new(&dimacs[..])).unwrap_err();
+        assert!(matches!(err, DimacsError::EdgeBeforeProblemLine));
+    }
+
+    #[test]
+    fn edge_before_problem_line_is_error() {
+        let dimacs = b"e 1 2\np edge 3 1\n";
+        let err = read_dimacs(Cursor::new(&dimacs[..])).unwrap_err();
+        assert!(matches!(err, DimacsError::EdgeBeforeProblemLine));
+    }
+
+    #[test]
+    fn edge_count_mismatch_is_error() {
+        let dimacs = b"
+        p edge 3 2
+        e 1 2
+        ";
+        let err = read_dimacs(Cursor::new(&dimacs[..])).unwrap_err();
+        assert!(matches!(
+            err,
+            DimacsError::EdgeCountMismatch { expected: 2, found: 1 }
+        ));
     }
 }

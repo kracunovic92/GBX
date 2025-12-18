@@ -85,7 +85,7 @@ impl GraphLike for Graph {
         self.n
     }
     fn neighbors(&self, v: u32) -> &[u32] {
-        self.neighbors(v)
+        Graph::neighbors(self, v)
     }
     fn is_directed(&self) -> bool {
         false

@@ -29,13 +29,13 @@ impl<F: Field> DynamicTerm<F> {
     /// Convenience constructor that avoids manually calling
     /// [`DynamicMonomial::from_slice`].
     #[inline]
-    pub fn from_coeff_and_slice(coeff: F, exponents: &[u32]) -> Self {
+    pub fn from_coeff_and_slice(coeff: F, exponents: &[u64]) -> Self {
         Self { coeff, mono: DynamicMonomial::from_slice(exponents) }
     }
 
     /// Constructs a term from a coefficient and a `Vec<u32>` of exponents.
     #[inline]
-    pub fn from_coeff_and_vec(coeff: F, exponents: Vec<u32>) -> Self {
+    pub fn from_coeff_and_vec(coeff: F, exponents: Vec<u64>) -> Self {
         Self { coeff, mono: DynamicMonomial::from_vec(exponents) }
     }
 
@@ -47,12 +47,15 @@ impl<F: Field> DynamicTerm<F> {
     }
 
     /// Returns `true` if the coefficient is zero.
+    ///
+    /// In a normalized polynomial representation, such terms are usually removed.
     #[inline]
     pub fn is_zero(&self) -> bool
     where
         F: Zero,
     {
-        self.coeff == F::zero()
+        self.coeff
+            .is_zero()
     }
 
     /// Multiplies this term by a scalar `c` in the field.
@@ -66,34 +69,33 @@ impl<F: Field> DynamicTerm<F> {
         <Self as TermLike>::mul_scalar(self, c)
     }
 
-    /// Checked multiplication by a dynamic monomial.
-    ///
-    /// Mathematically: `(a * x^α) * x^β = a * x^{α+β}`.
-    ///
-    /// Returns an error if:
-    /// - exponent addition would overflow, or
-    /// - the monomials have mismatched variable counts.
-    #[inline]
-    pub fn checked_mul_monomial(&self, m: &DynamicMonomial) -> Result<Self, TermError>
-    where
-        F: Clone,
-    {
-        <Self as TermLike>::checked_mul_monomial(self, m)
-    }
-
     /// Multiplies this term by a dynamic monomial.
     ///
     /// # Panics
     ///
-    /// Panics if exponent addition overflows or if the variable counts
-    /// do not match. For a non-panicking version, use
-    /// [`Self::checked_mul_monomial`].
+    /// Panics if exponent addition overflows or if the variable counts do not match.
+    /// Prefer [`Self::checked_mul_monomial`] in algorithmic code.
     #[inline]
     pub fn mul_monomial(&self, m: &DynamicMonomial) -> Self
     where
         F: Clone,
     {
         <Self as TermLike>::mul_monomial(self, m)
+    }
+
+    /// Multiplies two terms.
+    ///
+    /// # Panics
+    ///
+    /// Panics if monomial multiplication fails (overflow or mismatched variable counts).
+    /// Prefer [`Self::checked_mul_term`] in algorithmic code.
+    #[inline]
+    pub fn mul_term(&self, other: &Self) -> Self
+    where
+        F: Clone,
+    {
+        self.checked_mul_term(other)
+            .expect("DynamicTerm::mul_term: monomial multiplication failed")
     }
 }
 
@@ -105,6 +107,11 @@ where
     type Field = F;
     type Mono = DynamicMonomial;
     type Error = TermError;
+
+    #[inline]
+    fn from_parts(coeff: Self::Field, mono: Self::Mono) -> Self {
+        Self { coeff, mono }
+    }
 
     #[inline]
     fn coeff(&self) -> &Self::Field {
@@ -128,36 +135,38 @@ where
                 .clone(),
         }
     }
-
-    #[inline]
-    fn checked_mul_monomial(&self, m: &Self::Mono) -> Result<Self, Self::Error> {
-        let mono = self
-            .mono
-            .checked_mul(m)
-            .map_err(TermError::Monomial)?;
-        Ok(Self {
-            coeff: self
-                .coeff
-                .clone(),
-            mono,
-        })
-    }
 }
 
 impl<F: Field + fmt::Debug> fmt::Debug for DynamicTerm<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DynTerm")
+        f.debug_struct("DynamicTerm")
             .field("coeff", &self.coeff)
             .field("mono", &self.mono)
             .finish()
     }
 }
 
+impl<F> fmt::Display for DynamicTerm<F>
+where
+    F: Field + fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self
+            .mono
+            .is_one()
+        {
+            write!(f, "{}", self.coeff)
+        } else {
+            write!(f, "{}*{}", self.coeff, self.mono)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::DynamicTerm;
-    use super::TermError;
     use crate::monomial::DynamicMonomial;
+    use crate::term::TermLike;
     use algebra_core::{One, Zero};
     use algebra_field::Zp;
 
@@ -165,9 +174,8 @@ mod tests {
     type DT = DynamicTerm<F7>;
 
     #[test]
-    fn dyn_term_from_coeff_and_slice_constructs_term() {
+    fn from_coeff_and_slice_constructs_term() {
         let t = DT::from_coeff_and_slice(F7::new(6), &[2, 0]);
-
         assert_eq!(
             t.coeff
                 .value(),
@@ -181,22 +189,21 @@ mod tests {
     }
 
     #[test]
-    fn dyn_term_degree_matches_monomial_degree() {
+    fn degree_matches_monomial_degree() {
         let t = DT::from_coeff_and_slice(F7::new(3), &[1, 2, 0]);
         assert_eq!(t.degree(), 3);
     }
 
     #[test]
-    fn dyn_term_is_zero_uses_field_zero() {
+    fn is_zero_detects_zero_and_nonzero_coefficients() {
         let zero_term = DT::from_coeff_and_slice(F7::zero(), &[0, 0]);
         let nonzero_term = DT::from_coeff_and_slice(F7::one(), &[0, 0]);
-
         assert!(zero_term.is_zero());
         assert!(!nonzero_term.is_zero());
     }
 
     #[test]
-    fn dyn_term_mul_scalar_multiplies_coefficient_and_preserves_monomial() {
+    fn mul_scalar_multiplies_coefficient_and_preserves_monomial() {
         let t = DT::from_coeff_and_slice(F7::new(3), &[1, 2]);
         let c = F7::new(5);
 
@@ -217,9 +224,9 @@ mod tests {
     }
 
     #[test]
-    fn dyn_term_mul_monomial_adds_exponents_and_preserves_coefficient() {
-        let t = DT::from_coeff_and_slice(F7::new(4), &[1, 1]); // 4 * x1^1 x2^1
-        let m = DynamicMonomial::from_slice(&[2, 3]); // x1^2 x2^3
+    fn mul_monomial_uses_trait_default_and_adds_exponents() {
+        let t = DT::from_coeff_and_slice(F7::new(4), &[1, 1]);
+        let m = DynamicMonomial::from_slice(&[2, 3]);
 
         let result = t.mul_monomial(&m);
 
@@ -238,14 +245,45 @@ mod tests {
     }
 
     #[test]
-    fn dyn_term_checked_mul_monomial_propagates_monomial_errors() {
-        let max = u32::MAX;
-        let t = DT::from_coeff_and_slice(F7::one(), &[max, 0]);
-        let m = DynamicMonomial::from_slice(&[1, 0]);
+    fn checked_mul_monomial_errors_on_mismatched_variable_counts() {
+        let t = DT::from_coeff_and_slice(F7::one(), &[1, 2]);
+        let m = DynamicMonomial::from_slice(&[1, 2, 3]);
 
-        let err = t
-            .checked_mul_monomial(&m)
-            .unwrap_err();
-        assert!(matches!(err, TermError::Monomial(_)));
+        assert!(
+            t.checked_mul_monomial(&m)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn mul_term_multiplies_coeffs_and_adds_exponents() {
+        let a = DT::from_coeff_and_slice(F7::new(3), &[1, 2]);
+        let b = DT::from_coeff_and_slice(F7::new(5), &[2, 1]);
+
+        let c = a.mul_term(&b);
+
+        // 3*5 = 15 ≡ 1 (mod 7)
+        assert_eq!(
+            c.coeff
+                .value(),
+            1
+        );
+        assert_eq!(
+            c.mono
+                .exponents(),
+            &[3, 3]
+        );
+    }
+
+    #[test]
+    fn checked_mul_term_propagates_monomial_overflow() {
+        let max = u64::MAX;
+        let t = DT::from_coeff_and_slice(F7::one(), &[max, 0]);
+        let u = DT::from_coeff_and_slice(F7::one(), &[1, 0]);
+
+        assert!(
+            t.checked_mul_term(&u)
+                .is_err()
+        );
     }
 }

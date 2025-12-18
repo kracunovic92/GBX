@@ -13,7 +13,7 @@ use core::fmt;
 /// `x₁^{e[0]} * x₂^{e[1]} * … * x_n^{e[n-1]}`
 /// with each exponent `e[i] ∈ ℕ`.
 ///
-/// Unlike [`crate::monomial::Monomial<N>`], the number of variables is not
+/// Unlike [`crate::monomial::Monomial<>`], the number of variables is not
 /// known at compile time. It is stored as the length of the exponent slice.
 ///
 /// This type is intended for use in scenarios where the polynomial ring is
@@ -22,7 +22,7 @@ use core::fmt;
 /// compile-time–fixed rings and performance-sensitive kernels.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct DynamicMonomial {
-    exponents: Box<[u32]>,
+    exponents: Box<[u64]>,
 }
 
 impl DynamicMonomial {
@@ -53,7 +53,7 @@ impl DynamicMonomial {
     /// let m = DynamicMonomial::from_slice(&[2, 5]);
     /// assert_eq!(m.exponents(), &[2, 5]);
     /// ```
-    pub fn from_slice(exponents: &[u32]) -> Self {
+    pub fn from_slice(exponents: &[u64]) -> Self {
         Self {
             exponents: exponents
                 .to_vec()
@@ -64,7 +64,7 @@ impl DynamicMonomial {
     /// Constructs a monomial from a `Vec<u32>` of exponents.
     ///
     /// This is a convenience wrapper around [`from_boxed`](Self::from_boxed).
-    pub fn from_vec(exponents: Vec<u32>) -> Self {
+    pub fn from_vec(exponents: Vec<u64>) -> Self {
         Self { exponents: exponents.into_boxed_slice() }
     }
 
@@ -72,7 +72,7 @@ impl DynamicMonomial {
     ///
     /// This is the most general constructor. No invariants except:
     /// - each exponent is interpreted as a non-negative integer.
-    pub fn from_boxed(exponents: Box<[u32]>) -> Self {
+    pub fn from_boxed(exponents: Box<[u64]>) -> Self {
         Self { exponents }
     }
 
@@ -89,7 +89,7 @@ impl DynamicMonomial {
     ///
     /// The length of this slice is the number of variables.
     #[inline]
-    pub fn exponents(&self) -> &[u32] {
+    pub fn exponents(&self) -> &[u64] {
         &self.exponents
     }
 
@@ -126,7 +126,7 @@ impl DynamicMonomial {
             .iter()
         {
             deg = deg
-                .checked_add(e as u64)
+                .checked_add(e)
                 .ok_or(MonomialError::DegreeOverflow)?;
         }
         Ok(deg)
@@ -277,7 +277,7 @@ impl DynamicMonomial {
     }
 
     #[inline]
-    fn zip_exponents<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = (u32, u32)> + 'a {
+    fn zip_exponents<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = (u64, u64)> + 'a {
         self.exponents
             .iter()
             .copied()
@@ -298,6 +298,35 @@ impl fmt::Debug for DynamicMonomial {
     }
 }
 
+impl fmt::Display for DynamicMonomial {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut first = true;
+
+        for (i, &e) in self
+            .exponents()
+            .iter()
+            .enumerate()
+        {
+            if e == 0 {
+                continue;
+            }
+
+            if !first {
+                write!(f, "*")?;
+            }
+            first = false;
+
+            if e == 1 {
+                write!(f, "x{i}")?;
+            } else {
+                write!(f, "x{i}^{e}")?;
+            }
+        }
+
+        if first { write!(f, "1") } else { Ok(()) }
+    }
+}
+
 /// Implementation of the common monomial interface for dynamic monomials.
 ///
 /// This allows algorithms generic over [`MonomialLike`] to work with
@@ -311,7 +340,7 @@ impl MonomialLike for DynamicMonomial {
     }
 
     #[inline]
-    fn exponents(&self) -> &[u32] {
+    fn exponents(&self) -> &[u64] {
         self.exponents()
     }
 
@@ -319,32 +348,69 @@ impl MonomialLike for DynamicMonomial {
     fn is_one(&self) -> bool {
         self.is_one()
     }
-
+    #[inline]
     fn degree_checked(&self) -> Result<u64, Self::Error> {
         self.degree_checked()
     }
-
-    fn degree(&self) -> u64
-    where
-        Self::Error: fmt::Debug,
-    {
-        self.degree()
-    }
-
+    #[inline]
     fn checked_mul(&self, other: &Self) -> Result<Self, Self::Error> {
         self.checked_mul(other)
     }
-
+    #[inline]
     fn divides(&self, other: &Self) -> bool {
         self.divides(other)
     }
-
+    #[inline]
     fn quotient(&self, other: &Self) -> Option<Self> {
         self.quotient(other)
     }
+    #[inline]
+    fn checked_lcm(&self, other: &Self) -> Result<Self, Self::Error> {
+        let lhs = self.n_vars();
+        let rhs = other.n_vars();
 
-    fn lcm(&self, other: &Self) -> Self {
-        self.lcm(other)
+        if lhs != rhs {
+            return Err(MonomialError::MismatchedVariableCount { lhs, rhs });
+        }
+
+        let mut out = Vec::with_capacity(lhs);
+        for (&a, &b) in self
+            .exponents()
+            .iter()
+            .zip(
+                other
+                    .exponents()
+                    .iter(),
+            )
+        {
+            out.push(a.max(b));
+        }
+
+        Ok(DynamicMonomial::from_vec(out))
+    }
+
+    fn checked_gcd(&self, other: &Self) -> Result<Self, Self::Error> {
+        let lhs = self.n_vars();
+        let rhs = other.n_vars();
+
+        if lhs != rhs {
+            return Err(MonomialError::MismatchedVariableCount { lhs, rhs });
+        }
+
+        let mut out = Vec::with_capacity(lhs);
+        for (&a, &b) in self
+            .exponents()
+            .iter()
+            .zip(
+                other
+                    .exponents()
+                    .iter(),
+            )
+        {
+            out.push(a.min(b));
+        }
+
+        Ok(DynamicMonomial::from_vec(out))
     }
 }
 
@@ -382,7 +448,7 @@ mod tests {
 
     #[test]
     fn checked_mul_reports_overflow() {
-        let max: u32 = u32::MAX;
+        let max: u64 = u64::MAX;
         let a = DM::from_slice(&[max, 0]);
         let b = DM::from_slice(&[1, 0]);
 

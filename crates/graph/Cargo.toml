@@ -5,8 +5,18 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+description = "Graph data structures and DIMACS parsing utilities for GBX"
+repository.workspace = true
+readme.workspace = true
+keywords = ["graph", "dimacs", "combinatorics", "grobner"]
+categories = ["data-structures", "mathematics"]
+
 [dependencies]
-thiserror = "2.0.17"
+thiserror.workspace = true
+
+[features]
+default = []
+# dimacs = []
 
 [lints]
 workspace = true

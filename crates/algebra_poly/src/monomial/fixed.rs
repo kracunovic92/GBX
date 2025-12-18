@@ -9,7 +9,7 @@ use core::ops::Mul;
 /// with each exponent `e[i] ∈ ℕ`.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Monomial<const N: usize> {
-    exponents: [u32; N],
+    exponents: [u64; N],
 }
 
 impl<const N: usize> Monomial<N> {
@@ -21,13 +21,13 @@ impl<const N: usize> Monomial<N> {
     /// Constructs a monomial from a full exponent vector.
     ///
     /// No invariants except that each exponent is interpreted as `ℕ`.
-    pub const fn from_exponents(exponents: [u32; N]) -> Self {
+    pub const fn from_exponents(exponents: [u64; N]) -> Self {
         Self { exponents }
     }
 
     /// Returns a reference to the underlying exponent vector.
     #[inline]
-    pub fn exponents(&self) -> &[u32; N] {
+    pub fn exponents(&self) -> &[u64; N] {
         &self.exponents
     }
 
@@ -49,7 +49,7 @@ impl<const N: usize> Monomial<N> {
     pub fn degree(&self) -> u64 {
         self.exponents
             .iter()
-            .map(|&e| e as u64)
+            .map(|&e| e)
             .sum()
     }
 
@@ -61,7 +61,7 @@ impl<const N: usize> Monomial<N> {
         let mut deg: u64 = 0;
         let mut i = 0;
         while i < N {
-            let term = self.exponents[i] as u64;
+            let term = self.exponents[i];
             deg = deg
                 .checked_add(term)
                 .ok_or(MonomialError::DegreeOverflow)?;
@@ -92,7 +92,7 @@ impl<const N: usize> Monomial<N> {
     /// Returns an error if any exponent addition would overflow `u32`.
     #[inline]
     pub fn checked_mul(&self, other: &Self) -> Result<Self, MonomialError> {
-        let mut out = [0u32; N];
+        let mut out = [0u64; N];
         let mut i = 0;
         while i < N {
             let lhs = self.exponents[i];
@@ -126,7 +126,7 @@ impl<const N: usize> Monomial<N> {
         if !self.divides(other) {
             return None;
         }
-        let mut out = [0u32; N];
+        let mut out = [0u64; N];
         let mut i = 0;
         while i < N {
             out[i] = other.exponents[i] - self.exponents[i];
@@ -140,7 +140,7 @@ impl<const N: usize> Monomial<N> {
     /// Defined by `lcm(e, f)[i] = max(e[i], f[i])`.
     #[inline]
     pub fn lcm(&self, other: &Self) -> Self {
-        let mut out = [0u32; N];
+        let mut out = [0u64; N];
         let mut i = 0;
         while i < N {
             let a = self.exponents[i];
@@ -156,7 +156,7 @@ impl<const N: usize> Monomial<N> {
     /// Defined by `gcd(e, f)[i] = min(e[i], f[i])`.
     #[inline]
     pub fn gcd(&self, other: &Self) -> Self {
-        let mut out = [0u32; N];
+        let mut out = [0u64; N];
         let mut i = 0;
         while i < N {
             let a = self.exponents[i];
@@ -226,7 +226,7 @@ impl<const N: usize> MonomialLike for Monomial<N> {
     }
 
     #[inline]
-    fn exponents(&self) -> &[u32] {
+    fn exponents(&self) -> &[u64] {
         self.exponents()
     }
 
@@ -234,25 +234,31 @@ impl<const N: usize> MonomialLike for Monomial<N> {
     fn is_one(&self) -> bool {
         self.is_one()
     }
-
+    #[inline]
     fn degree_checked(&self) -> Result<u64, Self::Error> {
         self.degree_checked()
     }
-
+    #[inline]
     fn checked_mul(&self, other: &Self) -> Result<Self, Self::Error> {
         self.checked_mul(other)
     }
-
+    #[inline]
     fn divides(&self, other: &Self) -> bool {
         self.divides(other)
     }
-
+    #[inline]
     fn quotient(&self, other: &Self) -> Option<Self> {
         self.quotient(other)
     }
 
-    fn lcm(&self, other: &Self) -> Self {
-        self.lcm(other)
+    #[inline]
+    fn checked_lcm(&self, other: &Self) -> Result<Self, Self::Error> {
+        Ok(self.lcm(other))
+    }
+
+    #[inline]
+    fn checked_gcd(&self, other: &Self) -> Result<Self, Self::Error> {
+        Ok(self.gcd(other))
     }
 }
 
@@ -306,7 +312,7 @@ mod tests {
 
     #[test]
     fn checked_mul_reports_overflow() {
-        let max: u32 = u32::MAX;
+        let max: u64 = u64::MAX;
         let a: M2 = Monomial::from_exponents([max, 0]);
         let b: M2 = Monomial::from_exponents([1, 0]);
 
@@ -356,5 +362,15 @@ mod tests {
             .quotient(&b)
             .expect("a should divide b");
         assert_eq!(q.exponents(), &[2, 3, 0]);
+    }
+
+    #[test]
+    fn monomial_like_lcm_works_static() {
+        use crate::monomial::MonomialLike;
+        let a = Monomial::<2>::from_exponents([1, 4]);
+        let b = Monomial::<2>::from_exponents([3, 2]);
+
+        let l = <Monomial<2> as MonomialLike>::lcm(&a, &b);
+        assert_eq!(l.exponents(), &[3, 4]);
     }
 }

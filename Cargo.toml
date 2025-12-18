@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "bin/smoke_tests",
     "crates/algebra_core",
     "crates/algebra_field",
     "crates/algebra_poly",

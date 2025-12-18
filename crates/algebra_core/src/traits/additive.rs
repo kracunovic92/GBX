@@ -96,6 +96,7 @@ pub trait AddAbelianGroup: AddGroup {}
 ///
 /// Any type that satisfies the bounds is considered to have the corresponding
 /// algebraic structure.
+impl<T> AdditiveAssign for T where T: Additive + core::ops::AddAssign<Self> {}
 impl<T> AddSemigroup for T where T: Additive {}
 impl<T> AddMonoid for T where T: AddSemigroup + Zero {}
 impl<T> AddGroup for T where T: AddMonoid + core::ops::Neg<Output = T> {}

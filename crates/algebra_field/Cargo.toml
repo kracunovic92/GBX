@@ -20,7 +20,8 @@ prop = []
 [dependencies]
 algebra_core = { workspace = true }
 proptest = "1.9.0"
-criterion = "0.7.0"
+criterion = "0.8.1"
+num-complex = "0.4.6"
 
 [lints]
 workspace = true

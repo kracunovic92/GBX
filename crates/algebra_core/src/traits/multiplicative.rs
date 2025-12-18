@@ -43,8 +43,6 @@ impl<T> Multiplicative for T where T: core::ops::Mul<Output = T> {}
 /// a specific representation.
 pub trait MultiplicativeAssign: Multiplicative + core::ops::MulAssign<Self> {}
 
-impl<T> MultiplicativeAssign for T where T: Multiplicative + core::ops::MulAssign<Self> {}
-
 /// Marker trait: multiplicative semigroup.
 ///
 /// Indicates that:
@@ -77,6 +75,7 @@ pub trait MulAbelianMonoid: MulMonoid {}
 
 /// Blanket marker impls: any type satisfying the bounds gets the corresponding
 /// multiplicative structure automatically.
+impl<T> MultiplicativeAssign for T where T: Multiplicative + core::ops::MulAssign<Self> {}
 impl<T> MulSemigroup for T where T: Multiplicative {}
 impl<T> MulMonoid for T where T: MulSemigroup + One {}
 impl<T> MulAbelianMonoid for T where T: MulMonoid {}

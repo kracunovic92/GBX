@@ -1,17 +1,23 @@
-#![allow(missing_docs)]
-
-use algebra_core::{
-    AddMonoid, AddSemigroup, Field, MulMonoid, MulSemigroup, One, Ring, Semiring, TryInverse, Zero,
-};
+use algebra_core::{One, TryInverse, Zero};
 use core::fmt;
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub};
+
 #[cfg(feature = "validate-modulus")]
 use std::sync::OnceLock;
 
-/// Finite field GF(P) with **type-level** modulus `P`.
+/// Finite field-like type `Zp<P>` representing integers modulo a type-level modulus `P`.
 ///
-/// All values are in `[0, P)`. Arithmetic is done modulo `P`.
+/// - For **prime** `P`, `Zp<P>` is a field: every non-zero element has a multiplicative inverse
+///   and the type satisfies the usual field axioms (associativity, commutativity, distributivity).
+/// - For **non-prime** `P`, `Zp<P>` is only a (commutative) ring; in that case
+///   [`TryInverse::try_inv`] returns `None` for non-invertible elements.
+///
+/// All values are stored in reduced form in the interval `[0, P)`. Arithmetic is performed
+/// modulo `P`.
+///
+/// When the `validate-modulus` feature is enabled, the first use of a concrete `Zp<P>`
+/// will validate at runtime that `P` is prime and `P >= 2`, panicking otherwise.
 #[repr(transparent)]
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct Zp<const P: u64>(u64);
@@ -24,10 +30,10 @@ impl<const P: u64> Zp<P> {
         P
     }
 
-    /// Constructs a reduced element `x mod P`.
+    /// Constructs an element `x (mod P)` reduced into `[0, P)`.
     ///
-    /// When the `validate-modulus` feature is enabled, the first use of
-    /// `Zp<P>` validates that `P` is a prime ≥ 2 (panicking if not).
+    /// In debug builds, asserts `P >= 2`.
+    /// With `validate-modulus` enabled, performs a one-time primality check.
     #[cfg(not(feature = "validate-modulus"))]
     #[must_use]
     #[inline]
@@ -48,7 +54,10 @@ impl<const P: u64> Zp<P> {
         Self(x % P)
     }
 
-    /// Non-const constructor that always performs the validation path when enabled.
+    /// Non-const constructor that always takes the “checked” path.
+    ///
+    /// In debug builds it asserts `P >= 2`. With `validate-modulus` it always
+    /// reuses the cached primality check.
     #[must_use]
     #[inline]
     pub fn new_checked(x: u64) -> Self {
@@ -61,11 +70,13 @@ impl<const P: u64> Zp<P> {
         Self(x % P)
     }
 
-    /// Constructs from an already-reduced `x` (requires `x < P`).
+    /// Constructs from an already-reduced representative.
     ///
-    /// Panics in debug if `x >= P`. Prefer this for internal fast paths.
-    #[inline]
+    /// # Panics (debug only)
+    ///
+    /// Panics in debug builds if `x >= P`. Use only on trusted inputs / fast paths.
     #[must_use]
+    #[inline]
     pub const fn from_reduced_unchecked(x: u64) -> Self {
         debug_assert!(x < P, "from_reduced_unchecked: x must be < P");
         Self(x)
@@ -78,7 +89,7 @@ impl<const P: u64> Zp<P> {
         self.0
     }
 
-    /// a^e (mod P) using binary exponentiation.
+    /// Computes `self^e (mod P)` using binary exponentiation.
     #[must_use]
     #[inline]
     pub fn pow(self, mut e: u128) -> Self {
@@ -93,43 +104,56 @@ impl<const P: u64> Zp<P> {
         acc
     }
 
-    /// a^e for signed exponents (negative means invert then pow).
+    /// Computes `self^e` for signed exponents.
+    ///
+    /// - If `e >= 0`, this is just `self.pow(e as u128)`.
+    /// - If `e < 0`, we first try to invert `self`; if it is invertible,
+    ///   we then exponentiate the inverse.
     #[must_use]
     #[inline]
     pub fn pow_signed(self, e: i128) -> Option<Self> {
-        let ue: u128 = e.unsigned_abs();
+        let abs = e.unsigned_abs();
         if e >= 0 {
-            Some(self.pow(ue))
+            Some(self.pow(abs))
         } else {
-            self.try_inv().map(|inv| inv.pow(ue))
+            self.try_inv()
+                .map(|inv| inv.pow(abs))
         }
     }
 
-    /// Convenience: multiplicative inverse assuming a valid field modulus (prime P).
+    /// Convenience: multiplicative inverse assuming a valid field modulus (prime `P`).
     ///
-    /// Returns `None` for `0`. Internally uses the same logic as `TryInverse`.
+    /// Returns `None` for `0` or for non-invertible elements when `P` is composite.
     #[must_use]
     #[inline]
     pub fn inv(self) -> Option<Self> {
         <Self as TryInverse>::try_inv(self)
     }
 
-    /// Iterate all reduced residues `0..P` as `Zp<P>`. Mostly useful in tests.
+    /// Iterates all reduced residues `0..P` as `Zp<P>`.
+    ///
+    /// Mostly useful in tests and exhaustive checks for small primes.
     #[must_use]
     pub fn iter_all() -> impl Iterator<Item = Self> {
         (0..P).map(Self::from_reduced_unchecked)
     }
 }
 
-/* ===== Identities (Zero, One) ===== */
+/* ===== Identities (Zero, One, Default) ===== */
 
 impl<const P: u64> Zero for Zp<P> {
     const ZERO: Self = Self(0);
 }
 
 impl<const P: u64> One for Zp<P> {
-    // For P >= 2, 1 is always a valid representative.
     const ONE: Self = Self(1);
+}
+
+impl<const P: u64> Default for Zp<P> {
+    #[inline]
+    fn default() -> Self {
+        Self::zero()
+    }
 }
 
 /* ===== Operator traits (Add, Sub, Mul, Neg, Div) ===== */
@@ -140,12 +164,10 @@ impl<const P: u64> Add for Zp<P> {
     #[inline]
     fn add(self, rhs: Self) -> Self::Output {
         debug_assert!(self.0 < P && rhs.0 < P);
-        let (s, carry) = self.0.overflowing_add(rhs.0);
-        let s = if carry || s >= P {
-            s.wrapping_sub(P)
-        } else {
-            s
-        };
+        let (s, carry) = self
+            .0
+            .overflowing_add(rhs.0);
+        let s = if carry || s >= P { s.wrapping_sub(P) } else { s };
         Self(s)
     }
 }
@@ -178,7 +200,7 @@ impl<const P: u64> Mul for Zp<P> {
         let prod = u128::from(self.0) * u128::from(rhs.0);
         let red = prod % u128::from(P);
         #[allow(clippy::cast_possible_truncation)]
-        let v = red as u64; // guaranteed < P ≤ u64::MAX
+        let v = red as u64;
         Self(v)
     }
 }
@@ -195,18 +217,6 @@ impl<const P: u64> Div for Zp<P> {
     }
 }
 
-/* ===== Algebra-core structure markers ===== */
-
-impl<const P: u64> AddSemigroup for Zp<P> {}
-impl<const P: u64> AddMonoid for Zp<P> {}
-
-impl<const P: u64> MulSemigroup for Zp<P> {}
-impl<const P: u64> MulMonoid for Zp<P> {}
-
-impl<const P: u64> Semiring for Zp<P> {}
-impl<const P: u64> Ring for Zp<P> {}
-impl<const P: u64> Field for Zp<P> {} // satisfies Ring + TryInverse<Output = Self>
-
 /* ===== TryInverse (from algebra_core) ===== */
 
 impl<const P: u64> TryInverse for Zp<P> {
@@ -218,7 +228,7 @@ impl<const P: u64> TryInverse for Zp<P> {
             return None;
         }
 
-        // Extended Euclidean Algorithm on (self, P).
+        // Extended Euclidean algorithm on (self, P).
         let (mut a, mut b) = (i128::from(self.0), i128::from(P));
         let (mut x0, mut x1) = (1i128, 0i128);
 
@@ -239,7 +249,7 @@ impl<const P: u64> TryInverse for Zp<P> {
     }
 }
 
-/* ===== Ergonomics: Assign ops & iter adapters ===== */
+/* ===== Ergonomics: Assign ops, iter adapters, conversions ===== */
 
 impl<const P: u64> AddAssign for Zp<P> {
     #[inline]
@@ -296,6 +306,13 @@ impl<const P: u64> From<u64> for Zp<P> {
     #[inline]
     fn from(x: u64) -> Self {
         Self::new(x)
+    }
+}
+
+impl<const P: u64> From<Zp<P>> for u64 {
+    #[inline]
+    fn from(z: Zp<P>) -> Self {
+        z.value()
     }
 }
 
@@ -389,4 +406,117 @@ fn is_prime_u64(n: u64) -> bool {
         return false;
     }
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use algebra_core::{CheckedDiv, One, Zero};
+
+    type F7 = Zp<7>;
+
+    #[test]
+    fn identities() {
+        let z = F7::zero();
+        let o = F7::one();
+        assert_eq!(z.value(), 0);
+        assert_eq!(o.value(), 1);
+    }
+
+    #[test]
+    fn basic_arithmetic_mod_7() {
+        let a = F7::new(5);
+        let b = F7::new(3);
+
+        // 5 + 3 = 8 ≡ 1 (mod 7)
+        assert_eq!((a + b).value(), 1);
+
+        // 5 * 3 = 15 ≡ 1 (mod 7)
+        assert_eq!((a * b).value(), 1);
+
+        // -5 ≡ 2 (mod 7)
+        assert_eq!((-a).value(), 2);
+    }
+
+    #[test]
+    fn inverse_and_checked_div() {
+        let a = F7::new(5);
+        let b = F7::new(3);
+
+        // 5 * 3 = 15 ≡ 1 (mod 7)
+        assert_eq!((a * b).value(), 1);
+
+        let inv_a = a
+            .try_inv()
+            .unwrap();
+        assert_eq!(inv_a.value(), 3);
+        assert_eq!((a * inv_a).value(), 1);
+
+        let q = a
+            .checked_div(b)
+            .unwrap();
+        assert_eq!((q * b).value(), a.value());
+
+        assert!(
+            F7::zero()
+                .try_inv()
+                .is_none()
+        );
+        let z_over_b = F7::zero()
+            .checked_div(F7::new(3))
+            .expect("0 / nonzero should succeed");
+        assert_eq!(z_over_b.value(), 0);
+
+        assert!(
+            F7::new(3)
+                .checked_div(F7::zero())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn field_axioms_hold_for_f7() {
+        type F = Zp<7>;
+        let elems: Vec<F> = F::iter_all().collect();
+        let zero = F::zero();
+        let one = F::one();
+
+        // Addition: group laws + commutativity
+        for &a in &elems {
+            for &b in &elems {
+                for &c in &elems {
+                    assert_eq!((a + b) + c, a + (b + c));
+                }
+                assert_eq!(a + b, b + a);
+            }
+            assert_eq!(a + zero, a);
+            assert_eq!(zero + a, a);
+            assert_eq!(a + (-a), zero);
+        }
+
+        // Multiplication: monoid + distributivity
+        for &a in &elems {
+            for &b in &elems {
+                for &c in &elems {
+                    assert_eq!((a * b) * c, a * (b * c));
+                    assert_eq!(a * (b + c), a * b + a * c);
+                    assert_eq!((a + b) * c, a * c + b * c);
+                }
+                assert_eq!(a * one, a);
+                assert_eq!(one * a, a);
+            }
+        }
+
+        // Inverses for all non-zero elements
+        for &a in &elems {
+            if a.is_zero() {
+                continue;
+            }
+            let inv = a
+                .try_inv()
+                .unwrap();
+            assert_eq!(a * inv, one);
+            assert_eq!(inv * a, one);
+        }
+    }
 }

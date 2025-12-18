@@ -1,118 +1,171 @@
 use crate::Graph;
 
-/// Abstraction over "Polynomial"
-/// specialized for the boolean-style encodings we need.
+/// Abstraction over polynomial types used for boolean encodings.
+///
+/// This trait intentionally stays minimal: it describes only the
+/// operations required to build boolean constraint systems such as
+/// graph k-coloring.
+///
+/// The intended semantics are over a field of characteristic != 2,
+/// but the trait itself does not enforce this.
 pub trait BoolPolyBuilder {
+    /// Concrete polynomial type (e.g. multivariate polynomial).
     type Poly;
-
+    /// Zero polynomial.
     fn zero(&self) -> Self::Poly;
-
+    /// One polynomial.
     fn one(&self) -> Self::Poly;
 
-    /// The polynomial representing the variable `x_index`.
+    /// Polynomial representing variable `x_index`.
     ///
-    /// Here `index` is a 0-based variable index: x_0, x_1, ..., x_{n-1}.
+    /// `index` is 0-based: `x_0, x_1, ..., x_{N-1}`.
     fn var(&self, index: usize) -> Self::Poly;
 
-    /// a + b
+    /// Polynomial addition: `a + b`.
     fn add(&self, a: &Self::Poly, b: &Self::Poly) -> Self::Poly;
 
-    /// a - b
+    /// Polynomial subtraction: `a - b`.
     fn sub(&self, a: &Self::Poly, b: &Self::Poly) -> Self::Poly;
 
-    /// a * b
+    /// Polynomial multiplication: `a * b`.
     fn mul(&self, a: &Self::Poly, b: &Self::Poly) -> Self::Poly;
 
-    /// a^exp
+    /// Polynomial exponentiation: `a^exp`.
     ///
-    /// For our encoding we mostly need exp = 2 (`x^2 - x`), but this
-    /// keeps it generic.
+    /// For graph coloring encodings we mostly need `exp = 2`
+    /// (to enforce boolean constraints `x^2 - x = 0`),
+    /// but this is kept generic.
     fn pow(&self, a: &Self::Poly, exp: u32) -> Self::Poly;
 }
 
-/// Helper that maps (vertex, color) pairs to a flat variable index
+/// Maps `(vertex, color)` pairs to flat polynomial variable indices.
 ///
-/// One boolean variable x_{v,c} for each vertex v and color c.
-/// To store them in a polynomial ring with variables x_0, x_1, ..., x_{N-1}
-/// we need a deterministic mapping
+/// We introduce one boolean variable `x_{v,c}` for each
+/// vertex `v` and color `c`.
+///
+/// These are mapped to polynomial variables
+/// `x_0, x_1, ..., x_{n*k - 1}` using:
+///
+/// ```text
+/// index(v, c) = (v - 1) * k + (c - 1)
+/// ```
+///
+/// where:
+/// - vertices are 1-based
+/// - colors are 1-based
 #[derive(Debug, Clone, Copy)]
 pub struct VarIndex {
+    /// Number of vertices needed for construction
     pub n_vertices: usize,
-
+    /// Number of colors
     pub k_colors: usize,
 }
 
 impl VarIndex {
+    /// Total number of polynomial variables.
     pub fn num_vars(&self) -> usize {
         self.n_vertices * self.k_colors
     }
 
-    pub fn idx(&self, v: u32, c: u32) -> usize {
-        let v0 = (v - 1) as usize;
-        let c0 = (c - 1) as usize;
-
-        v0 * self.k_colors + c0
+    /// Compute the variable index for `(v, c)`.
+    ///
+    /// # Safety
+    /// Caller must ensure:
+    /// - `1 <= v <= n_vertices`
+    /// - `1 <= c <= k_colors`
+    #[inline]
+    pub fn idx_unchecked(&self, v: u32, c: u32) -> usize {
+        (v as usize - 1) * self.k_colors + (c as usize - 1)
     }
 }
 
+/// Result of building a k-coloring polynomial system.
+#[derive(Debug)]
 pub struct ColoringEncoding<P> {
+    /// All constraint polynomials.
     pub polynomials: Vec<P>,
 
+    /// Variable index mapping.
     pub var_index: VarIndex,
-
-    pub num_vars: usize,
 }
 
+impl<P> ColoringEncoding<P> {
+    /// Total number of polynomial variables.
+    pub fn num_vars(&self) -> usize {
+        self.var_index
+            .num_vars()
+    }
+}
+
+/// Build the polynomial system encoding the k-coloring problem for a graph.
+///
+/// The system enforces:
+///
+/// 1. **Boolean constraints**:
+///    ```text
+///    x_{v,c}^2 - x_{v,c} = 0
+///    ```
+///
+/// 2. **Exactly-one-color per vertex**:
+///    ```text
+///    (x_{v,1} + ... + x_{v,k}) - 1 = 0
+///    ```
+///
+/// 3. **Edge constraints**:
+///    ```text
+///    x_{u,c} * x_{v,c} = 0   for each edge (u,v) and color c
+///    ```
+///
+/// If the system has a solution over the base field,
+/// then the graph is k-colorable.
 pub fn build_k_coloring_system<B>(graph: &Graph, k: usize, builder: &B) -> ColoringEncoding<B::Poly>
 where
     B: BoolPolyBuilder,
 {
-    // Index mapping
     let vi = VarIndex { n_vertices: graph.n, k_colors: k };
 
-    let mut polys = Vec::new();
+    // We know exactly how many constraints we will generate:
+    // - boolean: n * k
+    // - exactly-one: n
+    // - edge constraints: m * k
+    let mut polynomials = Vec::with_capacity(graph.n * k + graph.n + graph.m * k);
 
-    // Boolean constraints: X_{v,c}^2 - X_{v,c} = 0
+    // Boolean constraints: x_{v,c}^2 - x_{v,c} = 0
     for v in 1..=graph.n as u32 {
         for c in 1..=k as u32 {
-            let idx = vi.idx(v, c);
+            let idx = vi.idx_unchecked(v, c);
             let x = builder.var(idx);
             let x2 = builder.pow(&x, 2);
             let p = builder.sub(&x2, &x);
-
-            polys.push(p);
+            polynomials.push(p);
         }
     }
 
-    // Exactly-one-color constraints:
-    //    (x_{v,1} + x_{v,2} + ... + x_{v,k}) - 1 = 0
+    // Exactly-one-color constraints per vertex
     for v in 1..=graph.n as u32 {
         let mut sum = builder.zero();
         for c in 1..=k as u32 {
-            let idx = vi.idx(v, c);
+            let idx = vi.idx_unchecked(v, c);
             let x = builder.var(idx);
             sum = builder.add(&sum, &x);
         }
-        let one = builder.one();
-        let p = builder.sub(&sum, &one);
-        polys.push(p);
+        let p = builder.sub(&sum, &builder.one());
+        polynomials.push(p);
     }
 
-    // Edge constraints:
-    //    for each edge (u, v) and each color c:
-    //        x_{u,c} * x_{v,c} = 0
+    // Edge constraints: x_{u,c} * x_{v,c} = 0
     for (u, v) in graph.edges() {
         for c in 1..=k as u32 {
-            let idx_u = vi.idx(u, c);
-            let idx_v = vi.idx(v, c);
+            let idx_u = vi.idx_unchecked(u, c);
+            let idx_v = vi.idx_unchecked(v, c);
 
             let x_u = builder.var(idx_u);
             let x_v = builder.var(idx_v);
 
             let p = builder.mul(&x_u, &x_v);
-            polys.push(p);
+            polynomials.push(p);
         }
     }
 
-    ColoringEncoding { polynomials: polys, var_index: vi, num_vars: vi.num_vars() }
+    ColoringEncoding { polynomials, var_index: vi }
 }

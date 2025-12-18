@@ -6,7 +6,7 @@ use core::fmt::Debug;
 /// can be written generically over `M: MonomialLike`.
 ///
 /// The built-in implementations are:
-/// - [`crate::monomial::Monomial<N>`] for fixed-size monomials.
+/// - [`crate::monomial::Monomial<>`] for fixed-size monomials.
 /// - [`crate::monomial::DynamicMonomial`] for runtime-sized monomials.
 ///
 /// For both of these, [`Self::Error`] is [`crate::monomial::MonomialError`].
@@ -25,7 +25,7 @@ pub trait MonomialLike: Clone + Eq {
     /// Access to the underlying exponent vector.
     ///
     /// The length of this slice must be equal to `self.n_vars()`.
-    fn exponents(&self) -> &[u32];
+    fn exponents(&self) -> &[u64];
 
     /// Returns `true` if this is the multiplicative identity `1`,
     /// i.e. all exponents are zero.
@@ -98,12 +98,50 @@ pub trait MonomialLike: Clone + Eq {
     where
         Self: Sized;
 
-    /// Componentwise least common multiple: `lcm(self, other)`.
+    /// Checked LCM: returns error if variable counts mismatch.
     ///
-    /// Defined by `lcm(e, f)[i] = max(e[i], f[i])`.
-    ///
-    /// Implementors decide how to allocate / construct a new monomial.
-    fn lcm(&self, other: &Self) -> Self
+    /// Default implementation uses `n_vars/exponents` and allocates through
+    /// `from_exponents_like` which implementors provide.
+    fn checked_lcm(&self, other: &Self) -> Result<Self, Self::Error>
     where
         Self: Sized;
+
+    /// LCM (may panic only if implementor chooses to).
+    #[inline]
+    fn lcm(&self, other: &Self) -> Self
+    where
+        Self: Sized,
+        Self::Error: Debug,
+    {
+        self.checked_lcm(other)
+            .expect("MonomialLike::lcm mismatched variable counts or overflow")
+    }
+
+    /// Returns `self / divisor` if `divisor | self`.
+    ///
+    /// This is the direction you want in polynomial division:
+    /// `m_p.div_by(m_g)` gives the monomial multiplier.
+    #[inline]
+    fn div_by(&self, divisor: &Self) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        divisor.quotient(self)
+    }
+
+    /// Checked GCD: returns error if variable counts mismatch.
+    fn checked_gcd(&self, other: &Self) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
+
+    /// Clean GCD calculation
+    #[inline]
+    fn gcd(&self, other: &Self) -> Self
+    where
+        Self: Sized,
+        Self::Error: Debug,
+    {
+        self.checked_gcd(other)
+            .expect("MonomialLike::gcd mismatched variable counts")
+    }
 }

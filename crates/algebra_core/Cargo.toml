@@ -9,6 +9,7 @@ keywords = ["algebra", "ring", "field", "polynomial", "math"]
 categories = ["science", "data-structures", "algorithms"]
 
 description = "Foundational algebraic traits + law-test helpers (no foreign impls)."
+readme = "README.md"
 
 
 [features]
@@ -19,12 +20,8 @@ std = []
 workspace = true
 
 [dev-dependencies]
-proptest.workspace = true
-criterion.workspace = true
-
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
-
 
 [package.metadata.docs.rs]
 features = ["std"]
@@ -32,4 +29,8 @@ no-default-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-ring = "0.17.14"
+criterion = "0.8.1"
+
+[[bench]]
+name = "additive_vs_mul"
+harness = false

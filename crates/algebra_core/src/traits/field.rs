@@ -72,7 +72,7 @@ where
 ///
 /// This trait is marker-only; algorithms typically use bounds like `T: Field`
 /// (optionally plus additional constraints such as `Copy`, `Eq`, etc.).
-pub trait Field: Ring + TryInverse<Output = Self> {}
+pub trait Field: Ring + TryInverse<Output = Self> + CheckedDiv + Sized {}
 
 /// Blanket impl: any type that is a ring and implements [`TryInverse`] with
 /// `Output = Self` is considered a field by convention.

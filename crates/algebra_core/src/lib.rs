@@ -1,5 +1,4 @@
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
 //! # algebra_core
 //!
 //! Foundational algebraic traits and law helpers.

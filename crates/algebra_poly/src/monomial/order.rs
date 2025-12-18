@@ -5,7 +5,7 @@
 //! - [`Lex`]          – lexicographic order.
 //! - [`Grevlex`]      – graded reverse lexicographic order.
 //!
-//! Both fixed-size [`crate::monomial::Monomial<N>`] and
+//! Both fixed-size [`crate::monomial::Monomial<>`] and
 //! dynamic [`crate::monomial::DynamicMonomial`] implement
 //! [`MonomialLike`], so they can be ordered by these
 //! implementations.

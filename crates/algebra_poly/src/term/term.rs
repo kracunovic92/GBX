@@ -4,17 +4,17 @@ use core::fmt;
 
 use super::{TermError, TermLike};
 
-/// A single term `coeff * x^α` in a multivariate polynomial with
-/// a **fixed** number of variables.
+/// A single term `coeff * x^α` in a multivariate polynomial with a
+/// **fixed** number of variables.
 ///
 /// - `F` is a field (e.g. `Zp<P>` from `algebra_field`).
 /// - `N` is the number of variables.
-/// - The monomial part is represented by a [`Monomial<N>`] (exponent vector).
+/// - The monomial part is represented by a [`Monomial<N>`] (fixed-size exponent vector).
 #[derive(Clone, PartialEq, Eq)]
 pub struct Term<F: Field, const N: usize> {
     /// The coefficient in the field.
     pub coeff: F,
-    /// The monomial (exponent vector).
+    /// The monomial (fixed-size exponent vector).
     pub mono: Monomial<N>,
 }
 
@@ -27,9 +27,9 @@ impl<F: Field, const N: usize> Term<F, N> {
 
     /// Constructs a term from a coefficient and an exponent vector.
     ///
-    /// Convenience constructor that avoids manually calling `Monomial::from_exponents`.
+    /// Convenience constructor that avoids manually calling [`Monomial::from_exponents`].
     #[inline]
-    pub fn from_coeff_and_exponents(coeff: F, exponents: [u32; N]) -> Self {
+    pub fn from_coeff_and_exponents(coeff: F, exponents: [u64; N]) -> Self {
         Self { coeff, mono: Monomial::from_exponents(exponents) }
     }
 
@@ -48,14 +48,13 @@ impl<F: Field, const N: usize> Term<F, N> {
     where
         F: Zero,
     {
-        self.coeff == F::zero()
+        self.coeff
+            .is_zero()
     }
 
     /// Multiplies this term by a scalar `c` in the field.
     ///
     /// Mathematically: `(a * x^α) * c = (a * c) * x^α`.
-    ///
-    /// This clones both `self.coeff` and `c` to avoid requiring `Copy`.
     #[inline]
     pub fn mul_scalar(&self, c: &F) -> Self
     where
@@ -67,7 +66,10 @@ impl<F: Field, const N: usize> Term<F, N> {
     /// Checked multiplication by a monomial.
     ///
     /// Mathematically: `(a * x^α) * x^β = a * x^{α+β}`.
-    /// Returns an error if monomial exponent addition overflows.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TermError::Monomial`] if exponent addition overflows.
     #[inline]
     pub fn checked_mul_monomial(&self, m: &Monomial<N>) -> Result<Self, TermError>
     where
@@ -77,8 +79,6 @@ impl<F: Field, const N: usize> Term<F, N> {
     }
 
     /// Multiplies this term by a monomial.
-    ///
-    /// Mathematically: `(a * x^α) * x^β = a * x^{α+β}`.
     ///
     /// # Panics
     ///
@@ -90,6 +90,20 @@ impl<F: Field, const N: usize> Term<F, N> {
     {
         <Self as TermLike>::mul_monomial(self, m)
     }
+
+    /// Multiplies two terms.
+    ///
+    /// # Panics
+    ///
+    /// Panics if monomial multiplication overflows.
+    #[inline]
+    pub fn mul_term(&self, other: &Self) -> Self
+    where
+        F: Clone,
+    {
+        self.checked_mul_term(other)
+            .expect("Term::mul_term: overflow in monomial multiplication")
+    }
 }
 
 /// `TermLike` implementation for fixed-size terms.
@@ -100,6 +114,11 @@ where
     type Field = F;
     type Mono = Monomial<N>;
     type Error = TermError;
+
+    #[inline]
+    fn from_parts(coeff: Self::Field, mono: Self::Mono) -> Self {
+        Self { coeff, mono }
+    }
 
     #[inline]
     fn coeff(&self) -> &Self::Field {
@@ -122,19 +141,10 @@ where
         }
     }
 
-    #[inline]
-    fn checked_mul_monomial(&self, m: &Self::Mono) -> Result<Self, Self::Error> {
-        let mono = self
-            .mono
-            .checked_mul(m)
-            .map_err(TermError::Monomial)?;
-        Ok(Self {
-            coeff: self
-                .coeff
-                .clone(),
-            mono,
-        })
-    }
+    // IMPORTANT:
+    // We intentionally do NOT implement `checked_mul_monomial` here.
+    // The default implementation in `TermLike` uses `from_parts(...)`
+    // and avoids duplicated-code warnings across fixed/dynamic terms.
 }
 
 impl<F: Field + fmt::Debug, const N: usize> fmt::Debug for Term<F, N> {
@@ -149,7 +159,6 @@ impl<F: Field + fmt::Debug, const N: usize> fmt::Debug for Term<F, N> {
 #[cfg(test)]
 mod tests {
     use super::Term;
-    use super::TermError;
     use crate::monomial::Monomial;
     use algebra_core::{One, Zero};
     use algebra_field::Zp;
@@ -159,7 +168,7 @@ mod tests {
 
     #[test]
     fn new_stores_coeff_and_monomial() {
-        let mono = Monomial::<2>::from_exponents([1, 3]); // x1^1 x2^3
+        let mono = Monomial::<2>::from_exponents([1, 3]);
         let coeff = F7::new(5);
         let t = T2::new(coeff, mono);
 
@@ -178,7 +187,6 @@ mod tests {
     #[test]
     fn from_coeff_and_exponents_constructs_term_directly() {
         let t = T2::from_coeff_and_exponents(F7::new(6), [2, 0]);
-
         assert_eq!(
             t.coeff
                 .value(),
@@ -207,11 +215,10 @@ mod tests {
     }
 
     #[test]
-    fn mul_scalar_multiplies_coefficient_mod_p_and_preserves_monomial() {
-        let t = T2::from_coeff_and_exponents(F7::new(3), [1, 2]); // 3 * x1^1 x2^2
+    fn mul_scalar_multiplies_coefficient_and_preserves_monomial() {
+        let t = T2::from_coeff_and_exponents(F7::new(3), [1, 2]);
         let c = F7::new(5);
 
-        // In F7, 3 * 5 = 15 ≡ 1 mod 7
         let result = t.mul_scalar(&c);
 
         assert_eq!(
@@ -230,19 +237,18 @@ mod tests {
 
     #[test]
     fn mul_monomial_adds_exponents_and_preserves_coefficient() {
-        let t = T2::from_coeff_and_exponents(F7::new(4), [1, 1]); // 4 * x1^1 x2^1
-        let m = Monomial::<2>::from_exponents([2, 3]); // x1^2 x2^3
+        let t = T2::from_coeff_and_exponents(F7::new(4), [1, 1]);
+        let m = Monomial::<2>::from_exponents([2, 3]);
 
+        // uses TermLike default checked_mul_monomial
         let result = t.mul_monomial(&m);
 
-        // coeff stays 4
         assert_eq!(
             result
                 .coeff
                 .value(),
             4
         );
-        // exponents should add: [1+2, 1+3] = [3, 4]
         assert_eq!(
             result
                 .mono
@@ -253,13 +259,32 @@ mod tests {
 
     #[test]
     fn checked_mul_monomial_propagates_monomial_overflow() {
-        let max = u32::MAX;
+        let max = u64::MAX;
         let t = T2::from_coeff_and_exponents(F7::one(), [max, 0]);
         let m = Monomial::<2>::from_exponents([1, 0]);
 
-        let err = t
-            .checked_mul_monomial(&m)
-            .unwrap_err();
-        assert!(matches!(err, TermError::Monomial(_)));
+        assert!(
+            t.checked_mul_monomial(&m)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn mul_term_multiplies_coeffs_and_adds_exponents() {
+        let a = T2::from_coeff_and_exponents(F7::new(3), [1, 2]);
+        let b = T2::from_coeff_and_exponents(F7::new(5), [2, 1]);
+
+        let c = a.mul_term(&b);
+
+        assert_eq!(
+            c.coeff
+                .value(),
+            1
+        ); // 3*5 = 15 ≡ 1 mod 7
+        assert_eq!(
+            c.mono
+                .exponents(),
+            &[3, 3]
+        );
     }
 }

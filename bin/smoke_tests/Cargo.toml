@@ -1,0 +1,15 @@
+[package]
+name = "smoke_tests"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+graph = { path = "../../crates/graph" }
+algebra_field = { path = "../../crates/algebra_field" }
+algebra_poly = { path = "../../crates/algebra_poly" }
+algebra_core = { path = "../../crates/algebra_core" }
+
+[lints]
+workspace = true

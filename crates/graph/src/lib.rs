@@ -1,26 +1,35 @@
-//! Create that is used to  represent Graph-like structures
+//! Graph data structures, parsers (DIMACS), and encodings used in GBX.
+//!
+//! This crate provides a simple undirected [`Graph`], I/O helpers (e.g. DIMACS),
+//! and utilities to build polynomial encodings (e.g. k-coloring constraints).
 
-/// Graph mod
+/// Core graph data structures.
 pub mod graph;
 
-mod encoding;
-/// I/O mod used for creating Grap from files
+/// Encodings from graphs into algebraic systems (e.g., k-coloring).
+pub mod encoding;
+
+/// Graph I/O (e.g., DIMACS parsing).
 pub mod io;
 
-/// This trait describes common behavior of "graph-like" structures.
-/// Later, both `Graph` (undirected) and `Digraph` (directed) will implement it
+/// Common behavior of "graph-like" structures.
+///
+/// This allows algorithms to work over both undirected graphs (`Graph`)
+/// and future directed graphs (`Digraph`) using the same interface.
+///
+/// Convention:
+/// - Vertices are 1-based: `1..=n`.
+/// - `neighbors(v)` returns outgoing neighbors for directed graphs.
 pub trait GraphLike {
-    /// Returns number of vertices in the graph.
+    /// Returns the number of vertices in the graph.
     fn vertex_count(&self) -> usize;
 
-    /// Returns all neighbors of vertex 'v'.
-    ///
-    ///  For an undirected graph: all vertices 'u' such that {u,v} is an edge.
-    ///  For a directed graph: all vertices 'u' such that there is an edge  v -> u (i.e., outgoing neighbors)
+    /// Returns the neighbors of vertex `v`.
     fn neighbors(&self, v: u32) -> &[u32];
 
     /// Whether this graph is directed.
     fn is_directed(&self) -> bool;
 }
 
-pub use crate::graph::Graph;
+pub use graph::Graph;
+pub use io::{read_dimacs, read_dimacs_file, DimacsError};
