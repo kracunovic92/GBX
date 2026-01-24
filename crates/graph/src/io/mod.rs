@@ -7,4 +7,4 @@
 pub mod dimacs;
 
 // Re-export the most commonly used DIMACS helpers at `graph::io::*`
-pub use dimacs::{read_dimacs, read_dimacs_file, DimacsError};
+pub use dimacs::{DimacsError, read_dimacs, read_dimacs_file};

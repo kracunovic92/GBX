@@ -1,4 +1,5 @@
 use crate::Graph;
+use crate::graph::GraphError;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
@@ -43,6 +44,9 @@ pub enum DimacsError {
         /// What we actually found
         found: usize,
     },
+    /// Add Graph error
+    #[error(transparent)]
+    Graph(#[from] GraphError),
 }
 
 /// Parse a DIMACS `edge` / `col` graph from any buffered reader
@@ -69,6 +73,7 @@ pub enum DimacsError {
 /// - Edge lines before the problem line are rejected.
 /// - The number of parsed edges must exactly match `m`.
 /// - Vertex indices must be within range.
+/// # Panics
 pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
     let mut graph: Option<Graph> = None;
     let mut expected_edges: Option<usize> = None;
@@ -83,15 +88,12 @@ pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
         }
 
         match line.as_bytes()[0] {
-            b'c' => continue,
             b'p' => {
                 if graph.is_some() {
                     return Err(DimacsError::MissingProblemLine);
                 }
 
-                let parts: Vec<_> = line
-                    .split_whitespace()
-                    .collect();
+                let parts: Vec<_> = line.split_whitespace().collect();
 
                 if parts.len() != 4 {
                     return Err(DimacsError::InvalidProblemLine(line.to_string()));
@@ -110,30 +112,25 @@ pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
             }
 
             b'e' => {
-                let g = graph
-                    .as_mut()
-                    .ok_or(DimacsError::EdgeBeforeProblemLine)?;
+                let g = graph.as_mut().ok_or(DimacsError::EdgeBeforeProblemLine)?;
 
-                let parts: Vec<_> = line
-                    .split_whitespace()
-                    .collect();
+                let parts: Vec<_> = line.split_whitespace().collect();
                 if parts.len() != 3 {
                     return Err(DimacsError::BadEdgeLine(line.to_string()));
                 }
 
-                let u: u32 = parts[1].parse()?;
-                let v: u32 = parts[2].parse()?;
+                let u: usize = parts[1].parse()?;
+                let v: usize = parts[2].parse()?;
 
-                let max_v = g.n as u32;
+                let max_v = g.n;
                 if u == 0 || v == 0 || u > max_v || v > max_v {
                     return Err(DimacsError::VertexOutOfRange(line.to_string()));
                 }
 
-                g.add_edge(u, v)
-                    .expect("validated vertex indices");
+                g.add_edge(u, v)?;
                 seen_edges += 1;
             }
-            _ => continue,
+            _ => {}
         }
     }
 
@@ -143,12 +140,13 @@ pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
         return Err(DimacsError::EdgeCountMismatch { expected, found: seen_edges });
     }
 
-    Ok(graph.expect("problem line implies graph exists"))
+    graph.ok_or(DimacsError::MissingProblemLine)
 }
 
 /// Convenience helper to read a DIMACS file from a given path into a [`Graph`].
 ///
 /// This is a thin wrapper over [`read_dimacs`].
+/// # Errors
 pub fn read_dimacs_file(path: impl AsRef<Path>) -> Result<Graph, DimacsError> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -157,6 +155,7 @@ pub fn read_dimacs_file(path: impl AsRef<Path>) -> Result<Graph, DimacsError> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use std::io::Cursor;
 

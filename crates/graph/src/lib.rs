@@ -1,3 +1,5 @@
+#![deny(rustdoc::broken_intra_doc_links)]
+#![forbid(unsafe_code)]
 //! Graph data structures, parsers (DIMACS), and encodings used in GBX.
 //!
 //! This crate provides a simple undirected [`Graph`], I/O helpers (e.g. DIMACS),
@@ -25,11 +27,11 @@ pub trait GraphLike {
     fn vertex_count(&self) -> usize;
 
     /// Returns the neighbors of vertex `v`.
-    fn neighbors(&self, v: u32) -> &[u32];
+    fn neighbors(&self, v: usize) -> &[usize];
 
     /// Whether this graph is directed.
     fn is_directed(&self) -> bool;
 }
 
 pub use graph::Graph;
-pub use io::{read_dimacs, read_dimacs_file, DimacsError};
+pub use io::{DimacsError, read_dimacs, read_dimacs_file};

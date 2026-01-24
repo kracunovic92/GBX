@@ -63,7 +63,8 @@ pub struct VarIndex {
 
 impl VarIndex {
     /// Total number of polynomial variables.
-    pub fn num_vars(&self) -> usize {
+    #[must_use]
+    pub const fn num_vars(&self) -> usize {
         self.n_vertices * self.k_colors
     }
 
@@ -74,8 +75,9 @@ impl VarIndex {
     /// - `1 <= v <= n_vertices`
     /// - `1 <= c <= k_colors`
     #[inline]
-    pub fn idx_unchecked(&self, v: u32, c: u32) -> usize {
-        (v as usize - 1) * self.k_colors + (c as usize - 1)
+    #[must_use]
+    pub const fn idx_unchecked(&self, v: usize, c: usize) -> usize {
+        (v - 1) * self.k_colors + (c - 1)
     }
 }
 
@@ -91,9 +93,9 @@ pub struct ColoringEncoding<P> {
 
 impl<P> ColoringEncoding<P> {
     /// Total number of polynomial variables.
-    pub fn num_vars(&self) -> usize {
-        self.var_index
-            .num_vars()
+    #[must_use]
+    pub const fn num_vars(&self) -> usize {
+        self.var_index.num_vars()
     }
 }
 
@@ -130,9 +132,8 @@ where
     // - edge constraints: m * k
     let mut polynomials = Vec::with_capacity(graph.n * k + graph.n + graph.m * k);
 
-    // Boolean constraints: x_{v,c}^2 - x_{v,c} = 0
-    for v in 1..=graph.n as u32 {
-        for c in 1..=k as u32 {
+    for v in 1..=graph.n {
+        for c in 1..=k {
             let idx = vi.idx_unchecked(v, c);
             let x = builder.var(idx);
             let x2 = builder.pow(&x, 2);
@@ -142,9 +143,9 @@ where
     }
 
     // Exactly-one-color constraints per vertex
-    for v in 1..=graph.n as u32 {
+    for v in 1..=graph.n {
         let mut sum = builder.zero();
-        for c in 1..=k as u32 {
+        for c in 1..=k {
             let idx = vi.idx_unchecked(v, c);
             let x = builder.var(idx);
             sum = builder.add(&sum, &x);
@@ -155,7 +156,7 @@ where
 
     // Edge constraints: x_{u,c} * x_{v,c} = 0
     for (u, v) in graph.edges() {
-        for c in 1..=k as u32 {
+        for c in 1..=k {
             let idx_u = vi.idx_unchecked(u, c);
             let idx_v = vi.idx_unchecked(v, c);
 

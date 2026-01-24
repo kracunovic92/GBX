@@ -6,4 +6,4 @@
 /// Module for NP coloring problem
 pub mod coloring;
 
-pub use coloring::{build_k_coloring_system, BoolPolyBuilder, ColoringEncoding, VarIndex};
+pub use coloring::{BoolPolyBuilder, ColoringEncoding, VarIndex, build_k_coloring_system};

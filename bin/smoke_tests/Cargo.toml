@@ -4,12 +4,12 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
 graph = { path = "../../crates/graph" }
-algebra_field = { path = "../../crates/algebra_field" }
-algebra_poly = { path = "../../crates/algebra_poly" }
-algebra_core = { path = "../../crates/algebra_core" }
+gbx-alg = { path = "../../crates/gbx-alg" }
+gbx-field = { path = "../../crates/gbx-field", default-features = false, features = ["zp"] }
 
 [lints]
 workspace = true

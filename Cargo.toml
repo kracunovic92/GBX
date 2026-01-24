@@ -1,9 +1,10 @@
 [workspace]
 members = [
     "bin/smoke_tests",
-    "crates/algebra_core",
-    "crates/algebra_field",
-    "crates/algebra_poly",
+    "crates/gbx-alg",
+    "crates/gbx-field",
+    "crates/gbx-poly",
+    "crates/gbx-storage",
     "crates/graph"
 ]
 
@@ -14,15 +15,15 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/your-user/your-repo"
+version = "0.1.0"
 
 [workspace.dependencies]
-algebra_core = { path = "crates/algebra_core" }
-algebra_field = { path = "crates/algebra_field" }
-algebra_poly = { path = "crates/algebra_poly" }
 graph = { path = "crates/graph" }
+gbx-alg = { path = "crates/gbx-alg" }
+gbx-field = { path = "crates/gbx-field" }
+gbx-storage = { path = "crates/gbx-storage" }
 
 thiserror = "2"
-rand = "0.9"
 proptest = "1"
 criterion = "0.7"
 
@@ -43,7 +44,7 @@ all = "warn"
 pedantic = "warn"
 cargo = "warn"
 nursery = "warn"
-restriction = "allow"   # base restriction group off
+restriction = { level = "allow", priority = -1 }  # base restriction group off
 
 unwrap_used = "warn"
 expect_used = "warn"
