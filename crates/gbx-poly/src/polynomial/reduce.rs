@@ -58,7 +58,27 @@ where
         I: IntoIterator<Item = &'a Self>,
         Self: 'a,
     {
-        let reducers: Vec<&Self> = gs.into_iter().filter(|g| !g.is_zero()).collect();
+        struct ReducerRef<'a, P, C, M> {
+            poly: &'a P,
+            lm: &'a M,
+            inv_lc: C,
+        }
+
+        let mut reducers = Vec::new();
+
+        for g in gs.into_iter().filter(|g| !g.is_zero()) {
+            let lt_g = g
+                .leading_term()
+                .ok_or(ReduceError::Poly(PolynomialError::InvariantViolation))?;
+
+            let inv_lc = ctx
+                .field
+                .try_inv(*lt_g.coeff())
+                .ok_or(ReduceError::NonInvertibleLeadingCoefficient)?;
+
+            reducers.push(ReducerRef { poly: g, lm: lt_g.mono(), inv_lc });
+        }
+
         if reducers.is_empty() {
             return Ok(self.clone());
         }
@@ -71,29 +91,16 @@ where
         while let Some(lt_f) = f.leading_term().cloned() {
             let mut reduced = false;
 
-            for g in &reducers {
-                let Some(lt_g) = g.leading_term() else { continue };
-
-                let q_m = match lt_f.mono().checked_div_by(lt_g.mono())? {
+            for red in &reducers {
+                let q_m = match lt_f.mono().checked_div_by(red.lm)? {
                     Some(q) => q,
                     None => continue,
                 };
 
-                let inv_lc_g = ctx
-                    .field
-                    .try_inv(*lt_g.coeff())
-                    .ok_or(ReduceError::NonInvertibleLeadingCoefficient)?;
+                let q_c = ctx.field.mul(*lt_f.coeff(), red.inv_lc);
 
-                let q_c = ctx.field.mul(*lt_f.coeff(), inv_lc_g);
-
-                // tmp := (q_c * q_m) * g
-                let mut tmp = (*g).clone();
-                tmp.mul_monomial_assign_raw(ctx, &q_m)
+                f.sub_scaled_monomial_multiple_in_place(ctx, red.poly, &q_m, q_c)
                     .map_err(ReduceError::from)?;
-                tmp.scale_assign_raw(ctx, q_c).map_err(ReduceError::from)?;
-
-                // f := f - tmp, then normalize
-                f.sub_assign_raw(ctx, &tmp).map_err(ReduceError::from)?;
                 f.normalize_in_place(ctx).map_err(ReduceError::from)?;
 
                 reduced = true;
@@ -106,7 +113,6 @@ where
                     .map_err(ReduceError::from)?
                     .ok_or(ReduceError::Poly(PolynomialError::InvariantViolation))?;
 
-                // Disambiguate explicitly: only PolynomialMut owns push_term_raw.
                 <Self as PolynomialMut>::push_term_raw(&mut r, lt);
             }
         }

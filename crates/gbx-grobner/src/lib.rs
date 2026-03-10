@@ -26,7 +26,6 @@ mod criteria;
 mod display;
 mod error;
 mod pairs;
-mod trace;
 
 pub use algos::{buchberger, buchberger_with, s_polynomial_in, BasisPost, BuchbergerOptions, SPolyError};
 pub use basis::GrobnerBasis;
@@ -34,4 +33,3 @@ pub use criteria::*;
 pub use display::{GbDisplay, GbStyle};
 pub use error::BuchbergerError;
 pub use pairs::{FifoPairs, HeapPairs, Pair, PairQueue, StackPairs};
-pub use trace::*;

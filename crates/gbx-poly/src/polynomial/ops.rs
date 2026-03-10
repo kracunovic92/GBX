@@ -115,6 +115,10 @@ where
         self.normalize_in_place(ctx)?;
         Ok(())
     }
+    fn sub_scaled_monomial_multiple_in_place<F, O>(&mut self, ctx: &RingCtx<F, O>, rhs: &Self, mono_mul: &<Self::Term as TermView>::Mono, coeff_mul: <Self::Term as TermView>::Coeff) -> Result<()>
+    where
+        F: FieldCtx<Elem = <Self::Term as TermView>::Coeff>,
+        O: MonomialOrder;
 }
 impl<T, S> PolynomialOps for Polynomial<T, S>
 where
@@ -248,5 +252,32 @@ where
         let mut storage = S::default();
         storage.set_from_vec(out_terms);
         Ok(Self::from_storage(ctx.id(), storage))
+    }
+    #[inline]
+    fn sub_scaled_monomial_multiple_in_place<F, O>(&mut self, ctx: &RingCtx<F, O>, rhs: &Self, mono_mul: &T::Mono, coeff_mul: T::Coeff) -> Result<()>
+    where
+        F: FieldCtx<Elem = T::Coeff>,
+        O: MonomialOrder,
+    {
+        ctx.assert_same_ring_id(self.ring_id())
+            .map_err(PolynomialError::from)?;
+        ctx.assert_same_ring_id(rhs.ring_id())
+            .map_err(PolynomialError::from)?;
+
+        self.storage_mut().with_vec(|v| {
+            v.reserve(rhs.terms().len());
+
+            for t in rhs.terms().iter() {
+                let coeff = ctx.field.neg(ctx.field.mul(*t.coeff(), coeff_mul));
+                let mono = t
+                    .mono()
+                    .clone()
+                    .checked_mul(mono_mul)
+                    .map_err(PolynomialError::from)?;
+                v.push(T::from_parts(coeff, mono));
+            }
+
+            Ok(())
+        })
     }
 }

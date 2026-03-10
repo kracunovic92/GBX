@@ -7,6 +7,7 @@
 //! - monomial order comes from `ctx.order`
 //! - polynomials store a [`RingId`](crate::ring::RingId) safety tag to detect mixing rings.
 
+use crate::monomial::{MonomialView, MonomialViewExtU32};
 use crate::order::MonomialOrder;
 use crate::ring::{FieldCtx, RingCtx, RingId};
 use crate::term::TermView;
@@ -52,6 +53,30 @@ pub trait PolynomialView {
     #[inline]
     fn len(&self) -> usize {
         self.terms().len()
+    }
+    /// Returns `true` if this polynomial has exactly one term.
+    #[inline]
+    fn is_monomial(&self) -> bool {
+        self.len() == 1
+    }
+    /// Returns `true` if this polynomial is constant.
+    ///
+    /// The zero polynomial is considered constant.
+    #[inline]
+    fn is_constant(&self) -> bool
+    where
+        <Self::Term as TermView>::Mono: MonomialView<Word = u32>,
+    {
+        self.is_zero() || self.leading_term().is_some_and(|t| t.mono().is_one())
+    }
+
+    /// Returns `true` if this polynomial is a nonzero constant polynomial.
+    #[inline]
+    fn is_nonzero_constant(&self) -> bool
+    where
+        <Self::Term as TermView>::Mono: MonomialView<Word = u32>,
+    {
+        self.len() == 1 && self.leading_term().is_some_and(|t| t.mono().is_one())
     }
 }
 

@@ -1,69 +1,71 @@
-use crate::criteria::{PairCriterion, PairKey, PairUpdate};
-use crate::trace::tracer::Tracer;
-use crate::{GrobnerBasis, PairQueue};
-use gbx_field::fp::{FpDyn, FpDynElem};
-use gbx_poly::monomial::DynamicMonomial;
-use gbx_poly::order::Grevlex;
-use gbx_poly::polynomial::PolyDyn;
-use gbx_poly::pretty_str;
-use gbx_poly::ring::RingCtx;
-use gbx_poly::term::Term;
-use gbx_storage::polynomial::VecTerms;
-use std::cell::RefCell;
-use std::rc::Rc;
+use super::tracer::SharedTracer;
+use crate::criteria::{PairCriterion, PairKey};
+use crate::{GrobnerBasis, Pair, PairQueue};
 
-pub type TraceTerm = Term<FpDynElem, DynamicMonomial>;
-pub type TracePoly = PolyDyn<FpDynElem, VecTerms<TraceTerm>>;
-pub type TraceRing = RingCtx<FpDyn, Grevlex>;
-
-/// Shared tracing handle.
-pub type SharedTracer = Rc<RefCell<Tracer>>;
-
-/// Generic wrapper for any `PairUpdate<P>` that traces basis growth
-/// after a new polynomial is appended.
-pub struct TracingPairUpdate<U> {
-    inner: U,
+/// Wrap any [`PairQueue`] and trace push/pop activity.
+pub struct TracingQueue<Q> {
+    inner: Q,
     tracer: SharedTracer,
 }
 
-impl<U> TracingPairUpdate<U> {
+impl<Q> TracingQueue<Q> {
     #[must_use]
-    pub fn wrap(inner: U, tracer: SharedTracer) -> Self {
+    pub fn wrap(inner: Q, tracer: SharedTracer) -> Self {
         Self { inner, tracer }
     }
 
     #[must_use]
-    pub fn inner(&self) -> &U {
+    pub fn inner(&self) -> &Q {
         &self.inner
     }
 
     #[must_use]
-    pub fn inner_mut(&mut self) -> &mut U {
+    pub fn inner_mut(&mut self) -> &mut Q {
         &mut self.inner
     }
 
     #[must_use]
-    pub fn into_inner(self) -> U {
+    pub fn into_inner(self) -> Q {
         self.inner
     }
 }
 
-impl<P, U> PairUpdate<P> for TracingPairUpdate<U>
+impl<Q> PairQueue for TracingQueue<Q>
 where
-    U: PairUpdate<P>,
+    Q: PairQueue,
 {
-    fn on_new_poly<Q>(&mut self, gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize)
+    fn new() -> Self
     where
-        Q: PairQueue,
+        Self: Sized,
     {
-        self.inner.on_new_poly(gb, pairs, new_index);
-        self.tracer
-            .borrow_mut()
-            .on_new_poly(new_index, gb.len(), pairs);
+        panic!("TracingQueue::new() is unsupported; use TracingQueue::wrap(inner, tracer)");
+    }
+
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    fn push(&mut self, pair: Pair) {
+        self.inner.push(pair);
+        let len = self.inner.len();
+        self.tracer.borrow_mut().on_push_with_len(len);
+    }
+
+    fn pop(&mut self) -> Option<Pair> {
+        let out = self.inner.pop();
+        if out.is_some() {
+            let len = self.inner.len();
+            self.tracer.borrow_mut().on_pop_with_len(len);
+        }
+        out
+    }
+
+    fn len(&self) -> usize {
+        self.inner.len()
     }
 }
 
-/// Generic wrapper for any `PairCriterion<P>` that traces rejected pairs.
+/// Wrap any [`PairCriterion`] and trace pair rejections.
 pub struct TracingPairCriterion<C> {
     inner: C,
     tracer: SharedTracer,
@@ -104,7 +106,7 @@ where
     }
 }
 
-/// Generic wrapper for any `PairKey<P>` that traces missing keys.
+/// Wrap any [`PairKey`] and trace missing keys.
 pub struct TracingPairKey<K> {
     inner: K,
     tracer: SharedTracer,
@@ -143,10 +145,4 @@ where
         }
         key
     }
-}
-
-/// Helper: pretty polynomial string for the concrete GBX dynamic setup.
-#[must_use]
-pub fn pretty_poly_str(ring: &TraceRing, vars: &[String], p: &TracePoly) -> String {
-    pretty_str!(ring, p, vars)
 }

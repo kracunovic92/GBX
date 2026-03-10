@@ -1,4 +1,4 @@
-mod buchberger;
+pub mod buchberger;
 mod minimize;
 mod reduction;
 mod spoly;
