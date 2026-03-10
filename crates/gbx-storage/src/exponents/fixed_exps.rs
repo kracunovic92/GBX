@@ -1,30 +1,37 @@
-use super::Exps;
+use super::{Exps, ExpsMut};
 
 /// Inline exponent vector `[E; N]`.
 ///
-/// This is ideal for fixed-arity monomials: no heap allocation, good locality.
+/// Ideal for fixed-arity monomials:
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct FixedExps<E, const N: usize>(pub [E; N]);
 
-/// Convenience alias for the common case.
+/// Convenience alias for the common case (`u32` exponents).
 pub type FixedExps32<const N: usize> = FixedExps<u32, N>;
 
 impl<E, const N: usize> FixedExps<E, N> {
-    /// Wrap an array (helps when using type aliases like `FixedExps32`).
+    /// Wrap an array (useful when working with type aliases).
     #[inline]
     pub const fn new(values: [E; N]) -> Self {
         Self(values)
     }
-    /// Size
+
+    /// Length (number of variables), known at compile time.
     #[inline]
     pub const fn len(&self) -> usize {
         N
     }
 
+    /// Borrow as a slice.
     #[inline]
-    /// Get the Slice
     pub const fn as_slice(&self) -> &[E] {
         &self.0
+    }
+
+    /// Mutably borrow as a slice.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [E] {
+        &mut self.0
     }
 }
 
@@ -38,7 +45,35 @@ impl<E: Copy + Eq, const N: usize> Exps for FixedExps<E, N> {
 
     #[inline]
     fn as_slice(&self) -> &[E] {
-        self.as_slice()
+        &self.0
+    }
+}
+
+impl<E: Copy + Eq, const N: usize> ExpsMut for FixedExps<E, N> {
+    #[inline]
+    fn as_mut_slice(&mut self) -> &mut [E] {
+        &mut self.0
+    }
+}
+
+impl<E, const N: usize> From<[E; N]> for FixedExps<E, N> {
+    #[inline]
+    fn from(values: [E; N]) -> Self {
+        Self(values)
+    }
+}
+
+impl<E, const N: usize> AsRef<[E]> for FixedExps<E, N> {
+    #[inline]
+    fn as_ref(&self) -> &[E] {
+        &self.0
+    }
+}
+
+impl<E, const N: usize> AsMut<[E]> for FixedExps<E, N> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut [E] {
+        &mut self.0
     }
 }
 
@@ -54,5 +89,18 @@ mod tests {
 
         let e2 = FixedExps32::<3>::new([4, 5, 6]);
         assert_eq!(e2.as_slice(), &[4, 5, 6]);
+    }
+
+    #[test]
+    fn fixed_exps_mut_slice() {
+        let mut e = FixedExps::<u32, 3>::new([1, 2, 3]);
+        e.as_mut_slice()[1] = 9;
+        assert_eq!(e.as_slice(), &[1, 9, 3]);
+    }
+
+    #[test]
+    fn fixed_exps_from_array() {
+        let e: FixedExps<u32, 2> = [7, 8].into();
+        assert_eq!(e.as_slice(), &[7, 8]);
     }
 }

@@ -1,23 +1,7 @@
 //! Polynomial-related storage primitives.
 //!
-//! This module is **storage-only** (no math). It exists to let higher-level crates
-//! (`gbx-poly`) plug in different internal representations while keeping the
-//! polynomial *interface* the same.
-//!
-//! # Why is this in `gbx-storage`?
-//!
-//! `gbx-poly` owns polynomial algorithms (normalization, division, Gröbner, ...)
-//! and only needs a small set of operations on “a bag of terms”:
-//!
-//! - read-only access as `&[T]`
-//! - `push(T)` while building intermediate polynomials
-//! - occasionally: sort/merge/normalize (best done on a `Vec<T>`)
-//!
-//! The [`TermStorage`] trait provides exactly that.
-//!
-//! # Provided implementations
-//!
-//! - [`VecTerms<T>`]: a minimal `Vec<T>`-backed storage (default).
+//! Storage-only (no algebra). Higher crates (`gbx-poly`) plug in different
+//! internal representations while keeping polynomial algorithms the same.
 
 mod term_storage;
 mod vec_terms;

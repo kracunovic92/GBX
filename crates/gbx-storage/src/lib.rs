@@ -4,6 +4,7 @@
 //! storage concerns (heap vs inline, word size, conversions) out of `gbx-poly`.
 
 #![forbid(unsafe_code)]
+#![warn(clippy::as_conversions)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
 pub mod exponents;
