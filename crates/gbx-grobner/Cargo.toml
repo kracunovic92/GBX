@@ -1,0 +1,16 @@
+[package]
+name = "gbx-grobner"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+gbx-alg = { path = "../gbx-alg", default-features = false }
+gbx-storage = { path = "../gbx-storage", default-features = false }
+gbx-field = { path = "../gbx-field", default-features = false }
+gbx-poly = { path = "../gbx-poly", default-features = false }
+thiserror = "2.0.18"
+[lints]
+workspace = true
