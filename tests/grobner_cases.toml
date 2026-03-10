@@ -1,0 +1,10 @@
+[[case]]
+name = "mod_p_example"
+field = "Fp"
+p = 32003
+vars = ["x", "y"] ## len(sitrng)
+order = "lp"
+generators = [
+    "x^2 + y^2 - 1",
+    "x^3 - y"
+]
