@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(rustdoc::broken_intra_doc_links)]
+#![warn(clippy::as_conversions)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //! # gbx-alg
