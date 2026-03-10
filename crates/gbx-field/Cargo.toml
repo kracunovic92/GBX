@@ -27,9 +27,9 @@ laws = ["gbx-alg/laws"]
 
 [dependencies]
 gbx-alg = { path = "../gbx-alg", default-features = false }
+thiserror = "2.0.18"
 
 [dev-dependencies]
-proptest = "1"
 criterion = { version = "0.8.1", features = ["html_reports"] }
 
 [lints]

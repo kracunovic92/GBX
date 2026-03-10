@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![warn(clippy::as_conversions)]
 #![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -13,6 +14,7 @@
 
 mod macros;
 
+mod error;
 pub mod fp;
 /// Convenient re-exports for common GBX field types.
 ///

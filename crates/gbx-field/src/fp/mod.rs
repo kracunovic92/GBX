@@ -1,19 +1,14 @@
-//! Prime field `Fp<P>`.
+//! Prime field `Fp<P>` and `FpDyn`.
 //!
 //! `Fp<P>` is the field API for modulus `P`.
-//! - Implements `TryInverse`, `CheckedDiv`, and thus `Field`.
 //! - Internally stores a `Zp<P>`.
+//! - Provides inversion / division.
 //!
-//! Optional feature `prime-check` can validate that `P` is prime at runtime.
+//! Feature `prime-check` can validate that `P` is prime (once per concrete `P`).
 
-mod core;
-mod inv;
-mod ops;
+mod dynamic_fp;
+mod prime;
+mod static_fp;
 
-#[cfg(any(test, feature = "prime-check"))]
-mod validate;
-
-#[cfg(test)]
-mod tests;
-
-pub use core::Fp;
+pub use dynamic_fp::{FpDyn, FpDynElem};
+pub use static_fp::Fp;

@@ -1,26 +1,14 @@
 #![allow(missing_docs)]
+use criterion::{criterion_group, criterion_main, Criterion};
 
-use criterion::{Criterion, criterion_group, criterion_main};
+mod fields;
 
-mod modules {
-    pub mod fp_div;
-    pub mod fp_inv;
-    pub mod zp_pow;
+fn all_benches(c: &mut Criterion) {
+    fields::zp_static::bench(c);
+    fields::zp_dynamic::bench(c);
+    fields::fp_static::bench(c);
+    fields::fp_dynamic::bench(c);
 }
 
-fn criterion() -> Criterion {
-    Criterion::default()
-        .warm_up_time(std::time::Duration::from_secs(2))
-        .measurement_time(std::time::Duration::from_secs(5))
-        .sample_size(30)
-}
-
-criterion_group! {
-    name = gbx_field_benches;
-    config = criterion();
-    targets =
-        modules::zp_pow::bench_zp_pow,
-        modules::fp_inv::bench_fp_inv,
-        modules::fp_div::bench_fp_div
-}
-criterion_main!(gbx_field_benches);
+criterion_group!(benches, all_benches);
+criterion_main!(benches);

@@ -1,4 +1,4 @@
-//! Integers modulo `P`: `Zp<P>`.
+//! Integers modulo `P`: `Zp<P>` and `ZpDyn`.
 //!
 //! `Zp<P>` represents the quotient ring `ℤ / Pℤ`.
 //!
@@ -7,10 +7,8 @@
 //!
 //! If you need a field API, use [`crate::fp::Fp`].
 
-mod core;
-mod ops;
+mod dynamic_zp;
+mod static_zp;
 
-#[cfg(test)]
-mod tests;
-
-pub use core::Zp;
+pub use dynamic_zp::{ZpDyn, ZpDynElem};
+pub use static_zp::Zp;
