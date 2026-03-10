@@ -1,0 +1,19 @@
+[package]
+name = "graph_experiments"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+description = "Manual testing / live experimentation binary for GBX"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+
+gbx-graph = { path = "../../tools/graph", features = ["dimacs"] }
+gbx-poly = { path = "../../crates/gbx-poly" }
+gbx-field = { path = "../../crates/gbx-field" }
+gbx-storage = { path = "../../crates/gbx-storage" }
+gbx-alg = { path = "../../crates/gbx-alg" }
+gbx-grobner = { path = "../../crates/gbx-grobner" }
