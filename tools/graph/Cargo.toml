@@ -1,0 +1,22 @@
+[package]
+name = "gbx-graph"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+
+description = "Internal graph utilities (tooling) for GBX: data structures + optional DIMACS parsing"
+repository.workspace = true
+readme.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[features]
+default = []
+dimacs = []
+
+[lints]
+workspace = true
