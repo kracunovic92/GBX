@@ -1,90 +1,123 @@
 //! Core polynomial traits used by algorithms.
 //!
-//! The goal is to keep these traits **small and stable**:
-//! - Algorithms (division, reduction, Buchberger/F4/F5) should depend on these traits,
-//!   not on concrete polynomial types.
-//! - Concrete polynomial types (fixed/dynamic, different storages) implement these traits.
+//! Algorithms should depend on these traits rather than concrete polynomial types.
 //!
-//! **Important:** do not bake heavy bounds (like `Clone`, `PartialEq`) into the trait
-//! unless you truly need them. Put such bounds on the algorithms that require them.
+//! Polynomials are context-driven:
+//! - field arithmetic comes from `ctx.field`
+//! - monomial order comes from `ctx.order`
+//! - polynomials store a [`RingId`](crate::ring::RingId) safety tag to detect mixing rings.
 
-extern crate alloc;
-
-use alloc::vec::Vec;
-
-use gbx_alg::Field;
-
-use crate::monomial::MonomialOrder;
-use crate::term::traits::TermView;
+use crate::order::MonomialOrder;
+use crate::ring::{FieldCtx, RingCtx, RingId};
+use crate::term::TermView;
 
 /// Read-only polynomial interface.
 ///
-/// This is the main trait algorithms should accept for *inspection*.
-///
-/// Required invariant (recommended):
-/// - `terms()` are sorted in descending order by `Order`, so `leading_term()` is O(1).
+/// If normalized, the leading term is expected at index 0.
 pub trait PolynomialView {
-    /// Coefficient field.
-    type Field: Field;
+    /// Sparse term type.
+    type Term: TermView;
 
-    /// Sparse term representation.
-    type Term: TermView<Field = Self::Field>;
+    /// Ring identity tag stored in the polynomial.
+    fn ring_id(&self) -> RingId;
 
-    /// Monomial order used by algorithms.
-    type Order: MonomialOrder;
+    /// Terms slice (canonical order if normalized).
+    fn terms(&self) -> &[Self::Term];
 
-    /// Returns `true` if the polynomial is exactly zero.
+    /// Is this polynomial exactly zero?
     #[inline]
     fn is_zero(&self) -> bool {
         self.terms().is_empty()
     }
 
-    /// Returns an immutable view of the internal term slice.
-    fn terms(&self) -> &[Self::Term];
-
-    /// Leading term with respect to `Order`.
-    ///
-    /// If the polynomial is normalized (sorted descending), this is the first term.
+    /// Leading term (if normalized, this is `terms().first()`).
     #[inline]
     fn leading_term(&self) -> Option<&Self::Term> {
         self.terms().first()
     }
 
-    /// Leading monomial (`lm`) with respect to `Order`.
+    /// Leading monomial (if any).
     #[inline]
-    fn leading_monomial(&self) -> Option<&<Self::Term as TermView>::Mono> {
+    fn leading_mono(&self) -> Option<&<Self::Term as TermView>::Mono> {
         self.leading_term().map(|t| t.mono())
     }
-    /// Leading coefficient (`lc`) with respect to `Order`.
+
+    /// Leading coefficient (if any).
     #[inline]
-    fn leading_coefficient(&self) -> Option<&Self::Field> {
+    fn leading_coeff(&self) -> Option<&<Self::Term as TermView>::Coeff> {
         self.leading_term().map(|t| t.coeff())
+    }
+
+    /// Number of terms.
+    #[inline]
+    fn len(&self) -> usize {
+        self.terms().len()
     }
 }
 
 /// Minimal mutation hooks needed by generic algorithms.
 ///
-/// Algorithms typically need:
-/// - a way to construct `0`
-/// - a way to build from terms (normalizing internally)
-/// - a way to append terms and normalize
-pub trait PolynomialMut: PolynomialView {
-    /// Create the zero polynomial.
-    fn zero() -> Self;
-
-    /// Build from raw terms (must normalize internally).
-    fn from_terms(terms: Vec<Self::Term>) -> Self
+/// Note: these methods are context-driven; the polynomial itself does not know
+/// modulus/order/nvars.
+pub trait PolynomialMut: PolynomialView + Sized {
+    /// Create the zero polynomial tagged with `ctx.id()`.
+    fn zero_in<F, O>(ctx: &RingCtx<F, O>) -> Self
     where
-        Self::Field: gbx_alg::Zero + Clone;
+        F: FieldCtx,
+        O: MonomialOrder;
 
-    /// Push a single term (may temporarily violate invariants).
-    fn push_term(&mut self, term: Self::Term);
-
-    /// Normalize in-place:
-    /// - drop zero coefficients
-    /// - merge like monomials
-    /// - sort by `Order` descending
-    fn normalize_in_place(&mut self)
+    /// Build from raw terms and normalize using `ctx`.
+    fn from_terms_in<F, O>(ctx: &RingCtx<F, O>, terms: Vec<Self::Term>) -> crate::polynomial::Result<Self>
     where
-        Self::Field: gbx_alg::Zero + Clone;
+        F: FieldCtx<Elem = <Self::Term as TermView>::Coeff>,
+        O: MonomialOrder;
+
+    /// Push a raw term (may violate invariants until normalized).
+    fn push_term_raw(&mut self, t: Self::Term);
+
+    /// Normalize in-place using `ctx` (canonical form).
+    fn normalize_in_place<F, O>(&mut self, ctx: &RingCtx<F, O>) -> crate::polynomial::Result<()>
+    where
+        F: FieldCtx<Elem = <Self::Term as TermView>::Coeff>,
+        O: MonomialOrder;
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+    use crate::monomial::FixedMonomial;
+    use crate::order::Lex;
+    use crate::polynomial::poly::Polynomial;
+    use crate::ring::{Ring, StaticFpCtx};
+    use crate::term::Term;
+    use gbx_field::fp::Fp;
+    use gbx_storage::polynomial::VecTerms;
+
+    type F7 = Fp<7>;
+    type T2 = Term<F7, FixedMonomial<2>>;
+    type P2 = Polynomial<T2, VecTerms<T2>>;
+
+    #[test]
+    fn view_helpers_work() {
+        let ring = Ring::builder()
+            .field(StaticFpCtx::<7>::new())
+            .order(Lex)
+            .nvars(2)
+            .build()
+            .unwrap();
+
+        let p = P2::from_terms_in(
+            &ring,
+            vec![Term::new(F7::new(1), FixedMonomial::<2>::from_exponents([2, 0])), Term::new(F7::new(3), FixedMonomial::<2>::from_exponents([1, 0]))],
+        )
+        .unwrap();
+
+        assert_eq!(p.len(), 2);
+        assert!(p.leading_term().is_some());
+        assert!(p.leading_mono().is_some());
+        assert!(p.leading_coeff().is_some());
+        assert_eq!(p.ring_id(), ring.id());
+    }
 }

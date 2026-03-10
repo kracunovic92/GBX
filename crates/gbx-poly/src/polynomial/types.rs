@@ -1,75 +1,59 @@
-//! Public concrete polynomial types.
+//! Public polynomial type aliases.
 //!
-//! The crate exposes two main polynomial flavors:
+//! These aliases are convenience wrappers around the generic
+//! [`Polynomial`](crate::polynomial::Polynomial) container.
 //!
-//! - [`FixedPolynomial`]: compile-time arity via `const N: usize`
-//! - [`DynamicPolynomial`]: runtime arity (stored in each monomial/term)
-//!
-//! Both are thin type aliases over the generic engine [`Polynomial`]. The engine is
-//! parameterized by:
-//! - term type (`FixedTerm` / `DynamicTerm`)
-//! - monomial order (`Lex`, `Grevlex`, or custom implementing [`MonomialOrder`])
-//! - storage backend (defaults to [`VecTerms`])
-//!
-//! # Examples
-//!
-//! ```
-//! use gbx_poly::monomial::Lex;
-//! use gbx_poly::polynomial::{FixedPolynomial, PolynomialMut, PolynomialView};
-//! use gbx_poly::term::FixedTerm;
-//! use gbx_field::fp::Fp;
-//!
-//! type F = Fp<7>;
-//! type P = FixedPolynomial<F, Lex, 2>;
-//!
-//! // Construct from raw terms (normalizes internally):
-//! let t1 = FixedTerm::<F, 2>::from_coeff_and_exponents(F::new(3), [1, 0]);
-//! let t2 = FixedTerm::<F, 2>::from_coeff_and_exponents(F::new(5), [1, 0]);
-//! let p = <P as PolynomialMut>::from_terms(vec![t1, t2]);
-//!
-//! assert_eq!(p.terms().len(), 1); // merged
-//! assert_eq!(*p.leading_coefficient().unwrap(), F::new(1)); // 3+5 = 8 ≡ 1 mod 7
-//! ```
-//!
-//! Note: `PolynomialMut` constructors are trait associated functions, so you either
-//! call them via UFCS as above or use inherent wrappers you add on the engine.
+//! Monomial order is *not* part of the polynomial type; it is supplied by the ring context.
 
 use gbx_storage::polynomial::VecTerms;
 
+use crate::monomial::{DynamicMonomial, FixedMonomial};
 use crate::polynomial::poly::Polynomial;
-use crate::term::{DynamicTerm, FixedTerm};
+use crate::term::Term;
 
-/// Runtime-arity sparse polynomial over a field `F` with monomial order `O`.
-///
-/// Storage backend defaults to [`VecTerms`].
-pub type DynamicPolynomial<F, O, S = VecTerms<DynamicTerm<F>>> = Polynomial<DynamicTerm<F>, O, S>;
+/// Fully dynamic: runtime coefficient element + runtime arity monomial.
+pub type PolyDyn<C, S = VecTerms<Term<C, DynamicMonomial>>> = Polynomial<Term<C, DynamicMonomial>, S>;
 
-/// Compile-time-arity sparse polynomial over a field `F` with monomial order `O`
-/// and arity `N`.
-///
-/// Storage backend defaults to [`VecTerms`].
-pub type FixedPolynomial<F, O, const N: usize, S = VecTerms<FixedTerm<F, N>>> = Polynomial<FixedTerm<F, N>, O, S>;
+/// Dynamic coeff element + fixed arity.
+pub type PolyDynFieldFixedVars<C, const N: usize, S = VecTerms<Term<C, FixedMonomial<N>>>> = Polynomial<Term<C, FixedMonomial<N>>, S>;
+
+/// Static coeff element (or any `C`) + runtime arity monomial.
+pub type PolyFixedFieldDynVars<C, S = VecTerms<Term<C, DynamicMonomial>>> = Polynomial<Term<C, DynamicMonomial>, S>;
+
+/// Fully fixed: coeff element + fixed arity.
+pub type PolyFixed<C, const N: usize, S = VecTerms<Term<C, FixedMonomial<N>>>> = Polynomial<Term<C, FixedMonomial<N>>, S>;
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used)]
+
     use super::*;
-    use crate::monomial::Lex;
-    use crate::polynomial::traits::{PolynomialMut, PolynomialView};
+    use crate::monomial::FixedMonomial;
+    use crate::order::Lex;
+    use crate::polynomial::traits::PolynomialMut;
+    use crate::ring::{Ring, StaticFpCtx};
+    use crate::term::Term;
     use gbx_field::fp::Fp;
 
-    type F7 = Fp<7>;
-
     #[test]
-    fn fixed_alias_compiles_and_constructs_zero() {
-        type P = FixedPolynomial<F7, Lex, 2>;
-        let p = <P as PolynomialMut>::zero();
-        assert!(p.is_zero());
-    }
+    fn aliases_compile_and_construct() {
+        type F7 = Fp<7>;
 
-    #[test]
-    fn dynamic_alias_compiles_and_constructs_zero() {
-        type P = DynamicPolynomial<F7, Lex>;
-        let p = <P as PolynomialMut>::zero();
-        assert!(p.is_zero());
+        let ring = Ring::builder()
+            .field(StaticFpCtx::<7>::new())
+            .order(Lex)
+            .nvars(2)
+            .build()
+            .unwrap();
+
+        type P = PolyFixed<F7, 2>;
+
+        let _z = P::zero_in(&ring);
+
+        let _p = P::from_terms_in(
+            &ring,
+            vec![Term::new(F7::new(1), FixedMonomial::<2>::from_exponents([1, 0]))],
+        )
+        .unwrap();
     }
 }

@@ -3,18 +3,19 @@
 //! These routines are **storage-agnostic**: they operate only on the `MonomialView` / `Monomial`
 //! traits, so they work for both fixed and dynamic monomials.
 //!
-//! Design:
-//! - Read-only predicates use [`MonomialView`].
-//! - Constructors return the crate-level [`MonomialError`] so callers get a consistent error model.
-//! - `checked_quotient` returns `Ok(None)` when not divisible; `Err(_)` only for real errors.
+//! Note: these algorithms assume exponent words are `u32` (the library default).
 
-use crate::monomial::{Monomial, MonomialError, MonomialView};
+use crate::monomial::{Monomial, MonomialError, MonomialView, Result};
 
 /// Returns `true` iff `a` divides `b` componentwise (i.e., `a_i <= b_i` for all i).
 ///
 /// If variable counts differ, returns `false`.
 #[inline]
-pub fn divides<A: MonomialView, B: MonomialView>(a: &A, b: &B) -> bool {
+pub fn divides<A, B>(a: &A, b: &B) -> bool
+where
+    A: MonomialView<Word = u32>,
+    B: MonomialView<Word = u32>,
+{
     if a.n_vars() != b.n_vars() {
         return false;
     }
@@ -27,21 +28,17 @@ pub fn divides<A: MonomialView, B: MonomialView>(a: &A, b: &B) -> bool {
 /// Computes `lcm(a, b)` componentwise (`max` per exponent).
 ///
 /// # Errors
-/// - [`MonomialError::MismatchedVariableCount`] if `a` and `b` have different arities.
-/// - Any error produced by `M::try_from_exponents_iter` (converted into [`MonomialError`]).
-///
-/// # Type parameters
-/// `MonomialError: From<M::Error>` lets `?` convert implementation-specific errors.
+/// - [`MonomialError::MismatchedArity`] if `a` and `b` have different arities.
+/// - Any error produced by `M::try_from_exponents_iter`.
 #[inline]
-pub fn checked_lcm<M>(a: &M, b: &M) -> Result<M, MonomialError>
+pub fn checked_lcm<M>(a: &M, b: &M) -> Result<M>
 where
-    M: Monomial,
-    MonomialError: From<M::Error>,
+    M: Monomial<Word = u32>,
 {
     let n = a.n_vars();
     let m = b.n_vars();
     if n != m {
-        return Err(MonomialError::MismatchedVariableCount { lhs: n, rhs: m });
+        return Err(MonomialError::MismatchedArity { lhs: n, rhs: m });
     }
 
     let exps = a
@@ -50,24 +47,47 @@ where
         .zip(b.exponents().iter())
         .map(|(&x, &y)| x.max(y));
 
-    Ok(M::try_from_exponents_iter(n, exps)?)
+    M::try_from_exponents_iter(n, exps)
+}
+
+/// Computes `deg(lcm(a,b))` without constructing the LCM monomial.
+///
+/// # Errors
+/// - [`MonomialError::MismatchedArity`] if `a` and `b` have different arities.
+#[inline]
+pub fn checked_lcm_degree<M>(a: &M, b: &M) -> Result<u32>
+where
+    M: Monomial<Word = u32>,
+{
+    let n = a.n_vars();
+    let m = b.n_vars();
+    if n != m {
+        return Err(MonomialError::MismatchedArity { lhs: n, rhs: m });
+    }
+
+    let mut deg = 0u32;
+    for (&x, &y) in a.exponents().iter().zip(b.exponents().iter()) {
+        deg = deg
+            .checked_add(x.max(y))
+            .ok_or(MonomialError::DegreeOverflow)?;
+    }
+    Ok(deg)
 }
 
 /// Computes `gcd(a, b)` componentwise (`min` per exponent).
 ///
 /// # Errors
-/// - [`MonomialError::MismatchedVariableCount`] if `a` and `b` have different arities.
-/// - Any error produced by `M::try_from_exponents_iter` (converted into [`MonomialError`]).
+/// - [`MonomialError::MismatchedArity`] if `a` and `b` have different arities.
+/// - Any error produced by `M::try_from_exponents_iter`.
 #[inline]
-pub fn checked_gcd<M>(a: &M, b: &M) -> Result<M, MonomialError>
+pub fn checked_gcd<M>(a: &M, b: &M) -> Result<M>
 where
-    M: Monomial,
-    MonomialError: From<M::Error>,
+    M: Monomial<Word = u32>,
 {
     let n = a.n_vars();
     let m = b.n_vars();
     if n != m {
-        return Err(MonomialError::MismatchedVariableCount { lhs: n, rhs: m });
+        return Err(MonomialError::MismatchedArity { lhs: n, rhs: m });
     }
 
     let exps = a
@@ -76,7 +96,17 @@ where
         .zip(b.exponents().iter())
         .map(|(&x, &y)| x.min(y));
 
-    Ok(M::try_from_exponents_iter(n, exps)?)
+    M::try_from_exponents_iter(n, exps)
+}
+/// Fast check
+
+#[inline]
+pub fn gcd_is_one<M: Monomial<Word = u32>>(a: &M, b: &M) -> bool {
+    debug_assert_eq!(a.n_vars(), b.n_vars());
+    a.exponents()
+        .iter()
+        .zip(b.exponents().iter())
+        .all(|(&x, &y)| x == 0 || y == 0)
 }
 
 /// Computes the quotient `dividend / divisor` if `divisor` divides `dividend`.
@@ -84,21 +114,19 @@ where
 /// Returns:
 /// - `Ok(Some(q))` if divisible (where `q * divisor = dividend` exponentwise)
 /// - `Ok(None)` if not divisible
-/// - `Err(_)` if arity mismatched or monomial construction fails
 ///
 /// # Errors
-/// - [`MonomialError::MismatchedVariableCount`] if variable counts differ.
-/// - Any error produced by `M::try_from_exponents_iter` (converted into [`MonomialError`]).
+/// - [`MonomialError::MismatchedArity`] if variable counts differ.
+/// - Any error produced by `M::try_from_exponents_iter`.
 #[inline]
-pub fn checked_quotient<M>(divisor: &M, dividend: &M) -> Result<Option<M>, MonomialError>
+pub fn checked_quotient<M>(divisor: &M, dividend: &M) -> Result<Option<M>>
 where
-    M: Monomial,
-    MonomialError: From<M::Error>,
+    M: Monomial<Word = u32>,
 {
     let n = divisor.n_vars();
     let m = dividend.n_vars();
     if n != m {
-        return Err(MonomialError::MismatchedVariableCount { lhs: n, rhs: m });
+        return Err(MonomialError::MismatchedArity { lhs: n, rhs: m });
     }
     if !divides(divisor, dividend) {
         return Ok(None);
@@ -113,10 +141,27 @@ where
     Ok(Some(M::try_from_exponents_iter(n, exps)?))
 }
 
+/// Computes the exact quotient `dividend / divisor`, erroring if not divisible.
+///
+/// # Errors
+/// - [`MonomialError::MismatchedArity`] if arities differ.
+/// - [`MonomialError::NotDivisible`] if `divisor` does not divide `dividend`.
+/// - Any construction error from `M::try_from_exponents_iter`.
+#[inline]
+pub fn checked_div_exact<M>(divisor: &M, dividend: &M) -> Result<M>
+where
+    M: Monomial<Word = u32>,
+{
+    match checked_quotient(divisor, dividend)? {
+        Some(q) => Ok(q),
+        None => Err(MonomialError::NotDivisible),
+    }
+}
+
 /// Convenience extension trait: method-style access to monomial algorithms.
 ///
 /// Note: methods return the crate-level [`MonomialError`] for a consistent API.
-pub trait MonomialAlgos: Monomial {
+pub trait MonomialAlgos: Monomial<Word = u32> {
     /// `self | other` (componentwise).
     #[inline]
     fn divides(&self, other: &Self) -> bool {
@@ -125,19 +170,13 @@ pub trait MonomialAlgos: Monomial {
 
     /// `lcm(self, other)`.
     #[inline]
-    fn checked_lcm(&self, other: &Self) -> Result<Self, MonomialError>
-    where
-        MonomialError: From<Self::Error>,
-    {
+    fn checked_lcm(&self, other: &Self) -> Result<Self> {
         checked_lcm(self, other)
     }
 
     /// `gcd(self, other)`.
     #[inline]
-    fn checked_gcd(&self, other: &Self) -> Result<Self, MonomialError>
-    where
-        MonomialError: From<Self::Error>,
-    {
+    fn checked_gcd(&self, other: &Self) -> Result<Self> {
         checked_gcd(self, other)
     }
 
@@ -145,10 +184,7 @@ pub trait MonomialAlgos: Monomial {
     ///
     /// Returns `Ok(None)` if not divisible.
     #[inline]
-    fn checked_quotient_of(&self, dividend: &Self) -> Result<Option<Self>, MonomialError>
-    where
-        MonomialError: From<Self::Error>,
-    {
+    fn checked_quotient_of(&self, dividend: &Self) -> Result<Option<Self>> {
         checked_quotient(self, dividend)
     }
 
@@ -156,20 +192,29 @@ pub trait MonomialAlgos: Monomial {
     ///
     /// Returns `Ok(None)` if not divisible.
     #[inline]
-    fn checked_div_by(&self, divisor: &Self) -> Result<Option<Self>, MonomialError>
-    where
-        MonomialError: From<Self::Error>,
-    {
+    fn checked_div_by(&self, divisor: &Self) -> Result<Option<Self>> {
         checked_quotient(divisor, self)
+    }
+
+    /// `self / divisor` with an error if not divisible.
+    #[inline]
+    fn checked_div_exact_by(&self, divisor: &Self) -> Result<Self> {
+        checked_div_exact(divisor, self)
+    }
+
+    /// `dividend / self` with an error if not divisible.
+    #[inline]
+    fn checked_exact_quotient_of(&self, dividend: &Self) -> Result<Self> {
+        checked_div_exact(self, dividend)
     }
 }
 
-impl<M: Monomial> MonomialAlgos for M {}
+impl<M: Monomial<Word = u32>> MonomialAlgos for M {}
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::{DynamicMonomial, FixedMonomial};
+    use crate::monomial::{DynamicMonomial, FixedMonomial};
 
     #[test]
     fn divides_fixed() {

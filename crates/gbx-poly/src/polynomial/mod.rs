@@ -1,40 +1,93 @@
-//! Sparse multivariate polynomials.
+//! Sparse multivariate polynomials (context-driven).
 //!
-//! This module is designed around three ideas:
+//! This module provides a generic sparse polynomial container and the traits
+//! used by algorithms (reduction, Gröbner basis, etc.).
 //!
-//! 1) **Concrete public types** follow the `Fixed*` / `Dynamic*` convention used
-//!    throughout the crate:
-//!    - [`FixedPolynomial`]: compile-time arity (`const N: usize`)
-//!    - [`DynamicPolynomial`]: runtime arity
+//! Polynomials are evaluated inside a [`RingCtx`](crate::ring::RingCtx):
+//! - **field arithmetic** comes from `ctx.field` (static or dynamic)
+//! - **monomial order** comes from `ctx.order`
+//! - **ring arity** comes from `ctx.nvars`
 //!
-//! 2) **Algorithms depend on small traits**, not concrete types:
-//!    - [`PolynomialView`]: read-only interface (slice of terms + leading term)
-//!    - [`PolynomialMut`]: minimal construction/mutation hooks used by algorithms
+//! The polynomial value itself is intentionally small:
+//! - it stores only a [`RingId`](crate::ring::RingId) tag and a term storage backend
+//! - it does *not* store modulus/order/arity
 //!
-//! 3) A single **generic engine type** powers all concrete polynomial types:
-//!    - [`Polynomial`]: parameterized by term type, monomial order, and storage backend.
+//! ## Normalized (canonical) form
+//! Normalized form means:
+//! - no zero coefficients (`ctx.field.is_zero`)
+//! - no duplicate monomials (merged with `ctx.field.add`)
+//! - terms sorted descending with respect to `ctx.order`
 //!
-//! The generic `Polynomial<...>` is intentionally not the primary user-facing type.
-//! Most users should use `FixedPolynomial` or `DynamicPolynomial` type aliases.
+//! Construction via [`PolynomialMut::from_terms_in`] and [`PolynomialMut::normalize_in_place`]
+//! enforces these invariants.
 //!
-//! # Storage backends
+//! ## Construction macros
+//! The `poly!` and `terms!` macros help build test polynomials quickly.
+//! They are storage-agnostic: they build `Vec<Term<..>>` then call
+//! [`PolynomialMut::from_terms_in`].
 //!
-//! The internal term container is abstracted via `gbx-storage` (`TermStorage`).
-//! This allows using different representations (e.g. `Vec`-based, arena-packed, etc.)
-//! without changing polynomial algorithms.
+//! ## Common combinations (examples)
 //!
-//! # Normalization invariants
+//! ### Static field + fixed arity
+//! ```
+//! use gbx_poly::order::Lex;
+//! use gbx_poly::polynomial::{PolyFixed, PolynomialView};
+//! use gbx_poly::ring::{Ring, StaticFpCtx};
+//! use gbx_field::fp::Fp;
+//! use gbx_poly::poly;
 //!
-//! Concrete polynomial types are expected to maintain these invariants after
-//! normalization (constructors/mutators must enforce them):
-//! - no zero coefficients
-//! - no duplicate monomials
-//! - terms sorted in **descending** order w.r.t. the monomial order `O`
+//! let ring = Ring::builder()
+//!     .field(StaticFpCtx::<7>::new())
+//!     .order(Lex)
+//!     .nvars(2)
+//!     .build()
+//!     .unwrap();
 //!
-//! Keeping terms sorted makes `leading_term()` an O(1) operation.
+//! type P2 = PolyFixed<Fp<7>, 2>;
+//! let p: P2 = poly![&ring; (3,[1,0]), (5,[1,0]), (1,[0,0])].unwrap();
+//! assert_eq!(p.len(), 2);
+//! ```
+//!
+//! ### Dynamic field + dynamic arity
+//! ```
+//! use gbx_poly::order::Lex;
+//! use gbx_poly::polynomial::{PolyDyn, PolynomialView};
+//! use gbx_field::fp::{FpDyn, FpDynElem};
+//! use gbx_poly::poly;
+//! use gbx_poly::ring::Ring;
+//!
+//! let ring = Ring::builder()
+//!     .field(FpDyn::prime(7).unwrap())
+//!     .order(Lex)
+//!     .nvars(3)
+//!     .build()
+//!     .unwrap();
+//!
+//! type P = PolyDyn<FpDynElem>;
+//! let p: P = poly![&ring; (3,[1,0,2]), (5,[1,0,2]), (4,[0,7,0])].unwrap();
+//! assert_eq!(p.len(), 2);
+//! ```
+//!
+//! ## Errors
+//! Many operations validate ring identity and will return [`PolynomialError::Ring`]
+//! when mixing polynomials from different rings.
 
-mod error;
+mod display;
+mod display_macros;
+pub mod error;
+mod macros;
 mod normalize;
-mod poly;
-mod traits;
+pub mod ops;
+pub mod poly;
+pub mod reduce;
+pub mod traits;
 mod types;
+
+pub use display::{PolyDisplay, PolyStyle};
+pub use error::{PolynomialError, Result};
+pub use normalize::normalize_terms_in;
+pub use ops::PolynomialOps;
+pub use poly::Polynomial;
+pub use reduce::{PolynomialReduce, ReduceError};
+pub use traits::{PolynomialMut, PolynomialView};
+pub use types::*;
