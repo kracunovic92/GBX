@@ -1,6 +1,7 @@
 use anyhow::Result;
+use std::collections::BTreeMap;
 
-use crate::engine::backend::{Backend, BackendRun, GeneratedScript};
+use crate::engine::backend::{Backend, BackendRun, BasisArtifacts, CommonRunMetrics, GbxRunMetrics, GeneratedScript};
 use crate::gbx::adapter::gbx_compute_basis;
 use crate::gbx::config::GbxConfig;
 use crate::utils::test_file_config::TestCase;
@@ -24,21 +25,56 @@ impl Backend for GbxBackend {
         let wall = start.elapsed();
 
         match res {
-            Ok(out) => Ok(BackendRun {
-                ok: true,
-                stdout: format_stdout(&out),
-                stderr: String::new(),
-                wall_time: wall,
-                // choose the stable representation for comparisons:
-                basis_lines: out.basis_dump_lines,
-            }),
-            Err(e) => Ok(BackendRun { ok: false, stdout: String::new(), stderr: format!("{e:?}"), wall_time: wall, basis_lines: Vec::new() }),
+            Ok(out) => {
+                let basis = BasisArtifacts { canonical_lines: out.basis_dump_lines.clone(), pretty_lines: out.basis_pretty_lines.clone() };
+
+                let common_metrics = CommonRunMetrics {
+                    wall_time: wall,
+                    peak_memory_bytes: None,
+                    avg_memory_bytes: None,
+                    stdout_bytes: 0, // fixed below after stdout is built
+                    stderr_bytes: 0,
+                    basis_len: basis.canonical_lines.len(),
+                };
+
+                let stdout = format_stdout(&out);
+                let mut metadata = BTreeMap::new();
+                metadata.insert("case".to_string(), case.name.clone());
+                metadata.insert("field".to_string(), case.field.clone());
+                metadata.insert("order".to_string(), case.order.clone());
+                metadata.insert("normalize".to_string(), self.cfg.normalize.to_string());
+                metadata.insert("pairing".to_string(), self.cfg.criteria.to_string());
+
+                let gbx_metrics = extract_gbx_metrics(&out);
+
+                Ok(BackendRun {
+                    ok: true,
+                    stdout: stdout.clone(),
+                    stderr: String::new(),
+                    basis,
+                    common_metrics: CommonRunMetrics { stdout_bytes: stdout.len(), ..common_metrics },
+                    gbx_metrics,
+                    metadata,
+                })
+            }
+            Err(e) => {
+                let stderr = format!("{e:?}");
+
+                Ok(BackendRun {
+                    ok: false,
+                    stdout: String::new(),
+                    stderr: stderr.clone(),
+                    basis: BasisArtifacts::default(),
+                    common_metrics: CommonRunMetrics { wall_time: wall, peak_memory_bytes: None, avg_memory_bytes: None, stdout_bytes: 0, stderr_bytes: stderr.len(), basis_len: 0 },
+                    gbx_metrics: None,
+                    metadata: BTreeMap::new(),
+                })
+            }
         }
     }
 }
 
 fn format_input_dump(case: &TestCase, cfg: &GbxConfig) -> String {
-    // Keep this *boring* and deterministic: no pretty printing that can reorder.
     let mut s = String::new();
 
     push_kv(&mut s, "case", &case.name);
@@ -65,10 +101,6 @@ fn push_kv(out: &mut String, k: &str, v: &str) {
 }
 
 fn format_stdout(out: &crate::gbx::run::GbxRunOutput) -> String {
-    // Helpful when you run locally: print pretty basis to stdout,
-    // while comparisons use the stable tuple dump lines.
-    //
-    // If you prefer total silence, just return String::new().
     if out.basis_pretty_lines.is_empty() {
         return String::new();
     }
@@ -79,4 +111,22 @@ fn format_stdout(out: &crate::gbx::run::GbxRunOutput) -> String {
         s.push('\n');
     }
     s
+}
+
+fn extract_gbx_metrics(out: &crate::gbx::run::GbxRunOutput) -> Option<GbxRunMetrics> {
+    Some(GbxRunMetrics {
+        init_ms: None,
+        seed_ms: None,
+        while_ms: None,
+        post_ms: None,
+        spoly_ms: None,
+        normal_form_ms: None,
+        pair_update_ms: None,
+        pairs_pushed: None,
+        pairs_popped: None,
+        zero_reductions: None,
+        nonzero_insertions: None,
+        max_queue_len: None,
+        final_basis_len: Some(out.basis_dump_lines.len()),
+    })
 }

@@ -15,6 +15,7 @@ impl<T> Clone for TraceHandle<T> {
     }
 }
 
+#[allow(missing_docs)]
 impl<T> TraceHandle<T> {
     #[must_use]
     #[inline]

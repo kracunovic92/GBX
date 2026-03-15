@@ -10,7 +10,7 @@
 //!
 //! Algorithm-specific trace modules should build on top of this framework by
 //! defining their own counters, snapshots, event methods, and reporters.
-
+#![allow(missing_docs)]
 pub mod config;
 pub mod handle;
 pub mod level;

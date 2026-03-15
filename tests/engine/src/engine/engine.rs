@@ -1,5 +1,6 @@
+use crate::engine::backend::Backend;
 use crate::engine::config::EngineConfig;
-use crate::engine::orchestrator::run_backend_for_case;
+use crate::engine::orchestrator::{execute_backend_for_case, persist_backend_run};
 use crate::gbx::backend::GbxBackend;
 use crate::singular::backend::SingularBackend;
 use crate::utils::case_writer::{write_compare, CaseWriter};
@@ -7,6 +8,7 @@ use crate::utils::paths::OutputLayout;
 use crate::utils::sanitize_filename::sanitize_filename;
 use crate::utils::test_file_config::TestFile;
 use anyhow::{Context, Result};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn run_runner(cfg: EngineConfig) -> Result<()> {
     let file = TestFile::from_path(&cfg.cases_path).with_context(|| format!("loading cases from {}", cfg.cases_path.display()))?;
@@ -19,6 +21,7 @@ pub fn run_runner(cfg: EngineConfig) -> Result<()> {
 
     let singular = SingularBackend { cfg: cfg.singular.clone() };
     let gbx = GbxBackend { cfg: cfg.gbx.clone() };
+
     let run_singular = cfg.selection.run_singular();
     let run_gbx = cfg.selection.run_gbx();
 
@@ -26,15 +29,25 @@ pub fn run_runner(cfg: EngineConfig) -> Result<()> {
         let stem = sanitize_filename(&case.name);
 
         let singular_run = if run_singular {
-            let w = CaseWriter::new(&stem, &layout.singular);
-            Some(run_backend_for_case(&singular, case, &w)?)
+            let (script, run) = execute_backend_for_case(&singular, case)?;
+            let run_id = make_run_id(singular.name(), &stem);
+            let run_dir = layout.make_run_dir(&run_id, script.ext)?;
+            let writer = CaseWriter::new(&run_dir);
+
+            persist_backend_run(singular.name(), &writer, &script, &run)?;
+            Some(run)
         } else {
             None
         };
 
         let gbx_run = if run_gbx {
-            let w = CaseWriter::new(&stem, &layout.gbx);
-            Some(run_backend_for_case(&gbx, case, &w)?)
+            let (script, run) = execute_backend_for_case(&gbx, case)?;
+            let run_id = make_run_id(gbx.name(), &stem);
+            let run_dir = layout.make_run_dir(&run_id, script.ext)?;
+            let writer = CaseWriter::new(&run_dir);
+
+            persist_backend_run(gbx.name(), &writer, &script, &run)?;
+            Some(run)
         } else {
             None
         };
@@ -43,8 +56,14 @@ pub fn run_runner(cfg: EngineConfig) -> Result<()> {
             let s = &singular_run
                 .as_ref()
                 .context("missing singular run")?
-                .basis_lines;
-            let g = &gbx_run.as_ref().context("missing gbx run")?.basis_lines;
+                .basis
+                .canonical_lines;
+
+            let g = &gbx_run
+                .as_ref()
+                .context("missing gbx run")?
+                .basis
+                .canonical_lines;
 
             let report = build_compare_report(&stem, s, g);
             write_compare(&layout.compare, &stem, &report)?;
@@ -52,6 +71,15 @@ pub fn run_runner(cfg: EngineConfig) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn make_run_id(backend: &str, stem: &str) -> String {
+    let ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system time before unix epoch")
+        .as_millis();
+
+    format!("{ms}_{backend}_{stem}")
 }
 
 /* ------------ Compare (still naive) ------------ */
@@ -64,7 +92,6 @@ fn build_compare_report(stem: &str, singular: &[String], gbx: &[String]) -> Stri
 
     let same = a == b;
 
-    // basic diff
     let only_a: Vec<_> = a.iter().filter(|x| !b.contains(x)).cloned().collect();
     let only_b: Vec<_> = b.iter().filter(|x| !a.contains(x)).cloned().collect();
 

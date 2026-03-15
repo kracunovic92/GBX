@@ -2,40 +2,45 @@ use crate::utils::io::write_text;
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
-use crate::utils::paths::BackendDirs;
+use crate::utils::paths::RunDir;
 
 pub struct CaseWriter<'a> {
-    stem: &'a str,
-    out: &'a BackendDirs,
+    run: &'a RunDir,
 }
 
 impl<'a> CaseWriter<'a> {
-    pub fn new(stem: &'a str, out: &'a BackendDirs) -> Self {
-        Self { stem, out }
+    pub fn new(run: &'a RunDir) -> Self {
+        Self { run }
     }
 
-    pub fn script(&self, ext: &str, text: &str) -> Result<PathBuf> {
-        let path = self.out.scripts.join(format!("{}.{}", self.stem, ext));
-        write_text(&path, text)?;
-        Ok(path)
+    pub fn script(&self, text: &str) -> Result<PathBuf> {
+        write_text(&self.run.script, text)?;
+        Ok(self.run.script.clone())
     }
 
-    pub fn output(&self, ext: &str, text: &str) -> Result<PathBuf> {
-        let path = self.out.outputs.join(format!("{}.{}", self.stem, ext));
-        write_text(&path, text)?;
-        Ok(path)
+    pub fn output(&self, text: &str) -> Result<PathBuf> {
+        write_text(&self.run.output, text)?;
+        Ok(self.run.output.clone())
     }
 
-    pub fn basis(&self, ext: &str, text: &str) -> Result<PathBuf> {
-        let path = self.out.bases.join(format!("{}.{}", self.stem, ext));
-        write_text(&path, text)?;
-        Ok(path)
+    pub fn basis(&self, text: &str) -> Result<PathBuf> {
+        write_text(&self.run.basis, text)?;
+        Ok(self.run.basis.clone())
     }
 
-    pub fn stats(&self, ext: &str, text: &str) -> Result<PathBuf> {
-        let path = self.out.stats.join(format!("{}.{}", self.stem, ext));
-        write_text(&path, text)?;
-        Ok(path)
+    pub fn basis_pretty(&self, text: &str) -> Result<PathBuf> {
+        write_text(&self.run.basis_pretty, text)?;
+        Ok(self.run.basis_pretty.clone())
+    }
+
+    pub fn stats(&self, text: &str) -> Result<PathBuf> {
+        write_text(&self.run.stats, text)?;
+        Ok(self.run.stats.clone())
+    }
+
+    pub fn meta(&self, text: &str) -> Result<PathBuf> {
+        write_text(&self.run.meta, text)?;
+        Ok(self.run.meta.clone())
     }
 }
 

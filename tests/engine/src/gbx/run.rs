@@ -1,7 +1,10 @@
 use anyhow::{bail, Result};
 
 use gbx_field::fp::{FpDyn, FpDynElem};
-use gbx_grobner::{buchberger, BuchbergerOptions};
+use gbx_grobner::{
+    buchberger_with_tracer, BuchbergerOptions, BuchbergerTraceConfig, BuchbergerTracer, GmPairUpdater, HeapPairs, LcmDegreeKey, NoPairFilter, ProductCriterion, TraceConfig, TraceLevel, TraceReportMode,
+    TracingPairCriterion, TracingPairFilter, TracingPairKey, TracingQueue,
+};
 use gbx_poly::monomial::DynamicMonomial;
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::PolyDyn;
@@ -83,7 +86,27 @@ where
     }
 
     let opts = BuchbergerOptions::default();
-    let gb = buchberger(ring, gens.to_vec(), opts)?;
+
+    let tracer = BuchbergerTracer::shared(BuchbergerTraceConfig {
+        core: TraceConfig { level: TraceLevel::Verbose, report_mode: TraceReportMode::Verbose, snapshot_every: 100, memory_every: 0, final_memory: true },
+        progress_every: 100,
+        print_on_insert: false,
+        print_each_iteration: true,
+        print_iteration_timings: false,
+        print_phase_summary: true,
+        print_breakdown: true,
+        sample_memory_on_progress: false,
+        sample_memory_on_summary: true,
+    });
+
+    let queue = TracingQueue::wrap(HeapPairs::new(), tracer.clone());
+
+    let criterion = TracingPairCriterion::wrap(ProductCriterion, tracer.clone());
+    let key = TracingPairKey::wrap(LcmDegreeKey, tracer.clone());
+    let filter = TracingPairFilter::wrap(NoPairFilter, tracer.clone());
+    let update = GmPairUpdater::new(criterion, filter, key);
+
+    let gb = buchberger_with_tracer(ring, gens.iter().cloned(), opts, queue, update, tracer)?;
 
     Ok(gb.as_slice().to_vec())
 }
