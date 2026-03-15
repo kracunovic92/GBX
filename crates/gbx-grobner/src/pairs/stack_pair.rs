@@ -1,4 +1,5 @@
-use crate::pairs::traits::{Pair, PairQueue};
+use crate::pairs::traits::{normalize_pair_indices, Pair, PairQueue};
+use crate::PairSetView;
 use std::collections::VecDeque;
 
 /// Default pair queue: LIFO stack.
@@ -29,6 +30,16 @@ impl PairQueue for StackPairs {
     #[inline]
     fn len(&self) -> usize {
         self.0.len()
+    }
+}
+
+impl PairSetView for StackPairs {
+    #[inline]
+    fn contains_pair(&self, i: usize, j: usize) -> bool {
+        let want = normalize_pair_indices(i, j);
+        self.0
+            .iter()
+            .any(|&(_, a, b)| normalize_pair_indices(a, b) == want)
     }
 }
 
@@ -63,9 +74,20 @@ impl PairQueue for FifoPairs {
     }
 }
 
+impl PairSetView for FifoPairs {
+    #[inline]
+    fn contains_pair(&self, i: usize, j: usize) -> bool {
+        let want = normalize_pair_indices(i, j);
+        self.0
+            .iter()
+            .any(|&(_, a, b)| normalize_pair_indices(a, b) == want)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{FifoPairs, PairQueue, StackPairs};
+    use crate::PairSetView;
 
     #[test]
     fn stack_pairs_is_lifo() {
@@ -91,5 +113,39 @@ mod tests {
         assert_eq!(q.pop(), Some((0, 0, 2)));
         assert_eq!(q.pop(), Some((0, 1, 2)));
         assert_eq!(q.pop(), None);
+    }
+
+    #[test]
+    fn stack_pairs_tracks_membership() {
+        let mut q = StackPairs::new();
+        q.push((0, 2, 3));
+        q.push((0, 1, 4));
+
+        assert!(q.contains_pair(2, 3));
+        assert!(q.contains_pair(3, 2));
+        assert!(q.contains_pair(1, 4));
+        assert!(q.contains_pair(4, 1));
+        assert!(!q.contains_pair(0, 1));
+
+        assert_eq!(q.pop(), Some((0, 1, 4)));
+        assert!(!q.contains_pair(1, 4));
+        assert!(q.contains_pair(2, 3));
+    }
+
+    #[test]
+    fn fifo_pairs_tracks_membership() {
+        let mut q = FifoPairs::new();
+        q.push((0, 2, 3));
+        q.push((0, 1, 4));
+
+        assert!(q.contains_pair(2, 3));
+        assert!(q.contains_pair(3, 2));
+        assert!(q.contains_pair(1, 4));
+        assert!(q.contains_pair(4, 1));
+        assert!(!q.contains_pair(0, 1));
+
+        assert_eq!(q.pop(), Some((0, 2, 3)));
+        assert!(!q.contains_pair(2, 3));
+        assert!(q.contains_pair(1, 4));
     }
 }

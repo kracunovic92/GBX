@@ -1,5 +1,4 @@
-use crate::criteria::PairKey;
-use crate::GrobnerBasis;
+use crate::{GrobnerBasis, PairKey};
 
 /// Constant key `0` for all pairs.
 ///
@@ -17,11 +16,13 @@ use crate::GrobnerBasis;
 ///
 /// Since this key never fails, it always returns `Some(0)`.
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ZeroPairKey;
+pub struct ConstantPairKey;
 
-impl<P> PairKey<P> for ZeroPairKey {
+impl<P> PairKey<P> for ConstantPairKey {
+    type Key = u32;
+
     #[inline]
-    fn key_for_pair(&mut self, _gb: &GrobnerBasis<P>, _i: usize, _j: usize) -> Option<u32> {
+    fn key_for_pair(&mut self, _gb: &GrobnerBasis<P>, _i: usize, _j: usize) -> Option<Self::Key> {
         Some(0)
     }
 }

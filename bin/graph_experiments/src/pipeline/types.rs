@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use gbx_field::fp::{FpDyn, FpDynElem};
 use gbx_graph::Graph;
 use gbx_grobner::GrobnerBasis;

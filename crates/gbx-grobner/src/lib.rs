@@ -8,8 +8,8 @@
 //! - ring mixing is detected using the [`RingId`](crate::ring::RingId) tag stored in polynomials
 //!
 //! ## Main entry points
-//! - [`buchberger`] (defaults: LIFO pair processing, no criteria pruning)
-//! - [`buchberger_with`] (custom pair queue + criteria)
+//! - [`buchberger`] (defaults: LIFO pair processing, no pairing pruning)
+//! - [`buchberger_with`] (custom pair queue + pairing)
 //!
 //! ## Errors
 //! Errors are reported as [`BuchbergerError`] and include:
@@ -22,14 +22,16 @@
 
 mod algos;
 mod basis;
-mod criteria;
 mod display;
 mod error;
+mod pairing;
 mod pairs;
+mod trace;
 
-pub use algos::{buchberger, buchberger_with, s_polynomial_in, BasisPost, BuchbergerOptions, SPolyError};
+pub use algos::*;
 pub use basis::GrobnerBasis;
-pub use criteria::*;
 pub use display::{GbDisplay, GbStyle};
 pub use error::BuchbergerError;
+pub use pairing::*;
 pub use pairs::{FifoPairs, HeapPairs, Pair, PairQueue, StackPairs};
+pub use trace::*;

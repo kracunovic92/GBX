@@ -1,6 +1,6 @@
 //! Shared helper functions for Buchberger pair management.
 //!
-//! This module contains small, policy-free utilities used by criteria,
+//! This module contains small, policy-free utilities used by pairing,
 //! pair-key strategies, and pair-update strategies.
 //!
 //! The helpers here should remain lightweight and reusable.
@@ -8,9 +8,9 @@
 //! Those decisions belong to higher-level components implementing
 //! [`PairCriterion`](PairCriterion),
 //! [`PairKey`](PairKey),
-//! and [`PairUpdate`](crate::criteria::PairUpdate).
+//! and [`PairUpdate`](crate::pairing::PairUpdate).
 
-use crate::criteria::{PairCriterion, PairKey};
+use crate::pairing::{PairCriterion, PairKey};
 use crate::{GrobnerBasis, PairQueue};
 use gbx_poly::polynomial::PolynomialView;
 use gbx_poly::term::TermView;
@@ -29,7 +29,7 @@ use gbx_poly::term::TermView;
 /// - `Some(&LM(gb[index]))` if the polynomial exists and is nonzero
 /// - `None` otherwise
 #[inline]
-pub fn leading_mono_at<'a, P>(gb: &'a GrobnerBasis<P>, index: usize) -> Option<&'a <P::Term as TermView>::Mono>
+pub fn leading_mono_at<P>(gb: &GrobnerBasis<P>, index: usize) -> Option<&<P::Term as TermView>::Mono>
 where
     P: PolynomialView,
     P::Term: TermView,
@@ -54,17 +54,23 @@ where
 ///
 /// The caller should ensure that `new_index < gb.len()`.
 /// This is debug-asserted in debug builds.
-#[inline]
-pub fn seed_pairs<P, Q, C, K>(gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize, criterion: &mut C, keyer: &mut K)
-where
-    Q: PairQueue,
-    C: PairCriterion<P>,
-    K: PairKey<P>,
-{
-    debug_assert!(new_index < gb.len());
+use crate::pairing::filters::{PairFilter, PairSetView};
 
+
+#[inline]
+pub fn seed_pairs<P, Q, C, F, K>(gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize, criterion: &mut C, filter: &mut F, keyer: &mut K)
+where
+    Q: PairQueue + PairSetView,
+    C: PairCriterion<P>,
+    F: PairFilter<P>,
+    K: PairKey<P, Key = u32>,
+{
     for i in 0..new_index {
         if !criterion.keep_pair(gb, i, new_index) {
+            continue;
+        }
+
+        if !filter.keep_pair(gb, pairs, i, new_index) {
             continue;
         }
 

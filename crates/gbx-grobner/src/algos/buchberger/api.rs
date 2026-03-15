@@ -2,8 +2,8 @@ use super::engine::run_buchberger;
 use super::engine::run_buchberger_traced;
 use super::options::BuchbergerOptions;
 use crate::buchberger::bounds::BuchbergerTerm;
-use crate::buchberger::trace::SharedTracer;
-use crate::{baseline_update, BuchbergerError, GrobnerBasis, PairQueue, PairUpdate, StackPairs};
+use crate::buchberger::trace::SharedBuchbergerTracer;
+use crate::{baseline_update, BuchbergerError, GrobnerBasis, PairQueue, PairSetView, PairUpdate, StackPairs};
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialOps, PolynomialReduce};
@@ -71,7 +71,7 @@ where
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
-    Q: PairQueue,
+    Q: PairQueue + PairSetView,
     U: PairUpdate<P>,
 {
     run_buchberger(ctx, fs, opts, pairs, update)
@@ -88,7 +88,7 @@ pub fn buchberger_with_tracer<P, F, O, Q, U>(
     opts: BuchbergerOptions,
     pairs: Q,
     update: U,
-    tracer: SharedTracer,
+    tracer: SharedBuchbergerTracer,
 ) -> Result<GrobnerBasis<P>, BuchbergerError>
 where
     O: MonomialOrder,
@@ -97,7 +97,7 @@ where
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
-    Q: PairQueue,
+    Q: PairQueue + PairSetView,
     U: PairUpdate<P>,
 {
     run_buchberger_traced(ctx, fs, opts, pairs, update, tracer)

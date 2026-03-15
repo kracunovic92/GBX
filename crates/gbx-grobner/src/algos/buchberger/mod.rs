@@ -28,7 +28,7 @@ mod options;
 
 pub use api::{buchberger, buchberger_with, buchberger_with_tracer};
 pub use options::{BasisPost, BuchbergerOptions};
-pub use trace::{SharedTracer, TraceCfg, Tracer, TracingPairCriterion, TracingPairKey, TracingQueue};
+pub use trace::{BuchbergerTraceConfig, BuchbergerTraceCounters, BuchbergerTraceSnapshot, BuchbergerTracer, TracingQueue};
 
 #[cfg(test)]
 mod tests;

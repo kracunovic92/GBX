@@ -8,3 +8,5 @@ coverage/
 profdata/
 *.profraw
 **/Cargo.lock
+
+perf.*

@@ -7,7 +7,7 @@ members = [
     "tests/engine",
     "tools/graph",
     "bin/graph_experiments"
-, "crates/gbx-grobner"]
+    , "crates/gbx-grobner"]
 
 exclude = ["bin"]
 resolver = "3"
@@ -70,7 +70,9 @@ opt-level = 3
 lto = "thin"
 codegen-units = 1
 panic = "abort"
-strip = "symbols"
+debug = true
+strip = "none"
+
 
 [profile.bench]
 opt-level = 3

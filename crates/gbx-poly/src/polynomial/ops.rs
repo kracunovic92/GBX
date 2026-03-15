@@ -115,6 +115,7 @@ where
         self.normalize_in_place(ctx)?;
         Ok(())
     }
+    #[allow(missing_docs)]
     fn sub_scaled_monomial_multiple_in_place<F, O>(&mut self, ctx: &RingCtx<F, O>, rhs: &Self, mono_mul: &<Self::Term as TermView>::Mono, coeff_mul: <Self::Term as TermView>::Coeff) -> Result<()>
     where
         F: FieldCtx<Elem = <Self::Term as TermView>::Coeff>,

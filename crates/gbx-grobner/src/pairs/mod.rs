@@ -4,7 +4,7 @@
 //! basis `G = [g₀, g₁, ...]` used to form an S-polynomial `S(gᵢ, gⱼ)`.
 //!
 //! Most implementations store pairs with `i < j` to avoid duplicates.
-//! This module does not enforce that; criteria/pair-generation should do so.
+//! This module does not enforce that; pairing/pair-generation should do so.
 //!
 //! # Pair queue backends
 //! - [`StackPairs`]: LIFO (baseline, cache-friendly)

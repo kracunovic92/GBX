@@ -1,0 +1,29 @@
+use std::sync::{Arc, Mutex, MutexGuard};
+
+/// Shared thread-safe handle for mutable trace state.
+///
+/// This is suitable for both single-threaded and multi-threaded algorithms.
+/// Instrumentation wrappers and engine code can all share the same tracer.
+#[derive(Debug)]
+pub struct TraceHandle<T> {
+    inner: Arc<Mutex<T>>,
+}
+
+impl<T> Clone for TraceHandle<T> {
+    fn clone(&self) -> Self {
+        Self { inner: Arc::clone(&self.inner) }
+    }
+}
+
+impl<T> TraceHandle<T> {
+    #[must_use]
+    #[inline]
+    pub fn new(value: T) -> Self {
+        Self { inner: Arc::new(Mutex::new(value)) }
+    }
+
+    #[inline]
+    pub fn lock(&self) -> MutexGuard<'_, T> {
+        self.inner.lock().expect("trace mutex poisoned")
+    }
+}

@@ -3,7 +3,8 @@ use std::fs;
 /// Best-effort process memory snapshot.
 ///
 /// Values are process-level measurements and include allocator/runtime effects.
-/// They are useful for trend observation, not exact per-data-structure accounting.
+/// They are useful for trend observation, not exact per-data-structure
+/// accounting.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct MemorySnapshot {
     /// Resident set size in bytes, if available.

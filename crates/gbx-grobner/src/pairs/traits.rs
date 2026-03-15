@@ -2,6 +2,14 @@
 /// `key` is used for ordering (smaller = higher priority).
 pub type Pair = (u32, usize, usize);
 
+/// Normalize an unordered pair of indices so that `(i, j)` and `(j, i)`
+/// are treated identically.
+#[inline]
+#[must_use]
+pub const fn normalize_pair_indices(i: usize, j: usize) -> (usize, usize) {
+    if i < j { (i, j) } else { (j, i) }
+}
+
 /// Pair queue abstraction.
 pub trait PairQueue {
     /// Construct an empty pair queue.

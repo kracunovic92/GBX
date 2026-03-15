@@ -1,32 +1,26 @@
-//! Buchberger-specific tracing and progress reporting.
+//! Buchberger-specific tracing and reporting.
 //!
-//! This module contains tracing infrastructure tailored to Buchberger's
-//! algorithm:
+//! This module contains the tracing subsystem used by the Buchberger engine.
 //!
-//! - queue/criterion/key wrappers,
-//! - semantic counters,
-//! - phase and loop timings,
-//! - optional process-memory sampling,
-//! - progress and summary reporting.
+//! It provides:
+//! - configuration,
+//! - counters and timing buckets,
+//! - trace snapshots,
+//! - a mutable tracer state,
+//! - wrappers for mechanical events,
+//! - pure reporting helpers.
 //!
-//! # Design
+//! # Responsibility split
 //!
-//! Mechanical events such as queue push/pop and criterion rejection are traced
-//! by wrappers.
+//! - [`BuchbergerTracer`] collects semantic and mechanical events.
+//! - wrapper adapters collect low-level mechanical events automatically.
+//! - reporter helpers format or print immutable snapshots.
 //!
-//! Semantic events such as:
-//!
-//! - initial basis prepared,
-//! - remainder reduced to zero,
-//! - nonzero remainder inserted,
-//! - unit remainder found,
-//! - phase boundaries,
-//!
-//! should be emitted directly by the Buchberger engine.
-//!
-//! This avoids ambiguity during initial seeding versus true basis growth.
+//! The Buchberger engine should depend on the high-level tracer API rather than
+//! mutating counter/timing fields directly.
 
 mod config;
+mod context;
 mod counters;
 mod memory;
 mod reporter;
@@ -35,11 +29,12 @@ mod timings;
 mod tracer;
 mod wrappers;
 
-pub use config::TraceCfg;
-pub use counters::TraceCounters;
+pub use config::BuchbergerTraceConfig;
+pub use context::BuchbergerTraceCtx;
+pub use counters::BuchbergerTraceCounters;
 pub use memory::{current_memory_snapshot, MemorySnapshot};
-pub use reporter::{fmt_bytes, print_progress_line, print_summary};
-pub use snapshot::TraceSnapshot;
-pub use timings::{measure_duration, PhaseTimes, WhileTimes};
-pub use tracer::{SharedTracer, Tracer};
-pub use wrappers::{TracingPairCriterion, TracingPairKey, TracingQueue};
+pub use reporter::{fmt_bytes, format_iteration_line, format_progress_line, format_summary_lines, print_iteration_line, print_progress_line, print_summary};
+pub use snapshot::BuchbergerTraceSnapshot;
+pub use timings::{measure_duration, PhaseKind, PhaseTimes, WhileKind, WhileTimes};
+pub use tracer::{BuchbergerTracer, SharedBuchbergerTracer};
+pub use wrappers::TracingQueue;

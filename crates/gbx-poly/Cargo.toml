@@ -16,6 +16,11 @@ gbx-alg = { path = "../gbx-alg", default-features = false }
 gbx-storage = { path = "../gbx-storage", default-features = false }
 gbx-field = { path = "../gbx-field", default-features = false }
 thiserror = "2.0.18"
+criterion = "0.8.1"
 
 [lints]
 workspace = true
+
+[[bench]]
+name = "reduction"
+harness = false

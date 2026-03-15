@@ -58,7 +58,7 @@ pub struct GbxCli {
     #[arg(long = "gbx.normalize", default_value_t = true)]
     pub normalize: bool,
 
-    /// (future) enable/disable Buchberger criteria
-    #[arg(long = "gbx.criteria", default_value_t = true)]
+    /// (future) enable/disable Buchberger pairing
+    #[arg(long = "gbx.pairing", default_value_t = true)]
     pub criteria: bool,
 }

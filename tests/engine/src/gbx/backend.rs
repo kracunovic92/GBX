@@ -47,7 +47,7 @@ fn format_input_dump(case: &TestCase, cfg: &GbxConfig) -> String {
     push_kv(&mut s, "vars", &format!("{:?}", case.vars));
     push_kv(&mut s, "order", &case.order);
     push_kv(&mut s, "normalize", &cfg.normalize.to_string());
-    push_kv(&mut s, "criteria", &cfg.criteria.to_string());
+    push_kv(&mut s, "pairing", &cfg.criteria.to_string());
 
     s.push_str("generators:\n");
     for (i, g) in case.generators.iter().enumerate() {
