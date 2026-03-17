@@ -1,4 +1,4 @@
-use crate::pairing::filters::{PairFilter, PairSetView};
+#![allow(missing_docs)]
 use crate::pairing::{leading_mono_at, PairCriterion};
 use crate::{GrobnerBasis, PairKey, PairQueue, PairUpdate};
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
@@ -17,20 +17,21 @@ use gbx_poly::term::TermView;
 /// Before those GM-style steps, candidate pairs are filtered by:
 ///
 /// - a local [`PairCriterion`]
-/// - a state-aware [`PairFilter`]
 /// - a [`PairKey`] computation
+///
+/// State-aware pruning based on the current pending-pair set is intentionally
+/// not performed here; that belongs in the engine's pop-time pair-filter layer.
 #[derive(Debug, Clone, Copy)]
-pub struct GmPairUpdater<C, F, K> {
+pub struct GmPairUpdater<C, K> {
     criterion: C,
-    filter: F,
     keyer: K,
 }
 
-impl<C, F, K> GmPairUpdater<C, F, K> {
+impl<C, K> GmPairUpdater<C, K> {
     #[must_use]
     #[inline]
-    pub fn new(criterion: C, filter: F, keyer: K) -> Self {
-        Self { criterion, filter, keyer }
+    pub fn new(criterion: C, keyer: K) -> Self {
+        Self { criterion, keyer }
     }
 
     #[must_use]
@@ -47,18 +48,6 @@ impl<C, F, K> GmPairUpdater<C, F, K> {
 
     #[must_use]
     #[inline]
-    pub fn filter(&self) -> &F {
-        &self.filter
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn filter_mut(&mut self) -> &mut F {
-        &mut self.filter
-    }
-
-    #[must_use]
-    #[inline]
     pub fn keyer(&self) -> &K {
         &self.keyer
     }
@@ -71,20 +60,19 @@ impl<C, F, K> GmPairUpdater<C, F, K> {
 
     #[must_use]
     #[inline]
-    pub fn into_parts(self) -> (C, F, K) {
-        (self.criterion, self.filter, self.keyer)
+    pub fn into_parts(self) -> (C, K) {
+        (self.criterion, self.keyer)
     }
 }
 
-impl<C, F, K> Default for GmPairUpdater<C, F, K>
+impl<C, K> Default for GmPairUpdater<C, K>
 where
     C: Default,
-    F: Default,
     K: Default,
 {
     #[inline]
     fn default() -> Self {
-        Self { criterion: C::default(), filter: F::default(), keyer: K::default() }
+        Self { criterion: C::default(), keyer: K::default() }
     }
 }
 
@@ -102,18 +90,17 @@ impl<M> Candidate<M> {
     }
 }
 
-impl<P, C, F, K> PairUpdate<P> for GmPairUpdater<C, F, K>
+impl<P, C, K> PairUpdate<P> for GmPairUpdater<C, K>
 where
     P: PolynomialView,
     P::Term: TermView,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
     C: PairCriterion<P>,
-    F: PairFilter<P>,
     K: PairKey<P, Key = u32>,
 {
-    fn on_new_poly<Q: PairQueue>(&mut self, gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize)
+    fn on_new_poly<Q>(&mut self, gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize)
     where
-        Q: PairSetView,
+        Q: PairQueue + crate::PairSetView,
     {
         let Some(lm_new) = leading_mono_at(gb, new_index) else {
             return;
@@ -123,10 +110,6 @@ where
 
         for i in 0..new_index {
             if !self.criterion.keep_pair(gb, i, new_index) {
-                continue;
-            }
-
-            if !self.filter.keep_pair(gb, pairs, i, new_index) {
                 continue;
             }
 
@@ -208,6 +191,7 @@ mod tests {
     use super::*;
     use crate::pairing::PairCriterion;
     use crate::GrobnerBasis;
+    use crate::PairSetView;
     use gbx_field::fp::Fp;
     use gbx_poly::monomial::DynamicMonomial;
     use gbx_poly::order::Lex;
@@ -226,16 +210,16 @@ mod tests {
         pushed: Vec<(u32, usize, usize)>,
     }
 
-    impl crate::PairQueue for TestQueue {
+    impl PairQueue for TestQueue {
         fn new() -> Self
         where
             Self: Sized,
         {
-            todo!()
+            Self::default()
         }
 
         fn is_empty(&self) -> bool {
-            todo!()
+            self.pushed.is_empty()
         }
 
         fn push(&mut self, pair: (u32, usize, usize)) {
@@ -276,24 +260,6 @@ mod tests {
     impl<P0> PairCriterion<P0> for RejectIndexOneCriterion {
         fn keep_pair(&mut self, _gb: &GrobnerBasis<P0>, i: usize, _j: usize) -> bool {
             i != 1
-        }
-    }
-
-    #[derive(Debug, Default, Clone, Copy)]
-    struct KeepAllFilter;
-
-    impl<P0> PairFilter<P0> for KeepAllFilter {
-        fn keep_pair<S: PairSetView>(&mut self, _gb: &GrobnerBasis<P0>, _state: &S, _i: usize, _j: usize) -> bool {
-            true
-        }
-    }
-
-    #[derive(Debug, Default, Clone, Copy)]
-    struct RejectIndexTwoFilter;
-
-    impl<P0> PairFilter<P0> for RejectIndexTwoFilter {
-        fn keep_pair<S: PairSetView>(&mut self, _gb: &GrobnerBasis<P0>, _state: &S, i: usize, _j: usize) -> bool {
-            i != 2
         }
     }
 
@@ -341,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn respects_criterion_filter_and_key_before_gm_pruning() {
+    fn respects_criterion_and_key_before_gm_pruning() {
         let ring = ring();
 
         let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]);
@@ -352,33 +318,27 @@ mod tests {
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2, g3]);
         let mut queue = TestQueue::default();
 
-        let mut updater = GmPairUpdater::new(
-            RejectIndexOneCriterion,
-            RejectIndexTwoFilter,
-            MissingKeyForZero,
-        );
+        let mut updater = GmPairUpdater::new(RejectIndexOneCriterion, MissingKeyForZero);
         updater.on_new_poly(&gb, &mut queue, 3);
 
-        // i = 0 rejected by key, i = 1 rejected by criterion, i = 2 rejected by filter
-        assert!(queue.pushed.is_empty());
+        // i = 0 rejected by key, i = 1 rejected by criterion, i = 2 survives
+        assert_eq!(queue.pushed, vec![(2, 2, 3)]);
     }
 
     #[test]
     fn deduplicates_equal_lcm_candidates() {
         let ring = ring();
 
-        // new = x^2 y^2
-        let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]); // lcm with new = x^2 y^2
-        let g1 = poly(&ring, vec![term(1, &[0, 2, 0])]); // lcm with new = x^2 y^2
-        let g2 = poly(&ring, vec![term(1, &[2, 2, 0])]); // new
+        let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]);
+        let g1 = poly(&ring, vec![term(1, &[0, 2, 0])]);
+        let g2 = poly(&ring, vec![term(1, &[2, 2, 0])]);
 
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2]);
         let mut queue = TestQueue::default();
 
-        let mut updater = GmPairUpdater::new(KeepAllCriterion, KeepAllFilter, IndexKey);
+        let mut updater = GmPairUpdater::new(KeepAllCriterion, IndexKey);
         updater.on_new_poly(&gb, &mut queue, 2);
 
-        // Same LCM, keep better representative: smaller key, then smaller index.
         assert_eq!(queue.pushed, vec![(0, 0, 2)]);
     }
 
@@ -386,20 +346,18 @@ mod tests {
     fn prunes_dominated_lcm_candidates() {
         let ring = ring();
 
-        // new = x^2 y^2
-        let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]); // lcm = x^2 y^2
-        let g1 = poly(&ring, vec![term(1, &[2, 1, 0])]); // lcm = x^2 y^2
-        let g2 = poly(&ring, vec![term(1, &[1, 0, 0])]); // lcm = x^2 y^2
-        let g3 = poly(&ring, vec![term(1, &[0, 1, 0])]); // lcm = x^2 y^2
-        let g4 = poly(&ring, vec![term(1, &[2, 2, 0])]); // new
+        let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]);
+        let g1 = poly(&ring, vec![term(1, &[2, 1, 0])]);
+        let g2 = poly(&ring, vec![term(1, &[1, 0, 0])]);
+        let g3 = poly(&ring, vec![term(1, &[0, 1, 0])]);
+        let g4 = poly(&ring, vec![term(1, &[2, 2, 0])]);
 
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2, g3, g4]);
         let mut queue = TestQueue::default();
 
-        let mut updater = GmPairUpdater::new(KeepAllCriterion, KeepAllFilter, IndexKey);
+        let mut updater = GmPairUpdater::new(KeepAllCriterion, IndexKey);
         updater.on_new_poly(&gb, &mut queue, 4);
 
-        // All candidates collapse to the same minimal LCM under dedup.
         assert_eq!(queue.pushed, vec![(0, 0, 4)]);
     }
 
@@ -407,15 +365,14 @@ mod tests {
     fn keeps_only_lcm_minimal_candidates_under_strict_divisibility() {
         let ring = ring();
 
-        // new = x^2 y^2
-        let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]); // lcm = x^2 y^2
-        let g1 = poly(&ring, vec![term(1, &[2, 2, 1])]); // lcm = x^2 y^2 z   (dominated)
-        let g2 = poly(&ring, vec![term(1, &[2, 2, 0])]); // new
+        let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]);
+        let g1 = poly(&ring, vec![term(1, &[2, 2, 1])]);
+        let g2 = poly(&ring, vec![term(1, &[2, 2, 0])]);
 
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2]);
         let mut queue = TestQueue::default();
 
-        let mut updater = GmPairUpdater::new(KeepAllCriterion, KeepAllFilter, IndexKey);
+        let mut updater = GmPairUpdater::new(KeepAllCriterion, IndexKey);
         updater.on_new_poly(&gb, &mut queue, 2);
 
         assert_eq!(queue.pushed, vec![(0, 0, 2)]);

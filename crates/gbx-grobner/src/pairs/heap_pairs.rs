@@ -52,6 +52,12 @@ impl PartialOrd for HeapItem {
 }
 
 /// Priority queue of pairs by key (smallest key first).
+///
+/// Active pair membership is tracked separately so that:
+///
+/// - `contains_pair(i, j)` is efficient,
+/// - duplicate normalized pairs are not inserted,
+/// - pair-state-aware Buchberger filters see a consistent pending-pair set.
 #[derive(Debug, Default, Clone)]
 pub struct HeapPairs {
     heap: BinaryHeap<HeapItem>,
@@ -80,8 +86,11 @@ impl PairQueue for HeapPairs {
     #[inline]
     fn push(&mut self, pair: Pair) {
         let item = HeapItem::from_pair(pair);
-        self.members.insert(item.normalized_indices());
-        self.heap.push(item);
+        let normalized = item.normalized_indices();
+
+        if self.members.insert(normalized) {
+            self.heap.push(item);
+        }
     }
 
     #[inline]
@@ -150,5 +159,17 @@ mod tests {
         assert_eq!(q.pop(), Some((1, 4, 1)));
         assert!(!q.contains_pair(1, 4));
         assert!(q.contains_pair(2, 3));
+    }
+
+    #[test]
+    fn heap_pairs_deduplicates_normalized_pairs() {
+        let mut q = HeapPairs::new();
+        q.push((5, 2, 3));
+        q.push((1, 3, 2)); // same normalized pair, better key ignored by queue-level dedup
+
+        assert_eq!(q.len(), 1);
+        assert!(q.contains_pair(2, 3));
+        assert_eq!(q.pop(), Some((5, 2, 3)));
+        assert_eq!(q.pop(), None);
     }
 }

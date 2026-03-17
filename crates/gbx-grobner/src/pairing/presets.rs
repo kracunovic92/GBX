@@ -4,7 +4,6 @@
 //! built from:
 //!
 //! - a local pair criterion
-//! - a state-aware pair filter
 //! - a pair key
 //! - a pair update strategy
 //!
@@ -12,7 +11,6 @@
 //! They do not introduce new algorithmic behavior beyond composing the
 //! underlying building blocks.
 
-use crate::pairing::filters::NoPairFilter;
 use crate::pairing::{NoPairCriterion, ProductCriterion};
 use crate::{ConstantPairKey, LcmDegreeKey, NaivePairUpdater};
 
@@ -21,7 +19,6 @@ use crate::{ConstantPairKey, LcmDegreeKey, NaivePairUpdater};
 /// This preset:
 ///
 /// - keeps every candidate pair locally
-/// - applies no state-aware filtering
 /// - assigns constant key `0` to every pair
 /// - inserts all pairs `(i, new_index)` naively
 ///
@@ -31,8 +28,8 @@ use crate::{ConstantPairKey, LcmDegreeKey, NaivePairUpdater};
 /// useful as a correctness baseline or debugging reference.
 #[inline]
 #[must_use]
-pub fn baseline_update() -> NaivePairUpdater<NoPairCriterion, NoPairFilter, ConstantPairKey> {
-    NaivePairUpdater::new(NoPairCriterion, NoPairFilter, ConstantPairKey)
+pub fn baseline_update() -> NaivePairUpdater<NoPairCriterion, ConstantPairKey> {
+    NaivePairUpdater::new(NoPairCriterion, ConstantPairKey)
 }
 
 /// Buchberger product-criterion baseline.
@@ -40,7 +37,6 @@ pub fn baseline_update() -> NaivePairUpdater<NoPairCriterion, NoPairFilter, Cons
 /// This preset:
 ///
 /// - applies Buchberger's product criterion
-/// - applies no state-aware filtering
 /// - assigns priority by `deg(lcm(LM_i, LM_j))`
 /// - inserts surviving pairs `(i, new_index)` naively
 ///
@@ -51,6 +47,6 @@ pub fn baseline_update() -> NaivePairUpdater<NoPairCriterion, NoPairFilter, Cons
 /// of useless S-pairs compared with [`baseline_update`].
 #[inline]
 #[must_use]
-pub fn product_update() -> NaivePairUpdater<ProductCriterion, NoPairFilter, LcmDegreeKey> {
-    NaivePairUpdater::new(ProductCriterion, NoPairFilter, LcmDegreeKey)
+pub fn product_update() -> NaivePairUpdater<ProductCriterion, LcmDegreeKey> {
+    NaivePairUpdater::new(ProductCriterion, LcmDegreeKey)
 }

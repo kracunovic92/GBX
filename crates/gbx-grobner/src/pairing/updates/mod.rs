@@ -1,18 +1,22 @@
 //! Pair-set update strategies.
 //!
-//! Update strategies are responsible for introducing new pairs after a new
-//! polynomial is appended to the Gröbner basis.
+//! Update strategies are responsible for introducing new critical pairs after a
+//! new polynomial is appended to the Gröbner basis.
 //!
 //! # Architecture
 //!
-//! An update strategy combines three orthogonal decisions:
+//! An update strategy combines two insertion-time decisions:
 //!
 //! - a local [`PairCriterion`](crate::pairing::PairCriterion)
-//! - a state-aware [`PairFilter`](crate::filters::PairFilter)
 //! - a [`PairKey`](crate::keys::PairKey) for queue priority
 //!
-//! The strategy itself decides how newly generated pairs are pruned and
-//! inserted into the queue.
+//! In addition, the strategy itself decides how newly generated pairs are
+//! pruned and inserted into the queue.
+//!
+//! State-aware pruning that depends on the current pending-pair set does **not**
+//! belong here. Such logic should live in the pop-time
+//! [`PairFilter`](crate::pairing::filters::PairFilter) layer used by the
+//! Buchberger engine.
 
 use crate::{GrobnerBasis, PairQueue};
 

@@ -16,6 +16,7 @@ pub enum WhileKind {
     NormalForm,
     RemainderNormalize,
     PairUpdate,
+    PairFilter,
 }
 
 /// Wall-clock totals for Buchberger's main phases.
@@ -46,6 +47,7 @@ pub struct WhileTimes {
     pub normal_form: Duration,
     pub remainder_normalize: Duration,
     pub pair_update: Duration,
+    pub pair_filter: Duration,
 }
 
 impl WhileTimes {
@@ -56,6 +58,7 @@ impl WhileTimes {
             WhileKind::NormalForm => self.normal_form += dt,
             WhileKind::RemainderNormalize => self.remainder_normalize += dt,
             WhileKind::PairUpdate => self.pair_update += dt,
+            WhileKind::PairFilter => self.pair_filter += dt,
         }
     }
 }

@@ -1,6 +1,6 @@
-use crate::pairing::filters::{PairFilter, PairSetView};
+#![allow(missing_docs)]
 use crate::pairing::PairCriterion;
-use crate::{seed_pairs, GrobnerBasis, PairKey, PairQueue, PairUpdate};
+use crate::{GrobnerBasis, PairKey, PairQueue, PairUpdate};
 
 /// Baseline pair-set update strategy for Buchberger's algorithm.
 ///
@@ -8,22 +8,21 @@ use crate::{seed_pairs, GrobnerBasis, PairKey, PairQueue, PairUpdate};
 /// seeds all candidate pairs `(i, new_index)` with `0 <= i < new_index` that:
 ///
 /// - are kept by the configured local criterion,
-/// - survive the configured state-aware filter,
 /// - and have a queue key produced by the configured key strategy.
 ///
-/// This strategy does not attempt to remove or replace existing pairs.
+/// This strategy does not attempt to remove or replace existing pairs, and does
+/// not perform any state-aware pruning based on the current pending-pair set.
 #[derive(Debug, Clone, Copy)]
-pub struct NaivePairUpdater<C, F, K> {
+pub struct NaivePairUpdater<C, K> {
     criterion: C,
-    filter: F,
     keyer: K,
 }
 
-impl<C, F, K> NaivePairUpdater<C, F, K> {
+impl<C, K> NaivePairUpdater<C, K> {
     #[must_use]
     #[inline]
-    pub fn new(criterion: C, filter: F, keyer: K) -> Self {
-        Self { criterion, filter, keyer }
+    pub fn new(criterion: C, keyer: K) -> Self {
+        Self { criterion, keyer }
     }
 
     #[must_use]
@@ -40,18 +39,6 @@ impl<C, F, K> NaivePairUpdater<C, F, K> {
 
     #[must_use]
     #[inline]
-    pub fn filter(&self) -> &F {
-        &self.filter
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn filter_mut(&mut self) -> &mut F {
-        &mut self.filter
-    }
-
-    #[must_use]
-    #[inline]
     pub fn keyer(&self) -> &K {
         &self.keyer
     }
@@ -64,42 +51,43 @@ impl<C, F, K> NaivePairUpdater<C, F, K> {
 
     #[must_use]
     #[inline]
-    pub fn into_parts(self) -> (C, F, K) {
-        (self.criterion, self.filter, self.keyer)
+    pub fn into_parts(self) -> (C, K) {
+        (self.criterion, self.keyer)
     }
 }
 
-impl<C, F, K> Default for NaivePairUpdater<C, F, K>
+impl<C, K> Default for NaivePairUpdater<C, K>
 where
     C: Default,
-    F: Default,
     K: Default,
 {
     #[inline]
     fn default() -> Self {
-        Self { criterion: C::default(), filter: F::default(), keyer: K::default() }
+        Self { criterion: C::default(), keyer: K::default() }
     }
 }
 
-impl<P, C, F, K> PairUpdate<P> for NaivePairUpdater<C, F, K>
+impl<P, C, K> PairUpdate<P> for NaivePairUpdater<C, K>
 where
     C: PairCriterion<P>,
-    F: PairFilter<P>,
     K: PairKey<P, Key = u32>,
 {
     #[inline]
-    fn on_new_poly<Q: PairQueue>(&mut self, gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize)
+    fn on_new_poly<Q>(&mut self, gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize)
     where
-        Q: PairSetView,
+        Q: PairQueue + crate::PairSetView,
     {
-        seed_pairs(
-            gb,
-            pairs,
-            new_index,
-            &mut self.criterion,
-            &mut self.filter,
-            &mut self.keyer,
-        );
+        for i in 0..new_index {
+            if !self.criterion.keep_pair(gb, i, new_index) {
+                continue;
+            }
+
+            let Some(key) = self.keyer.key_for_pair(gb, i, new_index) else {
+                continue;
+            };
+
+            pairs.push((key, i, new_index));
+        }
     }
 }
 
@@ -107,6 +95,8 @@ where
 mod tests {
     use super::*;
     use crate::pairing::PairCriterion;
+    use crate::GrobnerBasis;
+    use crate::PairSetView;
     use gbx_poly::order::Lex;
     use gbx_poly::ring::{Ring, StaticFpCtx};
 
@@ -120,11 +110,11 @@ mod tests {
         where
             Self: Sized,
         {
-            todo!()
+            Self::default()
         }
 
         fn is_empty(&self) -> bool {
-            todo!()
+            self.pushed.is_empty()
         }
 
         fn push(&mut self, pair: (u32, usize, usize)) {
@@ -169,24 +159,6 @@ mod tests {
     }
 
     #[derive(Debug, Default, Clone, Copy)]
-    struct KeepAllFilter;
-
-    impl<P> PairFilter<P> for KeepAllFilter {
-        fn keep_pair<S: PairSetView>(&mut self, _gb: &GrobnerBasis<P>, _state: &S, _i: usize, _j: usize) -> bool {
-            true
-        }
-    }
-
-    #[derive(Debug, Default, Clone, Copy)]
-    struct RejectIndexTwoFilter;
-
-    impl<P> PairFilter<P> for RejectIndexTwoFilter {
-        fn keep_pair<S: PairSetView>(&mut self, _gb: &GrobnerBasis<P>, _state: &S, i: usize, _j: usize) -> bool {
-            i != 2
-        }
-    }
-
-    #[derive(Debug, Default, Clone, Copy)]
     struct SumKey;
 
     impl<P> PairKey<P> for SumKey {
@@ -224,7 +196,7 @@ mod tests {
         let gb = empty_gb();
         let mut queue = TestQueue::default();
 
-        let mut updater = NaivePairUpdater::new(KeepAllCriterion, KeepAllFilter, SumKey);
+        let mut updater = NaivePairUpdater::new(KeepAllCriterion, SumKey);
         updater.on_new_poly(&gb, &mut queue, 3);
 
         assert_eq!(queue.pushed, vec![(3, 0, 3), (4, 1, 3), (5, 2, 3)]);
@@ -235,21 +207,10 @@ mod tests {
         let gb = empty_gb();
         let mut queue = TestQueue::default();
 
-        let mut updater = NaivePairUpdater::new(RejectIndexOneCriterion, KeepAllFilter, SumKey);
+        let mut updater = NaivePairUpdater::new(RejectIndexOneCriterion, SumKey);
         updater.on_new_poly(&gb, &mut queue, 3);
 
         assert_eq!(queue.pushed, vec![(3, 0, 3), (5, 2, 3)]);
-    }
-
-    #[test]
-    fn respects_state_aware_filter() {
-        let gb = empty_gb();
-        let mut queue = TestQueue::default();
-
-        let mut updater = NaivePairUpdater::new(KeepAllCriterion, RejectIndexTwoFilter, SumKey);
-        updater.on_new_poly(&gb, &mut queue, 3);
-
-        assert_eq!(queue.pushed, vec![(3, 0, 3), (4, 1, 3)]);
     }
 
     #[test]
@@ -257,7 +218,7 @@ mod tests {
         let gb = empty_gb();
         let mut queue = TestQueue::default();
 
-        let mut updater = NaivePairUpdater::new(KeepAllCriterion, KeepAllFilter, MissingKeyForZero);
+        let mut updater = NaivePairUpdater::new(KeepAllCriterion, MissingKeyForZero);
         updater.on_new_poly(&gb, &mut queue, 3);
 
         assert_eq!(queue.pushed, vec![(4, 1, 3), (5, 2, 3)]);

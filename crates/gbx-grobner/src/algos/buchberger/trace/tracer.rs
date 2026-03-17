@@ -154,6 +154,7 @@ impl BuchbergerTracer {
             WhileKind::NormalForm => &mut self.while_times.normal_form,
             WhileKind::RemainderNormalize => &mut self.while_times.remainder_normalize,
             WhileKind::PairUpdate => &mut self.while_times.pair_update,
+            WhileKind::PairFilter => &mut self.while_times.pair_filter,
         };
         measure_duration(slot, f)
     }

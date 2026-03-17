@@ -1,86 +1,108 @@
 use crate::pairs::traits::{normalize_pair_indices, Pair, PairQueue};
 use crate::PairSetView;
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
 /// Default pair queue: LIFO stack.
+///
+/// Active pair membership is tracked separately so duplicate normalized pairs
+/// are not inserted and membership queries are efficient.
 #[derive(Debug, Default, Clone)]
-pub struct StackPairs(Vec<Pair>);
+pub struct StackPairs {
+    pairs: Vec<Pair>,
+    members: BTreeSet<(usize, usize)>,
+}
 
 impl PairQueue for StackPairs {
     #[inline]
     fn new() -> Self {
-        Self(Vec::new())
+        Self::default()
     }
 
     #[inline]
     fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.pairs.is_empty()
     }
 
     #[inline]
     fn push(&mut self, pair: Pair) {
-        self.0.push(pair);
+        let (_, i, j) = pair;
+        let normalized = normalize_pair_indices(i, j);
+
+        if self.members.insert(normalized) {
+            self.pairs.push(pair);
+        }
     }
 
     #[inline]
     fn pop(&mut self) -> Option<Pair> {
-        self.0.pop()
+        let pair = self.pairs.pop()?;
+        let (_, i, j) = pair;
+        self.members.remove(&normalize_pair_indices(i, j));
+        Some(pair)
     }
 
     #[inline]
     fn len(&self) -> usize {
-        self.0.len()
+        self.pairs.len()
     }
 }
 
 impl PairSetView for StackPairs {
     #[inline]
     fn contains_pair(&self, i: usize, j: usize) -> bool {
-        let want = normalize_pair_indices(i, j);
-        self.0
-            .iter()
-            .any(|&(_, a, b)| normalize_pair_indices(a, b) == want)
+        self.members.contains(&normalize_pair_indices(i, j))
     }
 }
 
 /// FIFO pair queue.
+///
+/// Active pair membership is tracked separately so duplicate normalized pairs
+/// are not inserted and membership queries are efficient.
 #[derive(Debug, Default, Clone)]
-pub struct FifoPairs(VecDeque<Pair>);
+pub struct FifoPairs {
+    pairs: VecDeque<Pair>,
+    members: BTreeSet<(usize, usize)>,
+}
 
 impl PairQueue for FifoPairs {
     #[inline]
     fn new() -> Self {
-        Self(VecDeque::new())
+        Self::default()
     }
 
     #[inline]
     fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.pairs.is_empty()
     }
 
     #[inline]
-    fn push(&mut self, p: Pair) {
-        self.0.push_back(p);
+    fn push(&mut self, pair: Pair) {
+        let (_, i, j) = pair;
+        let normalized = normalize_pair_indices(i, j);
+
+        if self.members.insert(normalized) {
+            self.pairs.push_back(pair);
+        }
     }
 
     #[inline]
     fn pop(&mut self) -> Option<Pair> {
-        self.0.pop_front()
+        let pair = self.pairs.pop_front()?;
+        let (_, i, j) = pair;
+        self.members.remove(&normalize_pair_indices(i, j));
+        Some(pair)
     }
 
     #[inline]
     fn len(&self) -> usize {
-        self.0.len()
+        self.pairs.len()
     }
 }
 
 impl PairSetView for FifoPairs {
     #[inline]
     fn contains_pair(&self, i: usize, j: usize) -> bool {
-        let want = normalize_pair_indices(i, j);
-        self.0
-            .iter()
-            .any(|&(_, a, b)| normalize_pair_indices(a, b) == want)
+        self.members.contains(&normalize_pair_indices(i, j))
     }
 }
 
@@ -147,5 +169,29 @@ mod tests {
         assert_eq!(q.pop(), Some((0, 2, 3)));
         assert!(!q.contains_pair(2, 3));
         assert!(q.contains_pair(1, 4));
+    }
+
+    #[test]
+    fn stack_pairs_deduplicates_normalized_pairs() {
+        let mut q = StackPairs::new();
+        q.push((0, 2, 3));
+        q.push((1, 3, 2));
+
+        assert_eq!(q.len(), 1);
+        assert!(q.contains_pair(2, 3));
+        assert_eq!(q.pop(), Some((0, 2, 3)));
+        assert_eq!(q.pop(), None);
+    }
+
+    #[test]
+    fn fifo_pairs_deduplicates_normalized_pairs() {
+        let mut q = FifoPairs::new();
+        q.push((0, 2, 3));
+        q.push((1, 3, 2));
+
+        assert_eq!(q.len(), 1);
+        assert!(q.contains_pair(2, 3));
+        assert_eq!(q.pop(), Some((0, 2, 3)));
+        assert_eq!(q.pop(), None);
     }
 }

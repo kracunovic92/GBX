@@ -3,7 +3,7 @@ use super::engine::run_buchberger_traced;
 use super::options::BuchbergerOptions;
 use crate::buchberger::bounds::BuchbergerTerm;
 use crate::buchberger::trace::SharedBuchbergerTracer;
-use crate::{baseline_update, BuchbergerError, GrobnerBasis, PairQueue, PairSetView, PairUpdate, StackPairs};
+use crate::{baseline_update, BuchbergerError, GrobnerBasis, NoPairFilter, PairFilter, PairQueue, PairSetView, PairUpdate, StackPairs};
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialOps, PolynomialReduce};
@@ -16,9 +16,11 @@ use gbx_poly::term::TermView;
 /// The default configuration uses:
 ///
 /// - a LIFO pair queue ([`StackPairs`]),
-/// - the library's baseline pair-update strategy.
+/// - the library's baseline pair-update strategy,
+/// - no pop-time pair filter.
 ///
-/// Use [`buchberger_with`] to customize pair selection and pair generation.
+/// Use [`buchberger_with`] to customize pair selection, pair generation,
+/// and pair filtering.
 ///
 /// # Errors
 ///
@@ -37,7 +39,14 @@ where
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
 {
-    run_buchberger(ctx, fs, opts, StackPairs::new(), baseline_update())
+    run_buchberger(
+        ctx,
+        fs,
+        opts,
+        StackPairs::new(),
+        baseline_update(),
+        NoPairFilter,
+    )
 }
 
 /// Compute a Gröbner basis using Buchberger's algorithm with user-supplied
@@ -47,7 +56,9 @@ where
 ///
 /// - the pair queue `Q`, which controls pair selection order,
 /// - the pair update strategy `U`, which controls how new critical pairs are
-///   generated and filtered.
+///   generated,
+/// - the pair filter `Pf`, which controls whether a popped pair is actually
+///   processed.
 ///
 /// # Errors
 ///
@@ -61,9 +72,9 @@ where
 ///
 /// # Notes
 ///
-/// The correctness of the result depends on the supplied pair-update strategy.
-/// A custom update strategy must not discard required pairs.
-pub fn buchberger_with<P, F, O, Q, U>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: BuchbergerOptions, pairs: Q, update: U) -> Result<GrobnerBasis<P>, BuchbergerError>
+/// The correctness of the result depends on the supplied update and filter
+/// strategies. Custom implementations must not discard required pairs.
+pub fn buchberger_with<P, F, O, Q, U, Pf>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: BuchbergerOptions, pairs: Q, update: U, filter: Pf) -> Result<GrobnerBasis<P>, BuchbergerError>
 where
     O: MonomialOrder,
     P: PolynomialOps + PolynomialReduce + Clone,
@@ -73,8 +84,9 @@ where
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
     Q: PairQueue + PairSetView,
     U: PairUpdate<P>,
+    Pf: PairFilter<P>,
 {
-    run_buchberger(ctx, fs, opts, pairs, update)
+    run_buchberger(ctx, fs, opts, pairs, update, filter)
 }
 
 /// Compute a Gröbner basis using Buchberger's algorithm with user-supplied
@@ -82,12 +94,13 @@ where
 ///
 /// Tracing is intended for diagnostics and benchmarking. It does not change the
 /// mathematical result.
-pub fn buchberger_with_tracer<P, F, O, Q, U>(
+pub fn buchberger_with_tracer<P, F, O, Q, U, Pf>(
     ctx: &RingCtx<F, O>,
     fs: impl IntoIterator<Item = P>,
     opts: BuchbergerOptions,
     pairs: Q,
     update: U,
+    filter: Pf,
     tracer: SharedBuchbergerTracer,
 ) -> Result<GrobnerBasis<P>, BuchbergerError>
 where
@@ -99,6 +112,7 @@ where
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
     Q: PairQueue + PairSetView,
     U: PairUpdate<P>,
+    Pf: PairFilter<P>,
 {
-    run_buchberger_traced(ctx, fs, opts, pairs, update, tracer)
+    run_buchberger_traced(ctx, fs, opts, pairs, update, filter, tracer)
 }

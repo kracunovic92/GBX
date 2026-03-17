@@ -4,7 +4,9 @@ use std::time::Instant;
 use super::types::{GbxPoly, GrevlexRing, GrobnerOutput, GrobnerStageOptions};
 use crate::pipeline::trace::make_debug_tracer;
 use gbx_grobner::buchberger::{buchberger_with_tracer, TracingQueue};
-use gbx_grobner::{BasisPost, BuchbergerOptions, GmPairUpdater, HeapPairs, LcmDegreeKey, NoPairFilter, ProductCriterion, TracingPairCriterion, TracingPairFilter, TracingPairKey};
+use gbx_grobner::{
+    BasisPost, BuchbergerOptions, GmPairUpdater, HeapPairs, LcmDegreeKey, ProductCriterion, ProductPairFilter, TracingPairCriterion, TracingPairFilter, TracingPairKey, TracingPairUpdate,
+};
 
 pub fn run(ring: &GrevlexRing, polys: &[GbxPoly], opts: GrobnerStageOptions) -> Result<GrobnerOutput> {
     let tracer = make_debug_tracer();
@@ -13,8 +15,8 @@ pub fn run(ring: &GrevlexRing, polys: &[GbxPoly], opts: GrobnerStageOptions) -> 
 
     let criterion = TracingPairCriterion::wrap(ProductCriterion, tracer.clone());
     let key = TracingPairKey::wrap(LcmDegreeKey, tracer.clone());
-    let filter = TracingPairFilter::wrap(NoPairFilter, tracer.clone());
-    let update = GmPairUpdater::new(criterion, filter, key);
+    let filter = TracingPairFilter::wrap(ProductPairFilter, tracer.clone());
+    let update = TracingPairUpdate::wrap(GmPairUpdater::new(criterion, key), tracer.clone());
 
     let buchberger_opts = BuchbergerOptions { normalize_inputs: opts.normalize_inputs, normalize_remainders: opts.normalize_remainders, post: BasisPost::Reduced };
 
@@ -25,6 +27,7 @@ pub fn run(ring: &GrevlexRing, polys: &[GbxPoly], opts: GrobnerStageOptions) -> 
         buchberger_opts,
         queue,
         update,
+        filter,
         tracer,
     )?;
     let grobner_ms = t0.elapsed().as_millis();
