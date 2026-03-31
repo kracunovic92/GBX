@@ -1,9 +1,9 @@
 pub mod buchberger;
-mod minimize;
-mod reduction;
+mod f4;
+mod post;
 mod spoly;
 
 pub use buchberger::*;
-pub use minimize::*;
-pub use reduction::*;
+pub use f4::*;
+pub use post::*;
 pub use spoly::*;

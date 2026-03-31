@@ -1,55 +1,33 @@
 use super::snapshot::BuchbergerTraceSnapshot;
 use super::tracer::BuchbergerTracer;
+use crate::trace::{fmt_bytes, fmt_duration_ms};
 use std::time::Duration;
-
-/// Formats a byte count in a compact human-readable style.
-#[must_use]
-pub fn fmt_bytes(n: u64) -> String {
-    const KB: f64 = 1024.0;
-    const MB: f64 = 1024.0 * 1024.0;
-    const GB: f64 = 1024.0 * 1024.0 * 1024.0;
-
-    let x = n as f64;
-    if x >= GB {
-        format!("{:.2} GiB", x / GB)
-    } else if x >= MB {
-        format!("{:.2} MiB", x / MB)
-    } else if x >= KB {
-        format!("{:.2} KiB", x / KB)
-    } else {
-        format!("{n} B")
-    }
-}
-
-#[must_use]
-fn fmt_duration_ms(d: Duration) -> String {
-    format!("{}ms", d.as_millis())
-}
 
 /// Formats a periodic Buchberger progress line.
 #[must_use]
 pub fn format_progress_line(tracer: &BuchbergerTracer, snap: &BuchbergerTraceSnapshot, delta: Duration, total: Duration) -> String {
     let c = tracer.counters();
+    let m = &c.mech;
     let wt = tracer.while_times();
 
-    let avg_nf_ms = if c.pops == 0 { 0.0 } else { wt.normal_form.as_secs_f64() * 1000.0 / c.pops as f64 };
+    let avg_nf_ms = if m.pops == 0 { 0.0 } else { wt.normal_form.as_secs_f64() * 1000.0 / m.pops as f64 };
 
-    let avg_sp_ms = if c.pops == 0 { 0.0 } else { wt.s_poly.as_secs_f64() * 1000.0 / c.pops as f64 };
+    let avg_sp_ms = if m.pops == 0 { 0.0 } else { wt.s_poly.as_secs_f64() * 1000.0 / m.pops as f64 };
 
     let mut out = format!(
         "[trace] pops={} gb_len={} queue_len={} max_queue_len={} pushes={} seeded_pairs={} inserted={} zero_reductions={} rejected_by_criterion={} rejected_by_filter={} skipped_missing_key={} pairs_added_by_update={} unit_reductions={} avg_s_poly_ms={:.3} avg_nf_ms={:.3}",
-        c.pops,
+        m.pops,
         snap.gb_len,
         snap.queue_len,
-        c.max_queue_len,
-        c.pushes,
-        c.seeded_pairs,
+        m.max_queue_len,
+        m.pushes,
+        m.seeded_pairs,
         c.inserted_polys,
         c.zero_reductions,
-        c.pairs_rejected_by_criterion,
-        c.pairs_rejected_by_filter,
-        c.pairs_skipped_missing_key,
-        c.pairs_added_by_update,
+        m.pairs_rejected_by_criterion,
+        m.pairs_rejected_by_filter,
+        m.pairs_skipped_missing_key,
+        m.pairs_added_by_update,
         c.unit_reductions,
         avg_sp_ms,
         avg_nf_ms,
@@ -83,7 +61,7 @@ pub fn format_iteration_line(
     pair_update_dt: Duration,
     outcome: &str,
 ) -> String {
-    let pops = tracer.counters().pops;
+    let pops = tracer.counters().mech.pops;
 
     if tracer.cfg().print_iteration_timings {
         format!(
@@ -104,6 +82,7 @@ pub fn format_summary_lines(tracer: &BuchbergerTracer, snap: &BuchbergerTraceSna
     let mut lines = Vec::new();
 
     let c = tracer.counters();
+    let m = &c.mech;
     let p = tracer.phases();
     let w = tracer.while_times();
     let cfg = tracer.cfg();
@@ -130,19 +109,19 @@ pub fn format_summary_lines(tracer: &BuchbergerTracer, snap: &BuchbergerTraceSna
 
     let mut totals = format!(
         "[trace] totals: pops={} pushes={} seeded_pairs={} inserted_polys={} zero_reductions={} unit_reductions={} rejected_by_criterion={} rejected_by_filter={} skipped_missing_key={} pairs_added_by_update={} initial_gb_len={} final_gb_len={} max_queue_len={}",
-        c.pops,
-        c.pushes,
-        c.seeded_pairs,
+        m.pops,
+        m.pushes,
+        m.seeded_pairs,
         c.inserted_polys,
         c.zero_reductions,
         c.unit_reductions,
-        c.pairs_rejected_by_criterion,
-        c.pairs_rejected_by_filter,
-        c.pairs_skipped_missing_key,
-        c.pairs_added_by_update,
-        c.initial_basis_len,
+        m.pairs_rejected_by_criterion,
+        m.pairs_rejected_by_filter,
+        m.pairs_skipped_missing_key,
+        m.pairs_added_by_update,
+        m.initial_basis_len,
         snap.gb_len,
-        c.max_queue_len,
+        m.max_queue_len,
     );
 
     if let Some(term_count) = snap.basis_term_count {

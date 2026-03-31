@@ -10,3 +10,4 @@ profdata/
 **/Cargo.lock
 
 perf.*
+*/out/*

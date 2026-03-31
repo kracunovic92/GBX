@@ -1,64 +1,58 @@
+use crate::trace::MechanicalTraceCounters;
+
 /// Counters for Buchberger tracing.
 ///
-/// These counters represent semantic or traced mechanical algorithm events.
+/// These counters combine reusable mechanical events with Buchberger-specific
+/// semantic outcomes.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BuchbergerTraceCounters {
-    pub pops: u64,
-    pub pushes: u64,
-    pub seeded_pairs: u64,
+    /// Reusable queue/pairing/basis mechanics.
+    pub mech: MechanicalTraceCounters,
+
+    /// Number of nonzero remainders inserted into the basis.
     pub inserted_polys: u64,
+
+    /// Number of zero reductions.
     pub zero_reductions: u64,
+
+    /// Number of unit reductions.
     pub unit_reductions: u64,
-    pub pairs_rejected_by_criterion: u64,
-    pub pairs_skipped_missing_key: u64,
-    pub initial_basis_len: usize,
-    pub gb_len: usize,
-    pub max_queue_len: usize,
+
+    /// Number of emitted progress samples.
     pub progress_samples: u64,
-    pub pairs_rejected_by_filter: u64,
-    pub pairs_added_by_update: u64,
 }
 
 impl BuchbergerTraceCounters {
     #[inline]
     pub fn set_initial_basis_len(&mut self, n: usize) {
-        self.initial_basis_len = n;
-        self.gb_len = n;
+        self.mech.set_initial_basis_len(n);
     }
 
     #[inline]
     pub fn set_gb_len(&mut self, n: usize) {
-        self.gb_len = n;
-    }
-
-    #[inline]
-    pub fn observe_queue_len(&mut self, len: usize) {
-        self.max_queue_len = self.max_queue_len.max(len);
+        self.mech.set_gb_len(n);
     }
 
     #[inline]
     pub fn record_push(&mut self, queue_len: usize) {
-        self.pushes += 1;
-        self.observe_queue_len(queue_len);
+        self.mech.record_push(queue_len);
     }
 
     #[inline]
     pub fn record_seeded_pair(&mut self, queue_len: usize) {
-        self.seeded_pairs += 1;
-        self.observe_queue_len(queue_len);
+        self.mech.record_seeded_pair(queue_len);
     }
 
     #[inline]
     pub fn record_pop(&mut self, queue_len: usize) {
-        self.pops += 1;
-        self.observe_queue_len(queue_len);
+        self.mech.record_pop(queue_len);
     }
 
     #[inline]
     pub fn record_inserted_poly(&mut self, gb_len: usize, queue_len: usize) {
         self.inserted_polys += 1;
-        self.gb_len = gb_len;
-        self.observe_queue_len(queue_len);
+        self.mech.set_gb_len(gb_len);
+        self.mech.observe_queue_len(queue_len);
     }
 
     #[inline]
@@ -73,26 +67,26 @@ impl BuchbergerTraceCounters {
 
     #[inline]
     pub fn record_pair_rejected_by_criterion(&mut self) {
-        self.pairs_rejected_by_criterion += 1;
+        self.mech.record_pair_rejected_by_criterion();
+    }
+
+    #[inline]
+    pub fn record_pair_rejected_by_filter(&mut self) {
+        self.mech.record_pair_rejected_by_filter();
     }
 
     #[inline]
     pub fn record_pair_key_missing(&mut self) {
-        self.pairs_skipped_missing_key += 1;
+        self.mech.record_pair_key_missing();
+    }
+
+    #[inline]
+    pub fn record_pairs_added_by_update(&mut self, n: usize) {
+        self.mech.record_pairs_added_by_update(n);
     }
 
     #[inline]
     pub fn record_progress_sample(&mut self) {
         self.progress_samples += 1;
-    }
-
-    #[inline]
-    pub fn record_pair_rejected_by_filter(&mut self) {
-        self.pairs_rejected_by_filter += 1;
-    }
-
-    #[inline]
-    pub fn record_pairs_added_by_update(&mut self, n: usize) {
-        self.pairs_added_by_update += n as u64;
     }
 }

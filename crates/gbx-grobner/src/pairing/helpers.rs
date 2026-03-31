@@ -10,8 +10,9 @@
 //! [`PairKey`](PairKey),
 //! and [`PairUpdate`](crate::pairing::PairUpdate).
 
+use crate::pairing::filters::{PairFilter, PairSetView};
 use crate::pairing::{PairCriterion, PairKey};
-use crate::{GrobnerBasis, PairQueue};
+use crate::{GrobnerBasis, Pair, PairQueue};
 use gbx_poly::polynomial::PolynomialView;
 use gbx_poly::term::TermView;
 
@@ -54,16 +55,13 @@ where
 ///
 /// The caller should ensure that `new_index < gb.len()`.
 /// This is debug-asserted in debug builds.
-use crate::pairing::filters::{PairFilter, PairSetView};
-
-
 #[inline]
 pub fn seed_pairs<P, Q, C, F, K>(gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize, criterion: &mut C, filter: &mut F, keyer: &mut K)
 where
     Q: PairQueue + PairSetView,
     C: PairCriterion<P>,
     F: PairFilter<P>,
-    K: PairKey<P, Key = u32>,
+    K: PairKey<P, Key = Q::Key>,
 {
     for i in 0..new_index {
         if !criterion.keep_pair(gb, i, new_index) {
@@ -78,6 +76,6 @@ where
             continue;
         };
 
-        pairs.push((key, i, new_index));
+        pairs.push(Pair::new(key, i, new_index));
     }
 }

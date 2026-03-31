@@ -82,7 +82,7 @@ where
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
-    Q: PairQueue + PairSetView,
+    Q: PairQueue<Key = U::Key> + PairSetView,
     U: PairUpdate<P>,
     Pf: PairFilter<P>,
 {
@@ -110,7 +110,7 @@ where
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
-    Q: PairQueue + PairSetView,
+    Q: PairQueue<Key = U::Key> + PairSetView,
     U: PairUpdate<P>,
     Pf: PairFilter<P>,
 {

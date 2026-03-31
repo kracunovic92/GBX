@@ -1,6 +1,6 @@
 //! Error types for Gröbner basis construction.
 
-use crate::SPolyError;
+use crate::{PairUpdateError, PostError, SPolyError};
 use gbx_alg::DivByZero;
 use gbx_poly::polynomial::{PolynomialError, ReduceError};
 use thiserror::Error;
@@ -28,4 +28,8 @@ pub enum BuchbergerError {
     /// Error while trying to division with 0
     #[error("{0}")]
     DivByZero(DivByZero),
+    #[error(transparent)]
+    Post(#[from] PostError),
+    #[error("pair update failed: {0}")]
+    PairUpdate(#[from] PairUpdateError),
 }

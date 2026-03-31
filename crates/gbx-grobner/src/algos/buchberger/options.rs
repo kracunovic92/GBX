@@ -1,3 +1,5 @@
+use crate::algos::post::BasisPostOptionsKind;
+
 /// Configuration for Buchberger's algorithm.
 ///
 /// These options control normalization of inputs and newly discovered basis
@@ -22,34 +24,12 @@ pub struct BuchbergerOptions {
     pub normalize_remainders: bool,
 
     /// Final post-processing applied after Buchberger's main loop.
-    pub post: BasisPost,
-}
-
-/// Final post-processing applied to the computed Gröbner basis.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BasisPost {
-    /// Return the raw basis produced by Buchberger's loop.
-    ///
-    /// The result is a Gröbner basis, but it is not guaranteed to be minimal
-    /// or reduced.
-    None,
-
-    /// Convert the result into a minimal Gröbner basis.
-    ///
-    /// Leading-term divisibility redundancies are removed and basis elements are
-    /// normalized.
-    Minimal,
-
-    /// Convert the result into a reduced Gröbner basis.
-    ///
-    /// Each basis element is reduced with respect to the others, zeros are
-    /// removed, and the final result is normalized.
-    Reduced,
+    pub post: BasisPostOptionsKind,
 }
 
 impl Default for BuchbergerOptions {
     #[inline]
     fn default() -> Self {
-        Self { normalize_inputs: true, normalize_remainders: true, post: BasisPost::Reduced }
+        Self { normalize_inputs: true, normalize_remainders: true, post: BasisPostOptionsKind::Reduced }
     }
 }

@@ -1,9 +1,8 @@
 use super::config::BuchbergerTraceConfig;
 use super::counters::BuchbergerTraceCounters;
-use super::memory::current_memory_snapshot;
 use super::snapshot::BuchbergerTraceSnapshot;
-use super::timings::{measure_duration, PhaseKind, PhaseTimes, WhileKind, WhileTimes};
-use crate::trace::TraceHandle;
+use super::timings::{WhileKind, WhileTimes};
+use crate::trace::{current_memory_snapshot, measure_duration, BasisTrace, CorePhaseKind, CorePhaseTimes, PairingTrace, QueueTrace, ReductionTrace, TraceHandle};
 use std::time::{Duration, Instant};
 
 pub type SharedBuchbergerTracer = TraceHandle<BuchbergerTracer>;
@@ -14,7 +13,7 @@ pub struct BuchbergerTracer {
     start: Instant,
     last_progress: Instant,
     counters: BuchbergerTraceCounters,
-    phases: PhaseTimes,
+    phases: CorePhaseTimes,
     while_times: WhileTimes,
 }
 
@@ -22,7 +21,7 @@ impl BuchbergerTracer {
     #[must_use]
     pub fn new(cfg: BuchbergerTraceConfig) -> Self {
         let now = Instant::now();
-        Self { cfg, start: now, last_progress: now, counters: BuchbergerTraceCounters::default(), phases: PhaseTimes::default(), while_times: WhileTimes::default() }
+        Self { cfg, start: now, last_progress: now, counters: BuchbergerTraceCounters::default(), phases: CorePhaseTimes::default(), while_times: WhileTimes::default() }
     }
 
     #[must_use]
@@ -41,7 +40,7 @@ impl BuchbergerTracer {
     }
 
     #[must_use]
-    pub const fn phases(&self) -> &PhaseTimes {
+    pub const fn phases(&self) -> &CorePhaseTimes {
         &self.phases
     }
 
@@ -51,7 +50,7 @@ impl BuchbergerTracer {
     }
 
     #[inline]
-    pub fn add_phase_time(&mut self, kind: PhaseKind, dt: Duration) {
+    pub fn add_phase_time(&mut self, kind: CorePhaseKind, dt: Duration) {
         self.phases.add(kind, dt);
     }
 
@@ -60,69 +59,10 @@ impl BuchbergerTracer {
         self.while_times.add(kind, dt);
     }
 
-    #[inline]
-    pub fn on_init_complete(&mut self, initial_basis_len: usize) {
-        self.counters.set_initial_basis_len(initial_basis_len);
-    }
-
-    #[inline]
-    pub fn set_gb_len(&mut self, n: usize) {
-        self.counters.set_gb_len(n);
-    }
-
-    #[inline]
-    pub fn on_push(&mut self, queue_len: usize) {
-        self.counters.record_push(queue_len);
-    }
-
-    #[inline]
-    pub fn on_seeded_pair(&mut self, queue_len: usize) {
-        self.counters.record_seeded_pair(queue_len);
-    }
-
-    #[inline]
-    pub fn on_pop(&mut self, queue_len: usize) {
-        self.counters.record_pop(queue_len);
-    }
-
-    #[inline]
-    pub fn on_inserted_poly(&mut self, gb_len: usize, queue_len: usize) {
-        self.counters.record_inserted_poly(gb_len, queue_len);
-    }
-
-    #[inline]
-    pub fn on_zero_reduction(&mut self) {
-        self.counters.record_zero_reduction();
-    }
-
-    #[inline]
-    pub fn on_unit_reduction(&mut self) {
-        self.counters.record_unit_reduction();
-    }
-
-    #[inline]
-    pub fn on_pair_rejected_by_criterion(&mut self) {
-        self.counters.record_pair_rejected_by_criterion();
-    }
-    #[inline]
-    pub fn on_pair_rejected_by_filter(&mut self) {
-        self.counters.record_pair_rejected_by_filter();
-    }
-
-    #[inline]
-    pub fn on_pairs_added_by_update(&mut self, n: usize) {
-        self.counters.record_pairs_added_by_update(n);
-    }
-
-    #[inline]
-    pub fn on_pair_key_missing(&mut self) {
-        self.counters.record_pair_key_missing();
-    }
-
     #[must_use]
     pub fn should_emit_progress(&self) -> bool {
         let every = self.cfg.progress_every;
-        every != 0 && self.counters.pops as usize % every == 0
+        every != 0 && self.counters.mech.pops as usize % every == 0
     }
 
     pub fn mark_progress_sample(&mut self) -> (Duration, Duration) {
@@ -156,6 +96,75 @@ impl BuchbergerTracer {
             WhileKind::PairUpdate => &mut self.while_times.pair_update,
             WhileKind::PairFilter => &mut self.while_times.pair_filter,
         };
+
         measure_duration(slot, f)
+    }
+}
+
+impl QueueTrace for BuchbergerTracer {
+    #[inline]
+    fn on_push(&mut self, queue_len: usize) {
+        self.counters.record_push(queue_len);
+    }
+
+    #[inline]
+    fn on_pop(&mut self, queue_len: usize) {
+        self.counters.record_pop(queue_len);
+    }
+}
+
+impl PairingTrace for BuchbergerTracer {
+    #[inline]
+    fn on_seeded_pair(&mut self, queue_len: usize) {
+        self.counters.record_seeded_pair(queue_len);
+    }
+
+    #[inline]
+    fn on_pair_rejected_by_criterion(&mut self) {
+        self.counters.record_pair_rejected_by_criterion();
+    }
+
+    #[inline]
+    fn on_pair_rejected_by_filter(&mut self) {
+        self.counters.record_pair_rejected_by_filter();
+    }
+
+    #[inline]
+    fn on_pair_key_missing(&mut self) {
+        self.counters.record_pair_key_missing();
+    }
+
+    #[inline]
+    fn on_pairs_added_by_update(&mut self, n: usize) {
+        self.counters.record_pairs_added_by_update(n);
+    }
+}
+
+impl BasisTrace for BuchbergerTracer {
+    #[inline]
+    fn on_init_complete(&mut self, initial_basis_len: usize) {
+        self.counters.set_initial_basis_len(initial_basis_len);
+    }
+
+    #[inline]
+    fn set_gb_len(&mut self, n: usize) {
+        self.counters.set_gb_len(n);
+    }
+
+    #[inline]
+    fn on_inserted_poly(&mut self, gb_len: usize, queue_len: usize) {
+        self.counters.record_inserted_poly(gb_len, queue_len);
+    }
+}
+
+impl ReductionTrace for BuchbergerTracer {
+    #[inline]
+    fn on_zero_reduction(&mut self) {
+        self.counters.record_zero_reduction();
+    }
+
+    #[inline]
+    fn on_unit_reduction(&mut self) {
+        self.counters.record_unit_reduction();
     }
 }

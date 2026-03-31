@@ -1,26 +1,27 @@
-#![allow(missing_docs)]
+use crate::pairing::updates::{PairUpdateError, Result};
 use crate::pairing::{leading_mono_at, PairCriterion};
-use crate::{GrobnerBasis, PairKey, PairQueue, PairUpdate};
+use crate::{GrobnerBasis, Pair, PairKey, PairQueue, PairUpdate};
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::polynomial::PolynomialView;
 use gbx_poly::term::TermView;
 
-/// Conservative Gebauer–Möller-style pair update.
+/// Conservative Gebauer–Möller-style pair updater.
 ///
-/// This strategy improves on [`NaivePairUpdater`] by pruning newly generated
-/// candidate pairs `(i, new_index)` in two stages:
+/// This strategy improves on [`NaivePairUpdater`](crate::pairing::updates::NaivePairUpdater)
+/// by pruning newly generated candidate pairs `(i, new_index)` in two stages:
 ///
-/// 1. deduplicate pairs with the same LCM, keeping a single representative,
+/// 1. deduplicate candidates with the same LCM, keeping a single representative,
 /// 2. discard candidates whose LCM is strictly divisible by another surviving
 ///    candidate LCM for the same `new_index`.
 ///
-/// Before those GM-style steps, candidate pairs are filtered by:
+/// Before those GM-style pruning steps, candidate pairs are filtered by:
 ///
-/// - a local [`PairCriterion`]
-/// - a [`PairKey`] computation
+/// - a local [`PairCriterion`],
+/// - and a [`PairKey`] computation.
 ///
-/// State-aware pruning based on the current pending-pair set is intentionally
-/// not performed here; that belongs in the engine's pop-time pair-filter layer.
+/// This updater only reasons about the freshly generated candidates associated
+/// with the newly inserted basis element. It does not perform broader
+/// state-aware pruning against the existing pending-pair set.
 #[derive(Debug, Clone, Copy)]
 pub struct GmPairUpdater<C, K> {
     criterion: C,
@@ -28,36 +29,42 @@ pub struct GmPairUpdater<C, K> {
 }
 
 impl<C, K> GmPairUpdater<C, K> {
+    /// Create a new GM-style pair updater from a local criterion and pair keyer.
     #[must_use]
     #[inline]
     pub fn new(criterion: C, keyer: K) -> Self {
         Self { criterion, keyer }
     }
 
+    /// Borrow the local pair criterion.
     #[must_use]
     #[inline]
     pub fn criterion(&self) -> &C {
         &self.criterion
     }
 
+    /// Mutably borrow the local pair criterion.
     #[must_use]
     #[inline]
     pub fn criterion_mut(&mut self) -> &mut C {
         &mut self.criterion
     }
 
+    /// Borrow the pair keyer.
     #[must_use]
     #[inline]
     pub fn keyer(&self) -> &K {
         &self.keyer
     }
 
+    /// Mutably borrow the pair keyer.
     #[must_use]
     #[inline]
     pub fn keyer_mut(&mut self) -> &mut K {
         &mut self.keyer
     }
 
+    /// Consume the updater and return its components.
     #[must_use]
     #[inline]
     pub fn into_parts(self) -> (C, K) {
@@ -76,6 +83,13 @@ where
     }
 }
 
+/// Newly generated candidate pair associated with a fixed `new_index`.
+///
+/// The candidate stores:
+///
+/// - the older basis index `i`,
+/// - the queue key that would be used for insertion,
+/// - the LCM of leading monomials used for GM-style pruning.
 #[derive(Debug, Clone)]
 struct Candidate<M> {
     i: usize,
@@ -84,6 +98,8 @@ struct Candidate<M> {
 }
 
 impl<M> Candidate<M> {
+    /// Return whether `self` is preferred over `other` when both represent the
+    /// same LCM. The tie-breaker is lexicographic on `(key, i)`.
     #[inline]
     fn better_than(&self, other: &Self) -> bool {
         (self.key, self.i) < (other.key, other.i)
@@ -98,12 +114,18 @@ where
     C: PairCriterion<P>,
     K: PairKey<P, Key = u32>,
 {
-    fn on_new_poly<Q>(&mut self, gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize)
+    type Key = u32;
+
+    fn on_new_poly<Q>(&mut self, gb: &GrobnerBasis<P>, pairs: &mut Q, new_index: usize) -> Result<()>
     where
-        Q: PairQueue + crate::PairSetView,
+        Q: PairQueue<Key = Self::Key> + crate::pairing::filters::PairSetView,
     {
+        if new_index >= gb.len() {
+            return Err(PairUpdateError::InvariantViolation);
+        }
+
         let Some(lm_new) = leading_mono_at(gb, new_index) else {
-            return;
+            return Ok(());
         };
 
         let mut candidates: Vec<Candidate<<P::Term as TermView>::Mono>> = Vec::new();
@@ -129,7 +151,7 @@ where
         }
 
         if candidates.is_empty() {
-            return;
+            return Ok(());
         }
 
         let mut deduped: Vec<Candidate<<P::Term as TermView>::Mono>> = Vec::new();
@@ -148,9 +170,9 @@ where
 
         if deduped.len() <= 1 {
             for cand in deduped {
-                pairs.push((cand.key, cand.i, new_index));
+                pairs.push(Pair::new(cand.key, cand.i, new_index));
             }
-            return;
+            return Ok(());
         }
 
         let mut keep = vec![true; deduped.len()];
@@ -180,9 +202,11 @@ where
 
         for (cand, keep_it) in deduped.into_iter().zip(keep.into_iter()) {
             if keep_it {
-                pairs.push((cand.key, cand.i, new_index));
+                pairs.push(Pair::new(cand.key, cand.i, new_index));
             }
         }
+
+        Ok(())
     }
 }
 
@@ -190,8 +214,7 @@ where
 mod tests {
     use super::*;
     use crate::pairing::PairCriterion;
-    use crate::GrobnerBasis;
-    use crate::PairSetView;
+    use crate::FifoPairs;
     use gbx_field::fp::Fp;
     use gbx_poly::monomial::DynamicMonomial;
     use gbx_poly::order::Lex;
@@ -204,46 +227,6 @@ mod tests {
     type Mono = DynamicMonomial;
     type T = Term<F7, Mono>;
     type P = Polynomial<T, VecTerms<T>>;
-
-    #[derive(Debug, Default)]
-    struct TestQueue {
-        pushed: Vec<(u32, usize, usize)>,
-    }
-
-    impl PairQueue for TestQueue {
-        fn new() -> Self
-        where
-            Self: Sized,
-        {
-            Self::default()
-        }
-
-        fn is_empty(&self) -> bool {
-            self.pushed.is_empty()
-        }
-
-        fn push(&mut self, pair: (u32, usize, usize)) {
-            self.pushed.push(pair);
-        }
-
-        fn pop(&mut self) -> Option<(u32, usize, usize)> {
-            self.pushed.pop()
-        }
-
-        fn len(&self) -> usize {
-            self.pushed.len()
-        }
-    }
-
-    impl PairSetView for TestQueue {
-        fn contains_pair(&self, i: usize, j: usize) -> bool {
-            let ij = if i < j { (i, j) } else { (j, i) };
-            self.pushed.iter().any(|&(_, a, b)| {
-                let ab = if a < b { (a, b) } else { (b, a) };
-                ab == ij
-            })
-        }
-    }
 
     #[derive(Debug, Default, Clone, Copy)]
     struct KeepAllCriterion;
@@ -306,6 +289,17 @@ mod tests {
         Polynomial::from_terms_in(ctx, terms).unwrap()
     }
 
+    fn drain_pairs<Q>(queue: &mut Q) -> Vec<Pair<u32>>
+    where
+        Q: PairQueue<Key = u32>,
+    {
+        let mut out = Vec::new();
+        while let Some(pair) = queue.pop() {
+            out.push(pair);
+        }
+        out
+    }
+
     #[test]
     fn respects_criterion_and_key_before_gm_pruning() {
         let ring = ring();
@@ -316,13 +310,12 @@ mod tests {
         let g3 = poly(&ring, vec![term(1, &[0, 1, 1])]);
 
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2, g3]);
-        let mut queue = TestQueue::default();
+        let mut queue = FifoPairs::new();
 
         let mut updater = GmPairUpdater::new(RejectIndexOneCriterion, MissingKeyForZero);
-        updater.on_new_poly(&gb, &mut queue, 3);
+        updater.on_new_poly(&gb, &mut queue, 3).unwrap();
 
-        // i = 0 rejected by key, i = 1 rejected by criterion, i = 2 survives
-        assert_eq!(queue.pushed, vec![(2, 2, 3)]);
+        assert_eq!(drain_pairs(&mut queue), vec![Pair::new(2, 2, 3)]);
     }
 
     #[test]
@@ -334,12 +327,12 @@ mod tests {
         let g2 = poly(&ring, vec![term(1, &[2, 2, 0])]);
 
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2]);
-        let mut queue = TestQueue::default();
+        let mut queue = FifoPairs::new();
 
         let mut updater = GmPairUpdater::new(KeepAllCriterion, IndexKey);
-        updater.on_new_poly(&gb, &mut queue, 2);
+        updater.on_new_poly(&gb, &mut queue, 2).unwrap();
 
-        assert_eq!(queue.pushed, vec![(0, 0, 2)]);
+        assert_eq!(drain_pairs(&mut queue), vec![Pair::new(0, 0, 2)]);
     }
 
     #[test]
@@ -353,12 +346,12 @@ mod tests {
         let g4 = poly(&ring, vec![term(1, &[2, 2, 0])]);
 
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2, g3, g4]);
-        let mut queue = TestQueue::default();
+        let mut queue = FifoPairs::new();
 
         let mut updater = GmPairUpdater::new(KeepAllCriterion, IndexKey);
-        updater.on_new_poly(&gb, &mut queue, 4);
+        updater.on_new_poly(&gb, &mut queue, 4).unwrap();
 
-        assert_eq!(queue.pushed, vec![(0, 0, 4)]);
+        assert_eq!(drain_pairs(&mut queue), vec![Pair::new(0, 0, 4)]);
     }
 
     #[test]
@@ -370,11 +363,26 @@ mod tests {
         let g2 = poly(&ring, vec![term(1, &[2, 2, 0])]);
 
         let gb = GrobnerBasis::new(ring.id(), vec![g0, g1, g2]);
-        let mut queue = TestQueue::default();
+        let mut queue = FifoPairs::new();
 
         let mut updater = GmPairUpdater::new(KeepAllCriterion, IndexKey);
-        updater.on_new_poly(&gb, &mut queue, 2);
+        updater.on_new_poly(&gb, &mut queue, 2).unwrap();
 
-        assert_eq!(queue.pushed, vec![(0, 0, 2)]);
+        assert_eq!(drain_pairs(&mut queue), vec![Pair::new(0, 0, 2)]);
+    }
+
+    #[test]
+    fn rejects_out_of_range_new_index() {
+        let ring = ring();
+
+        let g0 = poly(&ring, vec![term(1, &[2, 0, 0])]);
+        let g1 = poly(&ring, vec![term(1, &[0, 2, 0])]);
+        let gb = GrobnerBasis::new(ring.id(), vec![g0, g1]);
+        let mut queue = FifoPairs::new();
+
+        let mut updater = GmPairUpdater::new(KeepAllCriterion, IndexKey);
+        let err = updater.on_new_poly(&gb, &mut queue, gb.len()).unwrap_err();
+
+        assert!(matches!(err, PairUpdateError::InvariantViolation));
     }
 }

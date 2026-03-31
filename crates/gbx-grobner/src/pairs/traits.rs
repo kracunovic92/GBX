@@ -1,36 +1,39 @@
-/// A keyed critical pair.
-/// `key` is used for ordering (smaller = higher priority).
-pub type Pair = (u32, usize, usize);
+use crate::pairs::pairs::Pair;
 
-/// Normalize an unordered pair of indices so that `(i, j)` and `(j, i)`
-/// are treated identically.
+/// Queue of active critical pairs.
 ///
-/// This helper assumes pair endpoints are distinct. Callers should avoid
-/// constructing self-pairs `(i, i)`.
-#[inline]
-#[must_use]
-pub const fn normalize_pair_indices(i: usize, j: usize) -> (usize, usize) {
-    if i < j { (i, j) } else { (j, i) }
-}
-
-/// Pair queue abstraction.
+/// Implementations are expected to treat pair endpoints as unordered for
+/// membership purposes. In particular, `(i, j)` and `(j, i)` should refer
+/// to the same logical critical pair.
 ///
-/// Implementations are expected to treat pairs as unordered for membership
-/// purposes and should avoid storing duplicate normalized pairs.
+/// Implementations should avoid storing duplicate active pairs with the same
+/// normalized endpoints.
 pub trait PairQueue {
+    /// Key used to prioritize pairs in the queue.
+    type Key;
+
     /// Construct an empty pair queue.
     fn new() -> Self
     where
         Self: Sized;
 
-    /// Returns `true` if no pairs remain.
-    fn is_empty(&self) -> bool;
+    /// Returns `true` if the queue is empty.
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 
     /// Insert a pair if it is not already active.
-    fn push(&mut self, pair: Pair);
+    ///
+    /// Queue implementations may normalize endpoints internally before
+    /// checking membership.
+    fn push(&mut self, pair: Pair<Self::Key>);
+
+    /// Returns the next critical pair without removing it.
+    fn peek(&self) -> Option<&Pair<Self::Key>>;
 
     /// Pop the next pair to process.
-    fn pop(&mut self) -> Option<Pair>;
+    fn pop(&mut self) -> Option<Pair<Self::Key>>;
 
     /// Return the number of active pairs currently stored.
     fn len(&self) -> usize;

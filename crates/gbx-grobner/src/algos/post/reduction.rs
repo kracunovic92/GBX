@@ -1,12 +1,20 @@
-use crate::algos::minimize::minimize_in_place;
-use crate::{BuchbergerError, GrobnerBasis};
+use crate::algos::post::minimize::minimize_in_place;
+use crate::algos::post::PostError;
+use crate::GrobnerBasis;
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialOps, PolynomialReduce};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 use gbx_poly::term::{TermOwned, TermView};
 
-pub fn reduce_in_place<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), BuchbergerError>
+/// Fully reduce a Gröbner basis in place.
+///
+/// This performs:
+/// 1. removal of zero basis elements,
+/// 2. minimization,
+/// 3. reduction of each basis element by the others,
+/// 4. final normalization of all surviving elements.
+pub fn reduce_in_place<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
     O: MonomialOrder,
@@ -35,9 +43,8 @@ where
             .enumerate()
             .filter_map(|(j, g)| (j != i).then_some(g));
 
-        let mut r = gi.normal_form(ctx, it).map_err(BuchbergerError::from)?;
-
-        r.normalize_in_place(ctx).map_err(BuchbergerError::from)?;
+        let mut r = gi.normal_form(ctx, it)?;
+        r.normalize_in_place(ctx)?;
 
         if !r.is_zero() {
             out.push(r);
@@ -46,9 +53,8 @@ where
 
     *gb = GrobnerBasis::new(ctx.id(), out);
 
-    // 4) final normalize (optional)
     for p in gb.as_mut_vec() {
-        p.normalize_in_place(ctx).map_err(BuchbergerError::from)?;
+        p.normalize_in_place(ctx)?;
     }
 
     Ok(())

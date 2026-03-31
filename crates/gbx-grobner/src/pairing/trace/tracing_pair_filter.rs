@@ -1,19 +1,21 @@
-use crate::algos::trace::SharedBuchbergerTracer;
 use crate::pairing::filters::{PairFilter, PairSetView};
+use crate::trace::{PairingTrace, TraceHandle};
 use crate::GrobnerBasis;
 
 /// Wraps any [`PairFilter`] and traces state-aware filter rejections.
+///
+/// This wrapper is purely mechanical and does not change filter behavior.
 #[derive(Debug, Clone)]
-pub struct TracingPairFilter<F> {
+pub struct TracingPairFilter<F, T> {
     inner: F,
-    tracer: SharedBuchbergerTracer,
+    tracer: TraceHandle<T>,
 }
 
-impl<F> TracingPairFilter<F> {
-    /// Wraps a state-aware pair filter with Buchberger tracing.
+impl<F, T> TracingPairFilter<F, T> {
+    /// Wraps a state-aware pair filter with tracing.
     #[must_use]
     #[inline]
-    pub fn wrap(inner: F, tracer: SharedBuchbergerTracer) -> Self {
+    pub fn wrap(inner: F, tracer: TraceHandle<T>) -> Self {
         Self { inner, tracer }
     }
 
@@ -39,9 +41,10 @@ impl<F> TracingPairFilter<F> {
     }
 }
 
-impl<P, F> PairFilter<P> for TracingPairFilter<F>
+impl<P, F, T> PairFilter<P> for TracingPairFilter<F, T>
 where
     F: PairFilter<P>,
+    T: PairingTrace,
 {
     #[inline]
     fn keep_pair<S: PairSetView>(&mut self, gb: &GrobnerBasis<P>, state: &S, i: usize, j: usize) -> bool {

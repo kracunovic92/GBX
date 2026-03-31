@@ -1,8 +1,10 @@
 use super::bounds::BuchbergerTerm;
 use super::init::init_basis;
-use super::options::{BasisPost, BuchbergerOptions};
-use super::trace::{BuchbergerTraceCtx, PhaseKind, SharedBuchbergerTracer, WhileKind};
+use super::options::BuchbergerOptions;
+use super::trace::{BuchbergerTraceCtx, SharedBuchbergerTracer, WhileKind};
+use crate::algos::post::BasisPostOptionsKind;
 use crate::algos::{minimize_in_place, reduce_in_place};
+use crate::trace::CorePhaseKind;
 use crate::{s_polynomial_in, BuchbergerError, GrobnerBasis, PairFilter, PairQueue, PairSetView, PairUpdate};
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::order::MonomialOrder;
@@ -37,7 +39,7 @@ where
     P::Term: BuchbergerTerm,
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
-    Q: PairQueue + PairSetView,
+    Q: PairQueue<Key = U::Key> + PairSetView,
     U: PairUpdate<P>,
     Pf: PairFilter<P>,
 {
@@ -60,7 +62,7 @@ where
     P::Term: BuchbergerTerm,
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
-    Q: PairQueue + PairSetView,
+    Q: PairQueue<Key = U::Key> + PairSetView,
     U: PairUpdate<P>,
     Pf: PairFilter<P>,
 {
@@ -83,7 +85,7 @@ where
     P::Term: BuchbergerTerm,
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
-    Q: PairQueue + PairSetView,
+    Q: PairQueue<Key = U::Key> + PairSetView,
     U: PairUpdate<P>,
     Pf: PairFilter<P>,
 {
@@ -97,11 +99,14 @@ where
 
     let mut reducers = build_reducers(ctx, gb.as_slice())?;
 
-    seed_initial_pairs_traced(&gb, &mut pairs, &mut update, &trace);
+    seed_initial_pairs_traced(&gb, &mut pairs, &mut update, &trace)?;
 
     let while_t0 = Instant::now();
 
-    while let Some((_key, i, j)) = pairs.pop() {
+    while let Some(pair) = pairs.pop() {
+        let i = pair.i;
+        let j = pair.j;
+
         if !should_process_pair_traced(&gb, &pairs, &mut filter, i, j, &trace) {
             continue;
         }
@@ -118,23 +123,25 @@ where
 
         if r.is_nonzero_constant() {
             trace.on_unit_reduction();
-            trace.add_phase_time(PhaseKind::WhileLoop, while_t0.elapsed());
+            trace.add_phase_time(CorePhaseKind::WhileLoop, while_t0.elapsed());
             trace.print_unit_summary(&pairs);
             return Ok(GrobnerBasis::new(ctx.id(), vec![r]));
         }
 
         let new_index = gb.len();
         gb.push(r);
+
         let new_poly = gb
             .get(new_index)
             .ok_or(BuchbergerError::InvariantViolation)?;
         insert_reducer_sorted(ctx, &mut reducers, new_poly.clone())?;
+
         trace.on_inserted_poly(gb.len(), pairs.len());
 
-        update_after_insert_traced(&gb, &mut pairs, &mut update, new_index, &trace);
+        update_after_insert_traced(&gb, &mut pairs, &mut update, new_index, &trace)?;
     }
 
-    trace.add_phase_time(PhaseKind::WhileLoop, while_t0.elapsed());
+    trace.add_phase_time(CorePhaseKind::WhileLoop, while_t0.elapsed());
 
     postprocess_basis_traced(ctx, &mut gb, opts, &trace)?;
     trace.set_gb_len(gb.len());
@@ -154,7 +161,7 @@ where
 {
     let t0 = Instant::now();
     let gb = init_basis(ctx, fs, opts)?;
-    trace.add_phase_time(PhaseKind::Init, t0.elapsed());
+    trace.add_phase_time(CorePhaseKind::Init, t0.elapsed());
     trace.on_init_complete(gb.len());
     Ok(gb)
 }
@@ -232,21 +239,23 @@ where
     Ok(())
 }
 
-fn seed_initial_pairs_traced<P, Q, U>(gb: &GrobnerBasis<P>, pairs: &mut Q, update: &mut U, trace: &BuchbergerTraceCtx)
+fn seed_initial_pairs_traced<P, Q, U>(gb: &GrobnerBasis<P>, pairs: &mut Q, update: &mut U, trace: &BuchbergerTraceCtx) -> Result<(), BuchbergerError>
 where
-    Q: PairQueue + PairSetView,
+    Q: PairQueue<Key = U::Key> + PairSetView,
     U: PairUpdate<P>,
 {
     let phase_t0 = Instant::now();
 
     for k in 0..gb.len() {
         let t0 = Instant::now();
-        update.on_new_poly(gb, pairs, k);
+        update
+            .on_new_poly(gb, pairs, k)
+            .map_err(BuchbergerError::from)?;
         trace.add_while_time(WhileKind::PairUpdate, t0.elapsed());
-        trace.on_seeded_pair(pairs.len());
     }
 
-    trace.add_phase_time(PhaseKind::Seed, phase_t0.elapsed());
+    trace.add_phase_time(CorePhaseKind::Seed, phase_t0.elapsed());
+    Ok(())
 }
 
 fn should_process_pair_traced<P, Q, Pf>(gb: &GrobnerBasis<P>, pairs: &Q, filter: &mut Pf, i: usize, j: usize, trace: &BuchbergerTraceCtx) -> bool
@@ -285,16 +294,19 @@ where
     Ok(r)
 }
 
-fn update_after_insert_traced<P, Q, U>(gb: &GrobnerBasis<P>, pairs: &mut Q, update: &mut U, new_index: usize, trace: &BuchbergerTraceCtx)
+fn update_after_insert_traced<P, Q, U>(gb: &GrobnerBasis<P>, pairs: &mut Q, update: &mut U, new_index: usize, trace: &BuchbergerTraceCtx) -> Result<(), BuchbergerError>
 where
-    Q: PairQueue + PairSetView,
+    Q: PairQueue<Key = U::Key> + PairSetView,
     U: PairUpdate<P>,
     P: PolynomialView,
 {
     let t0 = Instant::now();
-    update.on_new_poly(gb, pairs, new_index);
+    update
+        .on_new_poly(gb, pairs, new_index)
+        .map_err(BuchbergerError::from)?;
     trace.add_while_time(WhileKind::PairUpdate, t0.elapsed());
     trace.maybe_emit_progress(gb, pairs);
+    Ok(())
 }
 
 fn postprocess_basis_traced<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>, opts: BuchbergerOptions, trace: &BuchbergerTraceCtx) -> Result<(), BuchbergerError>
@@ -309,11 +321,11 @@ where
     let t0 = Instant::now();
 
     match opts.post {
-        BasisPost::None => {}
-        BasisPost::Minimal => minimize_in_place(ctx, gb)?,
-        BasisPost::Reduced => reduce_in_place(ctx, gb)?,
+        BasisPostOptionsKind::None => {}
+        BasisPostOptionsKind::Minimal => minimize_in_place(ctx, gb)?,
+        BasisPostOptionsKind::Reduced => reduce_in_place(ctx, gb)?,
     }
 
-    trace.add_phase_time(PhaseKind::Post, t0.elapsed());
+    trace.add_phase_time(CorePhaseKind::Post, t0.elapsed());
     Ok(())
 }

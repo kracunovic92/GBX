@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::*;
+use crate::algos::post::BasisPostOptionsKind;
 use gbx_field::fp::{Fp, FpDyn, FpDynElem};
 use gbx_poly::monomial::{DynamicMonomial, FixedMonomial};
 use gbx_poly::order::Lex;
@@ -88,7 +89,7 @@ fn buchberger_empty_input_returns_empty_basis() {
 #[test]
 fn buchberger_post_none_keeps_generators() {
     let r = ring_static();
-    let opts = BuchbergerOptions { post: BasisPost::None, ..Default::default() };
+    let opts = BuchbergerOptions { post: BasisPostOptionsKind::None, ..Default::default() };
 
     let f0 = p2(&r, &[(1, 2, 0), (1, 0, 2), (6, 0, 0)]);
     let f1 = p2(&r, &[(1, 3, 0), (6, 0, 1)]);
@@ -100,7 +101,7 @@ fn buchberger_post_none_keeps_generators() {
 #[test]
 fn buchberger_post_reduced_runs() {
     let r = ring_static();
-    let opts = BuchbergerOptions { post: BasisPost::Reduced, ..Default::default() };
+    let opts = BuchbergerOptions { post: BasisPostOptionsKind::Reduced, ..Default::default() };
 
     let f0 = p2(&r, &[(1, 1, 0)]);
     let f1 = p2(&r, &[(1, 0, 1)]);

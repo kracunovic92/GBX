@@ -1,13 +1,17 @@
-use crate::{BuchbergerError, GrobnerBasis};
+use crate::algos::post::PostError;
+use crate::GrobnerBasis;
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::PolynomialOps;
 use gbx_poly::ring::{FieldCtx, RingCtx};
 use gbx_poly::term::{TermOwned, TermView};
 
-/// Minimalize: remove any polynomial whose LM is divisible by another LM.
-/// Then make all remaining polynomials monic.
-pub fn minimize_in_place<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), BuchbergerError>
+/// Minimalize a Gröbner basis in place.
+///
+/// Removes every polynomial whose leading monomial is divisible by the leading
+/// monomial of another basis element. The surviving basis elements are then
+/// made monic.
+pub fn minimize_in_place<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
     O: MonomialOrder,
@@ -40,10 +44,10 @@ where
         .iter()
         .map(|p| {
             p.leading_term()
-                .ok_or(BuchbergerError::InvariantViolation)
+                .ok_or(PostError::InvariantViolation)
                 .map(|lt| lt.mono().clone())
         })
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<Vec<_>, PostError>>()?;
 
     let out: Vec<P> = polys
         .into_iter()
@@ -59,14 +63,15 @@ where
 
     *gb = GrobnerBasis::new(ctx.id(), out);
 
-    // Make monic at the end.
     for p in gb.as_mut_vec() {
-        make_monic_in_place(&ctx, p)?;
+        make_monic_in_place(ctx, p)?;
     }
 
     Ok(())
 }
-pub fn make_monic_in_place<P, F, O>(ctx: &RingCtx<F, O>, p: &mut P) -> Result<(), BuchbergerError>
+
+/// Make one polynomial monic in place.
+pub fn make_monic_in_place<P, F, O>(ctx: &RingCtx<F, O>, p: &mut P) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
     O: MonomialOrder,
@@ -79,9 +84,7 @@ where
         return Ok(());
     }
 
-    let lt = p
-        .leading_term()
-        .ok_or(BuchbergerError::InvariantViolation)?;
+    let lt = p.leading_term().ok_or(PostError::InvariantViolation)?;
     let lc = lt.coeff();
 
     let one = ctx.field.one();
@@ -92,10 +95,9 @@ where
     let inv_lc = ctx
         .field
         .checked_div(one, *lc)
-        .map_err(|_| BuchbergerError::InvariantViolation)?;
+        .map_err(PostError::DivByZero)?;
 
-    p.scale_in_place(ctx, inv_lc)
-        .map_err(BuchbergerError::from)?;
+    p.scale_in_place(ctx, inv_lc)?;
 
     Ok(())
 }

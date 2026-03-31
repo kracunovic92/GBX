@@ -1,9 +1,10 @@
 use super::{
     reporter::{print_progress_line, print_summary},
     snapshot::BuchbergerTraceSnapshot,
-    timings::{PhaseKind, WhileKind},
+    timings::WhileKind,
     tracer::SharedBuchbergerTracer,
 };
+use crate::trace::{BasisTrace, CorePhaseKind, PairingTrace, ReductionTrace};
 use crate::{GrobnerBasis, PairQueue};
 use gbx_poly::polynomial::PolynomialView;
 use std::time::Duration;
@@ -43,7 +44,7 @@ impl BuchbergerTraceCtx {
     }
 
     #[inline]
-    pub fn add_phase_time(&self, kind: PhaseKind, dt: Duration) {
+    pub fn add_phase_time(&self, kind: CorePhaseKind, dt: Duration) {
         if let Some(tr) = &self.tracer {
             tr.lock().add_phase_time(kind, dt);
         }

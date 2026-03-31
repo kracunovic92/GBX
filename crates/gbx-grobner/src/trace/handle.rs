@@ -15,14 +15,15 @@ impl<T> Clone for TraceHandle<T> {
     }
 }
 
-#[allow(missing_docs)]
 impl<T> TraceHandle<T> {
+    /// Creates a new shared handle.
     #[must_use]
     #[inline]
     pub fn new(value: T) -> Self {
         Self { inner: Arc::new(Mutex::new(value)) }
     }
 
+    /// Locks and returns mutable access to the underlying tracer.
     #[inline]
     pub fn lock(&self) -> MutexGuard<'_, T> {
         self.inner.lock().expect("trace mutex poisoned")

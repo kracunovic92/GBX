@@ -1,19 +1,21 @@
-use crate::algos::trace::SharedBuchbergerTracer;
 use crate::pairing::criteria::PairCriterion;
+use crate::trace::{PairingTrace, TraceHandle};
 use crate::GrobnerBasis;
 
 /// Wraps any [`PairCriterion`] and traces local criterion rejections.
+///
+/// This wrapper is purely mechanical and does not change criterion behavior.
 #[derive(Debug, Clone)]
-pub struct TracingPairCriterion<C> {
+pub struct TracingPairCriterion<C, T> {
     inner: C,
-    tracer: SharedBuchbergerTracer,
+    tracer: TraceHandle<T>,
 }
 
-impl<C> TracingPairCriterion<C> {
-    /// Wraps a local pair criterion with Buchberger tracing.
+impl<C, T> TracingPairCriterion<C, T> {
+    /// Wraps a local pair criterion with tracing.
     #[must_use]
     #[inline]
-    pub fn wrap(inner: C, tracer: SharedBuchbergerTracer) -> Self {
+    pub fn wrap(inner: C, tracer: TraceHandle<T>) -> Self {
         Self { inner, tracer }
     }
 
@@ -39,9 +41,10 @@ impl<C> TracingPairCriterion<C> {
     }
 }
 
-impl<P, C> PairCriterion<P> for TracingPairCriterion<C>
+impl<P, C, T> PairCriterion<P> for TracingPairCriterion<C, T>
 where
     C: PairCriterion<P>,
+    T: PairingTrace,
 {
     #[inline]
     fn keep_pair(&mut self, gb: &GrobnerBasis<P>, i: usize, j: usize) -> bool {

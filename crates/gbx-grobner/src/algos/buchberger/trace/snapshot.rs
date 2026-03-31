@@ -1,4 +1,4 @@
-use super::memory::MemorySnapshot;
+use crate::MemorySnapshot;
 
 /// Immutable Buchberger trace snapshot used for progress and summary reporting.
 #[derive(Debug, Default, Clone, Copy)]

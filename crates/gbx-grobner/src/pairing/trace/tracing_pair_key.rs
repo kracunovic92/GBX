@@ -1,19 +1,22 @@
-use crate::algos::trace::SharedBuchbergerTracer;
 use crate::pairing::keys::PairKey;
+use crate::trace::{PairingTrace, TraceHandle};
 use crate::GrobnerBasis;
 
 /// Wraps any [`PairKey`] and traces missing keys.
+///
+/// This wrapper is purely mechanical and does not change key selection
+/// behavior.
 #[derive(Debug, Clone)]
-pub struct TracingPairKey<K> {
+pub struct TracingPairKey<K, T> {
     inner: K,
-    tracer: SharedBuchbergerTracer,
+    tracer: TraceHandle<T>,
 }
 
-impl<K> TracingPairKey<K> {
-    /// Wraps a pair key strategy with Buchberger tracing.
+impl<K, T> TracingPairKey<K, T> {
+    /// Wraps a pair key strategy with tracing.
     #[must_use]
     #[inline]
-    pub fn wrap(inner: K, tracer: SharedBuchbergerTracer) -> Self {
+    pub fn wrap(inner: K, tracer: TraceHandle<T>) -> Self {
         Self { inner, tracer }
     }
 
@@ -39,9 +42,10 @@ impl<K> TracingPairKey<K> {
     }
 }
 
-impl<P, K> PairKey<P> for TracingPairKey<K>
+impl<P, K, T> PairKey<P> for TracingPairKey<K, T>
 where
     K: PairKey<P>,
+    T: PairingTrace,
 {
     type Key = K::Key;
 

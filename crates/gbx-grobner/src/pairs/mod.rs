@@ -11,9 +11,11 @@
 //! - [`FifoPairs`]: FIFO
 
 mod heap_pairs;
+mod pairs;
 mod stack_pair;
 mod traits;
 
 pub use heap_pairs::*;
+pub use pairs::*;
 pub use stack_pair::*;
 pub use traits::*;
