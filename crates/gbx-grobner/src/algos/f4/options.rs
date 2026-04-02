@@ -11,11 +11,10 @@ pub struct F4Options {
     /// Normalize extracted rows before inserting into the basis.
     pub normalize_extracted: bool,
 
-    /// For the first prototype, optionally re-check extracted polynomials
-    /// with a classical reduction safety pass before insertion.
+    /// Optionally re-check extracted polynomials with a classical reduction safety pass.
     pub safety_reduce_extracted: bool,
 
-    /// Final post-processing applied after Buchberger's main loop.
+    /// Final post-processing applied after the main loop.
     pub post: BasisPostOptionsKind,
 }
 

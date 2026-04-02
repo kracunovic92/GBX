@@ -12,5 +12,8 @@ gbx-storage = { path = "../gbx-storage", default-features = false }
 gbx-field = { path = "../gbx-field", default-features = false }
 gbx-poly = { path = "../gbx-poly", default-features = false }
 thiserror = "2.0.18"
+anyhow = "1.0.102"
+simplify = "0.1.2"
+parking_lot = "0.12.5"
 [lints]
 workspace = true

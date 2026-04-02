@@ -1,9 +1,11 @@
-//! Symbolic preprocessing with reducer closure for F4.
+use std::collections::BTreeSet;
 
 use crate::algos::f4::error::Result;
-use crate::algos::f4::symbolic::helpers::{enqueue_support_terms, materialize_multiple};
-use crate::algos::f4::symbolic::types::{SeedRow, SymbolicPreprocessing, SymbolicRow, SymbolicRowKind};
-use crate::basis::GrobnerBasis;
+use crate::algos::f4::state::BatchHistory;
+use crate::algos::f4::symbolic::ordered::{OrderedMono, OrderedSeed};
+use crate::algos::f4::symbolic::reducers::find_top_reducer;
+use crate::algos::f4::symbolic::seeds::{materialize_seed, SymbolicSeed};
+use crate::algos::f4::types::PolyMono;
 
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::order::MonomialOrder;
@@ -11,95 +13,88 @@ use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 use gbx_poly::term::{TermOwned, TermView};
 
-use crate::symbolic::helpers::{build_reducer_index, find_any_reducer_indexed};
-use std::collections::HashSet;
-
-/// Perform symbolic preprocessing for an F4 batch.
-///
-/// Starting from the aligned seed rows induced by the selected critical pairs,
-/// this function repeatedly closes the row system under top reduction by the
-/// current Gröbner basis.
-///
-/// In this correctness-first implementation:
-///
-/// - every support monomial encountered in the current row set is inspected,
-/// - the first basis reducer found in basis order is used,
-/// - duplicate row multiples are suppressed using `(basis_index, multiplier)`,
-/// - all inserted rows are materialized immediately as full polynomials.
-///
-/// This is intentionally conservative. It may introduce more reducer rows than
-/// a more optimized symbolic-preprocessing strategy, but it is much easier to
-/// reason about and test.
-pub fn symbolic_preprocess<F, O, P>(ctx: &RingCtx<F, O>, gb: &GrobnerBasis<P>, seeds: Vec<SeedRow<<P::Term as TermView>::Mono>>) -> Result<SymbolicPreprocessing<P, <P::Term as TermView>::Mono>>
+pub fn symbolic_preprocess<P, F, O>(ctx: &RingCtx<F, O>, seeds: &[SymbolicSeed<PolyMono<P>>], basis: &[P], _history: &[BatchHistory<P>]) -> Result<Vec<P>>
 where
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
-    O: MonomialOrder,
+    O: MonomialOrder + Clone,
     P: PolynomialMut + PolynomialOps + PolynomialView + Clone,
     P::Term: TermOwned + TermView + Clone,
     <P::Term as TermView>::Coeff: Copy + Eq,
-    <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq + std::hash::Hash,
+    PolyMono<P>: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
+    <<P as PolynomialView>::Term as TermView>::Coeff: Default,
 {
-    let reducers = build_reducer_index(gb);
-    let mut seed_rows = Vec::new();
-    let mut reducer_rows = Vec::new();
-    let mut all_rows = Vec::new();
+    let order = &ctx.order;
 
-    // Deduplicate materialized basis multiples by:
-    //   (source basis polynomial, monomial multiplier)
-    let mut inserted_rows: HashSet<(usize, <P::Term as TermView>::Mono)> = HashSet::new();
+    let mut rows: Vec<P> = Vec::new();
+    let mut seen_products: BTreeSet<OrderedSeed<'_, PolyMono<P>, O>> = BTreeSet::new();
 
-    // Worklist of support monomials still to inspect for reducibility.
-    let mut seen_terms: HashSet<<P::Term as TermView>::Mono> = HashSet::new();
-    let mut irreducible_terms: HashSet<<P::Term as TermView>::Mono> = HashSet::new();
-    let mut pending_terms: Vec<<P::Term as TermView>::Mono> = Vec::new();
-
-    // 1. Materialize the initial seed rows.
+    // F := { t * f | (index(f), t) in L }
     for seed in seeds {
-        let row_key = (seed.source_basis_index, seed.multiplier.clone());
-        if !inserted_rows.insert(row_key) {
-            continue;
+        let key = OrderedSeed::new(seed.basis_index, seed.multiplier.clone(), order);
+
+        if seen_products.insert(key) {
+            let row = materialize_seed(ctx, seed, basis)?;
+            rows.push(row);
         }
-
-        let poly = materialize_multiple(ctx, gb, seed.source_basis_index, &seed.multiplier)?;
-        if poly.is_zero() {
-            continue;
-        }
-
-        enqueue_support_terms(&poly, &mut seen_terms, &mut pending_terms);
-
-        let row = SymbolicRow { poly, source_basis_index: seed.source_basis_index, multiplier: seed.multiplier, kind: seed.kind };
-
-        seed_rows.push(row.clone());
-        all_rows.push(row);
     }
 
-    // 2. Close under reducers from the current basis.
-    while let Some(term) = pending_terms.pop() {
-        if irreducible_terms.contains(&term) {
-            continue;
-        }
-        let Some((basis_index, quotient)) = find_any_reducer_indexed::<P>(&reducers, &term)? else {
-            irreducible_terms.insert(term);
-            continue;
+    // Done := HT(F)
+    let mut done: BTreeSet<OrderedMono<'_, PolyMono<P>, O>> = leading_monomials(&rows, order);
+
+    // while T(F) != Done
+    loop {
+        let next = all_monomials(&rows, order)
+            .into_iter()
+            .find(|m| !done.contains(m));
+
+        let Some(next_ordered) = next else {
+            break;
         };
 
-        let row_key = (basis_index, quotient.clone());
-        if !inserted_rows.insert(row_key) {
-            continue;
+        done.insert(next_ordered.clone());
+        let monomial = next_ordered.into_inner();
+
+        if let Some((basis_index, multiplier)) = find_top_reducer::<P>(&monomial, basis)? {
+            let key = OrderedSeed::new(basis_index, multiplier.clone(), order);
+
+            if seen_products.insert(key) {
+                let reducer_seed = SymbolicSeed { basis_index, multiplier };
+                let row = materialize_seed(ctx, &reducer_seed, basis)?;
+                rows.push(row);
+            }
         }
-
-        let poly = materialize_multiple(ctx, gb, basis_index, &quotient)?;
-        if poly.is_zero() {
-            continue;
-        }
-
-        enqueue_support_terms(&poly, &mut seen_terms, &mut pending_terms);
-
-        let row = SymbolicRow { poly, source_basis_index: basis_index, multiplier: quotient, kind: SymbolicRowKind::Reducer };
-
-        reducer_rows.push(row.clone());
-        all_rows.push(row);
     }
 
-    Ok(SymbolicPreprocessing { seed_rows, reducer_rows, all_rows })
+    Ok(rows)
+}
+
+fn leading_monomials<'a, P, O>(rows: &[P], order: &'a O) -> BTreeSet<OrderedMono<'a, PolyMono<P>, O>>
+where
+    P: PolynomialView,
+    P::Term: TermView,
+    PolyMono<P>: Clone + MonomialView<Word = u32>,
+    O: MonomialOrder,
+{
+    rows.iter()
+        .filter_map(|row| row.leading_mono().cloned())
+        .map(|mono| OrderedMono::new(mono, order))
+        .collect()
+}
+
+fn all_monomials<'a, P, O>(rows: &[P], order: &'a O) -> BTreeSet<OrderedMono<'a, PolyMono<P>, O>>
+where
+    P: PolynomialView,
+    P::Term: TermView,
+    PolyMono<P>: Clone + MonomialView<Word = u32>,
+    O: MonomialOrder,
+{
+    let mut out = BTreeSet::new();
+
+    for row in rows {
+        for term in row.terms().iter() {
+            out.insert(OrderedMono::new(term.mono().clone(), order));
+        }
+    }
+
+    out
 }

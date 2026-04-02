@@ -24,14 +24,10 @@ mod algos;
 mod basis;
 mod display;
 mod error;
-mod pairing;
-mod pairs;
 mod trace;
 
 pub use algos::*;
 pub use basis::GrobnerBasis;
 pub use display::{GbDisplay, GbStyle};
 pub use error::BuchbergerError;
-pub use pairing::*;
-pub use pairs::{FifoPairs, HeapPairs, Pair, PairQueue, StackPairs};
 pub use trace::*;

@@ -1,23 +1,31 @@
 //! F4 Gröbner basis algorithm.
 //!
-//! This module contains a correctness-first, CPU-only F4 architecture.
-//! The initial implementation is intentionally simple:
-//! - select a batch of critical pairs
-//! - build their S-polynomials
-//! - perform naive symbolic preprocessing
-//! - construct a matrix
-//! - row-reduce it
-//! - extract candidate new basis elements
+//! This module contains a correctness-first, CPU-oriented F4 implementation.
+//! The current pipeline is intentionally simple:
+//!
+//! - select a batch of critical pairs,
+//! - build batch input from those pairs,
+//! - perform symbolic preprocessing,
+//! - construct the coefficient matrix,
+//! - row-reduce it,
+//! - extract candidate basis elements.
+//!
+//! The module layout is designed so that individual stages can later be replaced
+//! by more faithful or more optimized variants, including improved F4-style
+//! symbolic preprocessing and reduction reuse.
 
 pub mod api;
-pub mod batch;
 pub mod engine;
 pub mod error;
-pub mod extract;
-pub mod matrix;
 pub mod options;
+pub mod state;
+pub mod types;
+
+pub mod extract;
+pub mod linear;
+pub mod pairs;
 pub mod symbolic;
-mod trace;
+pub mod trace;
 
 pub use api::{f4, f4_traced};
 pub use error::{F4Error, Result};

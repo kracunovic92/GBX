@@ -3,7 +3,7 @@ use super::{s_polynomial_in, SPolyError};
 use gbx_field::fp::{FpDyn, FpDynElem};
 use gbx_poly::monomial::DynamicMonomial;
 use gbx_poly::order::Lex;
-use gbx_poly::polynomial::{Polynomial, PolynomialMut, PolynomialView};
+use gbx_poly::polynomial::{Polynomial, PolynomialMut};
 use gbx_poly::ring::RingCtx;
 use gbx_poly::term::Term;
 use gbx_poly::write_pretty;

@@ -1,15 +1,8 @@
-use super::{
-    reporter::{print_progress_line, print_summary},
-    snapshot::F4TraceSnapshot,
-    timings::WhileKind,
-    tracer::SharedF4Tracer,
-};
-use crate::trace::{BasisTrace, CorePhaseKind};
 use std::time::Duration;
 
-/// Thin facade around an optional shared tracer.
-///
-/// This removes `Option` and locking noise from the F4 engine.
+use crate::algos::f4::pairs::critical_pair::CriticalPair;
+use crate::algos::f4::trace::SharedF4Tracer;
+
 #[derive(Clone)]
 pub struct F4TraceCtx {
     tracer: Option<SharedF4Tracer>,
@@ -22,120 +15,163 @@ impl F4TraceCtx {
     }
 
     #[must_use]
-    #[inline]
     pub fn is_enabled(&self) -> bool {
         self.tracer.is_some()
     }
 
-    #[inline]
-    pub fn on_init_complete(&self, initial_basis_len: usize) {
+    pub fn on_init_complete(&self, initial_basis_len: usize, initial_pending_len: usize) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_init_complete(initial_basis_len);
+            let mut tr = tr.lock();
+            tr.set_queue_len(initial_pending_len);
+            tr.on_init_complete(initial_basis_len);
+            tr.set_gb_len(initial_basis_len);
         }
     }
 
-    #[inline]
-    pub fn set_gb_len(&self, n: usize) {
+    pub fn on_iteration_start(&self, iteration: usize, pending_len: usize, basis_len: usize) {
         if let Some(tr) = &self.tracer {
-            tr.lock().set_gb_len(n);
+            let mut tr = tr.lock();
+            tr.set_gb_len(basis_len);
+            tr.set_queue_len(pending_len);
+            tr.on_iteration_start(iteration);
         }
     }
 
-    #[inline]
-    pub fn add_phase_time(&self, kind: CorePhaseKind, dt: Duration) {
+    pub fn on_pairs_selected<M>(&self, selected: &[CriticalPair<M>], remaining_len: usize) {
         if let Some(tr) = &self.tracer {
-            tr.lock().add_phase_time(kind, dt);
+            let mut tr = tr.lock();
+            tr.on_pairs_selected(selected.len());
+            tr.set_queue_len(remaining_len);
         }
     }
 
-    #[inline]
-    pub fn add_while_time(&self, kind: WhileKind, dt: Duration) {
+    pub fn on_symbolic_complete(&self, row_count: usize) {
         if let Some(tr) = &self.tracer {
-            tr.lock().add_while_time(kind, dt);
+            tr.lock().on_symbolic_complete(row_count);
         }
     }
 
-    #[inline]
-    pub fn on_batch_selected(&self, batch_len: usize) {
+    pub fn on_reduction_complete(&self, row_count: usize) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_batch_selected(batch_len);
+            tr.lock().on_reduction_complete(row_count);
         }
     }
 
-    #[inline]
-    pub fn on_seed_rows(&self, count: usize) {
+    pub fn on_rows_extracted(&self, extracted: usize) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_seed_rows(count);
+            tr.lock().on_rows_extracted(extracted);
         }
     }
 
-    #[inline]
-    pub fn on_symbolic(&self, reducer_rows: usize, total_rows: usize) {
+    pub fn on_inserted(&self, basis_len: usize, pending_len: usize) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_symbolic(reducer_rows, total_rows);
+            let mut tr = tr.lock();
+            tr.on_inserted(1);
+            tr.set_gb_len(basis_len);
+            tr.set_queue_len(pending_len);
         }
     }
 
-    #[inline]
-    pub fn on_matrix_shape(&self, rows: usize, cols: usize) {
+    pub fn on_zero_extracted(&self) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_matrix_shape(rows, cols);
+            tr.lock().on_skipped_zero_extracted(1);
         }
     }
 
-    #[inline]
-    pub fn on_extracted(&self, count: usize) {
+    pub fn add_selection_time(&self, dt: Duration) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_extracted(count);
+            tr.lock().add_selection_time(dt);
         }
     }
 
-    #[inline]
-    pub fn on_skipped_zero_extracted(&self) {
+    pub fn add_build_ld_time(&self, dt: Duration) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_skipped_zero_extracted();
+            tr.lock().add_build_ld_time(dt);
         }
     }
 
-    #[inline]
-    pub fn on_inserted_poly(&self, gb_len: usize) {
+    pub fn add_symbolic_time(&self, dt: Duration) {
         if let Some(tr) = &self.tracer {
-            tr.lock().on_inserted_poly(gb_len, 0);
+            tr.lock().add_symbolic_time(dt);
         }
     }
 
-    #[must_use]
-    #[inline]
-    pub fn snapshot(&self, gb_len: usize, queue_len: usize) -> Option<F4TraceSnapshot> {
-        self.tracer.as_ref().map(|tr| {
-            let tr = tr.lock();
-            tr.snapshot(gb_len, queue_len, true)
-        })
-    }
-
-    pub fn maybe_emit_progress(&self, gb_len: usize, queue_len: usize) {
-        let Some(tr) = &self.tracer else {
-            return;
-        };
-
-        let mut tr = tr.lock();
-
-        if !tr.should_emit_progress() {
-            return;
+    pub fn add_reduction_time(&self, dt: Duration) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().add_reduction_time(dt);
         }
-
-        let snap = tr.snapshot(gb_len, queue_len, true);
-        let (delta, total) = tr.mark_progress_sample();
-        print_progress_line(&tr, &snap, delta, total);
     }
 
-    pub fn print_summary(&self, gb_len: usize, queue_len: usize) {
-        let Some(tr) = &self.tracer else {
-            return;
-        };
+    pub fn add_extraction_time(&self, dt: Duration) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().add_extraction_time(dt);
+        }
+    }
 
-        let tr = tr.lock();
-        let snap = tr.snapshot(gb_len, queue_len, true);
-        print_summary(&tr, &snap);
+    pub fn add_normalize_extracted_time(&self, dt: Duration) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().add_normalize_extracted_time(dt);
+        }
+    }
+
+    pub fn add_insert_update_time(&self, dt: Duration) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().add_insert_update_time(dt);
+        }
+    }
+
+    pub fn add_post_process_time(&self, dt: Duration) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().add_post_process_time(dt);
+        }
+    }
+
+    pub fn add_main_loop_time(&self, dt: Duration) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().add_main_loop_time(dt);
+        }
+    }
+
+    pub fn set_total_run_time(&self, dt: Duration) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().set_total_run_time(dt);
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn on_iteration_timing(
+        &self,
+        iteration: usize,
+        total: Duration,
+        selection: Duration,
+        build_ld: Duration,
+        symbolic: Duration,
+        reduction: Duration,
+        extraction: Duration,
+        normalize_extracted: Duration,
+        insert_update: Duration,
+    ) {
+        if let Some(tr) = &self.tracer {
+            tr.lock().on_iteration_timing(
+                iteration,
+                total,
+                selection,
+                build_ld,
+                symbolic,
+                reduction,
+                extraction,
+                normalize_extracted,
+                insert_update,
+            );
+        }
+    }
+
+    pub fn on_loop_complete(&self, basis_len: usize, pending_len: usize) {
+        if let Some(tr) = &self.tracer {
+            let mut tr = tr.lock();
+            tr.set_gb_len(basis_len);
+            tr.set_queue_len(pending_len);
+            tr.on_finish();
+        }
     }
 }

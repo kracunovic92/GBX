@@ -1,19 +1,17 @@
-use crate::algos::f4::error::{F4Error, Result};
-use crate::algos::f4::types::PolyMono;
-
+use crate::algos::f4::error::Result;
 use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
+
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 use gbx_poly::term::{TermOwned, TermView};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SymbolicSeed<M> {
-    pub basis_index: usize,
-    pub multiplier: M,
-}
-
-pub fn materialize_seed<P, F, O>(ctx: &RingCtx<F, O>, seed: &SymbolicSeed<PolyMono<P>>, basis: &[P]) -> Result<P>
+/// Batch linear reducer used by F4.
+///
+/// The current implementation may operate directly on polynomial rows,
+/// but this trait is designed so a future matrix-based reducer can be
+/// plugged into the same engine.
+pub trait BatchReducer<P, F, O>
 where
     F: FieldCtx<Elem = <P::Term as TermView>::Coeff>,
     O: MonomialOrder,
@@ -22,13 +20,7 @@ where
     <P::Term as TermView>::Coeff: Copy + Eq,
     <P::Term as TermView>::Mono: Monomial + MonomialAlgos + MonomialView<Word = u32> + Clone + Eq,
     <<P as PolynomialView>::Term as TermView>::Coeff: Default,
+    <<P as PolynomialView>::Term as TermView>::Mono: Default,
 {
-    let basis_poly = basis
-        .get(seed.basis_index)
-        .ok_or(F4Error::MissingBasisPolynomial { index: seed.basis_index })?;
-
-    let mut out = basis_poly.clone();
-    out.mul_monomial_assign_raw(ctx, &seed.multiplier)?;
-    out.normalize_in_place(ctx)?;
-    Ok(out)
+    fn reduce(&self, ctx: &RingCtx<F, O>, rows: &[P]) -> Result<Vec<P>>;
 }

@@ -1,11 +1,7 @@
 use anyhow::{bail, Result};
 
 use gbx_field::fp::{FpDyn, FpDynElem};
-use gbx_grobner::api::f4_with;
-use gbx_grobner::{
-    BuchbergerTraceConfig, BuchbergerTracer, F4Options, GmPairUpdater, HeapPairs, LcmDegreeKey, NoPairFilter, ProductCriterion, TraceConfig, TraceLevel, TraceReportMode, TracingPairCriterion,
-    TracingPairFilter, TracingPairKey, TracingQueue,
-};
+use gbx_grobner::{f4_traced, F4Options, F4TraceConfig, F4Tracer, TraceConfig, TraceLevel, TraceReportMode};
 use gbx_poly::monomial::DynamicMonomial;
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::PolyDyn;
@@ -25,7 +21,7 @@ pub struct GbxRunOutput {
 
 pub fn compute_basis_in_ring<O>(ring: &RingCtx<FpDyn, O>, case: &TestCase) -> Result<GbxRunOutput>
 where
-    O: MonomialOrder,
+    O: MonomialOrder + std::clone::Clone,
 {
     let gens = parse_generators_in_ring(ring, case)?;
     let gb = compute_grobner_basis_dyn(ring, &gens)?;
@@ -80,33 +76,25 @@ where
 /// Returns a Vec<P> basis in whatever ordering your GrobnerBasis stores.
 fn compute_grobner_basis_dyn<O>(ring: &RingCtx<FpDyn, O>, gens: &[PolyDyn<FpDynElem>]) -> Result<Vec<PolyDyn<FpDynElem>>>
 where
-    O: MonomialOrder,
+    O: MonomialOrder + std::clone::Clone,
 {
     if gens.is_empty() {
         return Ok(Vec::new());
     }
 
-    let opts = F4Options::default();
-
-    let tracer = BuchbergerTracer::shared(BuchbergerTraceConfig {
+    let tracer = F4Tracer::shared(F4TraceConfig {
         core: TraceConfig { level: TraceLevel::Verbose, report_mode: TraceReportMode::Verbose, snapshot_every: 100, memory_every: 0, final_memory: true },
-        progress_every: 100,
+        progress_every: 50,
         print_on_insert: false,
-        print_each_iteration: true,
-        print_iteration_timings: false,
+        print_each_batch: true,
+        print_batch_timings: true,
         print_phase_summary: true,
         print_breakdown: true,
         sample_memory_on_progress: false,
         sample_memory_on_summary: true,
     });
 
-    let queue = TracingQueue::wrap(HeapPairs::new(), tracer.clone());
-
-    let criterion = TracingPairCriterion::wrap(ProductCriterion, tracer.clone());
-    let key = TracingPairKey::wrap(LcmDegreeKey, tracer.clone());
-    let filter = TracingPairFilter::wrap(NoPairFilter, tracer.clone());
-    let mut update = GmPairUpdater::new(criterion, key);
-
-    let gb = f4_with(ring, gens.iter().cloned(), opts, queue, &mut update)?;
+    let f4_opts = F4Options::default();
+    let gb = f4_traced(ring, gens.iter().cloned(), f4_opts, Option::from(tracer))?;
     Ok(gb.as_slice().to_vec())
 }
