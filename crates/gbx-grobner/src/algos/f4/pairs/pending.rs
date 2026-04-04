@@ -8,6 +8,11 @@ use gbx_poly::monomial::{Monomial, MonomialAlgos, MonomialView};
 use gbx_poly::polynomial::PolynomialView;
 use gbx_poly::term::TermView;
 
+/// Storage for critical pairs waiting to be selected by a future F4 iteration.
+///
+/// Invariant:
+/// - `pairs` contains at most one critical pair for each unordered index pair `{i, j}`
+/// - `present` stores exactly the normalized keys of the pairs currently in `pairs`
 #[derive(Debug, Clone)]
 pub struct PendingPairs<M> {
     pairs: Vec<CriticalPair<M>>,
@@ -46,13 +51,20 @@ impl<M> PendingPairs<M> {
         self.present.contains(&normalize_pair_key(i, j))
     }
 
-    pub fn push(&mut self, pair: CriticalPair<M>) {
-        let key = normalize_pair_key(pair.i, pair.j);
+    /// Insert a critical pair if its unordered index pair is not already present.
+    ///
+    /// Returns `true` if the pair was inserted, `false` if it was already present.
+    pub fn insert(&mut self, pair: CriticalPair<M>) -> bool {
+        let key = normalize_pair_key(pair.i(), pair.j());
         if self.present.insert(key) {
             self.pairs.push(pair);
+            true
+        } else {
+            false
         }
     }
 
+    #[must_use]
     pub fn into_vec(self) -> Vec<CriticalPair<M>> {
         self.pairs
     }
@@ -70,17 +82,19 @@ impl<M> PendingPairs<M> {
     pub fn replace(&mut self, pairs: Vec<CriticalPair<M>>) {
         self.present = pairs
             .iter()
-            .map(|pair| normalize_pair_key(pair.i, pair.j))
+            .map(|pair| normalize_pair_key(pair.i(), pair.j()))
             .collect();
         self.pairs = pairs;
     }
 }
 
 #[inline]
+#[must_use]
 fn normalize_pair_key(i: usize, j: usize) -> (usize, usize) {
-    if i <= j { (i, j) } else { (j, i) }
+    if i < j { (i, j) } else { (j, i) }
 }
 
+/// Construct all admissible critical pairs from the current basis.
 pub fn build_all_pairs<P, C>(basis: &[P], criterion: &C) -> Result<Vec<CriticalPair<<<P as PolynomialView>::Term as TermView>::Mono>>>
 where
     P: PolynomialView,
@@ -103,6 +117,7 @@ where
     Ok(out)
 }
 
+/// Construct and insert all admissible critical pairs involving one newly inserted basis element.
 pub fn add_pairs_with_new_basis_element<P, C>(basis: &[P], new_index: usize, pending: &mut PendingPairs<<<P as PolynomialView>::Term as TermView>::Mono>, criterion: &C) -> Result<()>
 where
     P: PolynomialView,
@@ -113,7 +128,7 @@ where
     for old_index in 0..new_index {
         if let Some(pair) = make_pair(basis, old_index, new_index)? {
             if criterion.allows(basis, &pair) {
-                pending.push(pair);
+                pending.insert(pair);
             }
         }
     }
@@ -121,6 +136,11 @@ where
     Ok(())
 }
 
+/// Construct one critical pair from two basis indices.
+///
+/// Returns `Ok(None)` when:
+/// - `i == j`, or
+/// - one of the two basis polynomials is zero.
 pub fn make_pair<P>(basis: &[P], i: usize, j: usize) -> Result<Option<CriticalPair<<<P as PolynomialView>::Term as TermView>::Mono>>>
 where
     P: PolynomialView,
@@ -142,4 +162,118 @@ where
     };
 
     Ok(Some(CriticalPair::from_lms(i, j, lm_i, lm_j)?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::algos::f4::pairs::criterion::{NoCriterion, ProductCriterion};
+    use crate::test_utils::test_ring;
+    use gbx_field::fp::FpDynElem;
+    use gbx_poly::order::Lex;
+    use gbx_poly::poly;
+    use gbx_poly::polynomial::{PolyDyn, PolynomialView};
+
+    type P = PolyDyn<FpDynElem>;
+
+    #[test]
+    fn insert_deduplicates_unordered_pairs() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f1: P = poly![&ring; (1, [2, 0]), (1, [0, 0])].unwrap();
+        let f2: P = poly![&ring; (1, [1, 1]), (1, [0, 0])].unwrap();
+        let basis = vec![f1, f2];
+
+        let lm1 = basis[0].leading_mono().unwrap();
+        let lm2 = basis[1].leading_mono().unwrap();
+
+        let pair = CriticalPair::from_lms(0, 1, lm1, lm2).unwrap();
+
+        let mut pending = PendingPairs::new();
+        assert!(pending.insert(pair.clone()));
+        assert!(!pending.insert(pair));
+
+        assert_eq!(pending.len(), 1);
+        assert!(pending.contains(0, 1));
+        assert!(pending.contains(1, 0));
+    }
+
+    #[test]
+    fn drain_all_empties_pending_pairs() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f1: P = poly![&ring; (1, [2, 0])].unwrap();
+        let f2: P = poly![&ring; (1, [1, 1])].unwrap();
+        let basis = vec![f1, f2];
+
+        let pair = make_pair(&basis, 0, 1).unwrap().unwrap();
+
+        let mut pending = PendingPairs::new();
+        pending.insert(pair);
+
+        let drained = pending.drain_all();
+
+        assert_eq!(drained.len(), 1);
+        assert!(pending.is_empty());
+        assert_eq!(pending.len(), 0);
+        assert!(!pending.contains(0, 1));
+    }
+
+    #[test]
+    fn make_pair_returns_none_for_equal_indices() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f: P = poly![&ring; (1, [2, 0]), (1, [0, 1])].unwrap();
+        let basis = vec![f];
+
+        let pair = make_pair(&basis, 0, 0).unwrap();
+        assert!(pair.is_none());
+    }
+
+    #[test]
+    fn build_all_pairs_respects_no_criterion() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f1: P = poly![&ring; (1, [2, 0])].unwrap(); // x^2
+        let f2: P = poly![&ring; (1, [1, 1])].unwrap(); // x y
+        let f3: P = poly![&ring; (1, [0, 1])].unwrap(); // y
+        let basis = vec![f1, f2, f3];
+
+        let pairs = build_all_pairs(&basis, &NoCriterion).unwrap();
+        assert_eq!(pairs.len(), 3);
+    }
+
+    #[test]
+    fn build_all_pairs_respects_product_criterion() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f1: P = poly![&ring; (1, [2, 0])].unwrap(); // x^2
+        let f2: P = poly![&ring; (1, [1, 1])].unwrap(); // x y
+        let f3: P = poly![&ring; (1, [0, 1])].unwrap(); // y
+        let basis = vec![f1, f2, f3];
+
+        let pairs = build_all_pairs(&basis, &ProductCriterion).unwrap();
+
+        // (x^2, y) is rejected because gcd = 1
+        // (x^2, xy) and (xy, y) are kept
+        assert_eq!(pairs.len(), 2);
+    }
+
+    #[test]
+    fn add_pairs_with_new_basis_element_adds_only_new_pairs() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f1: P = poly![&ring; (1, [2, 0])].unwrap(); // x^2
+        let f2: P = poly![&ring; (1, [1, 1])].unwrap(); // x y
+        let f3: P = poly![&ring; (1, [0, 1])].unwrap(); // y
+        let basis = vec![f1, f2, f3];
+
+        let mut pending = PendingPairs::new();
+        add_pairs_with_new_basis_element(&basis, 2, &mut pending, &NoCriterion).unwrap();
+
+        assert_eq!(pending.len(), 2);
+        assert!(pending.contains(0, 2));
+        assert!(pending.contains(1, 2));
+        assert!(!pending.contains(0, 1));
+    }
 }

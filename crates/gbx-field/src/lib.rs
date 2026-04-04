@@ -24,3 +24,4 @@ pub mod fp;
 /// ```
 pub mod prelude;
 pub mod zp;
+pub use error::*;

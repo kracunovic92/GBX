@@ -24,6 +24,8 @@ mod algos;
 mod basis;
 mod display;
 mod error;
+#[cfg(test)]
+pub mod test_utils;
 mod trace;
 
 pub use algos::*;

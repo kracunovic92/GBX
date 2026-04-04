@@ -45,7 +45,7 @@
 mod grevlex;
 mod lex;
 mod spec;
-mod traits;
+pub(crate) mod traits;
 
 pub use grevlex::{Grevlex, GREVLEX};
 pub use lex::{Lex, LEX};
