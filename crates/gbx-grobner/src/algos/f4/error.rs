@@ -50,6 +50,9 @@ pub enum F4Error {
 
     #[error("F4 symbolic preprocessing invariant violation")]
     SymbolicInvariant,
+    /// Referenced reduced row in batch history does not exist.
+    #[error("missing history reduced row: batch {batch_index}, row {row_index}")]
+    MissingHistoryRow { batch_index: usize, row_index: usize },
 
     #[error(transparent)]
     Post(#[from] PostError),

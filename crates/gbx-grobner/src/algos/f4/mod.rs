@@ -24,10 +24,9 @@ pub mod types;
 pub mod extract;
 pub mod linear;
 pub mod pairs;
+mod pipeline;
 pub mod symbolic;
-pub mod trace;
 
-pub use api::{f4, f4_traced};
+pub use api::f4;
 pub use error::{F4Error, Result};
 pub use options::F4Options;
-pub use trace::*;

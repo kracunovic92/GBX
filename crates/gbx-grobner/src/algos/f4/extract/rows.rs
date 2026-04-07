@@ -27,7 +27,7 @@ where
         .map(|mono| OrderedMono::new(mono, order))
         .collect();
 
-    let mut out = Vec::new();
+    let mut out = Vec::with_capacity(reduced_rows.len());
 
     for row in reduced_rows {
         let Some(lead_mono) = row.leading_mono().cloned() else {

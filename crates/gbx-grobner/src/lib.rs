@@ -24,12 +24,11 @@ mod algos;
 mod basis;
 mod display;
 mod error;
+mod instrumentation;
 #[cfg(test)]
 pub mod test_utils;
-mod trace;
 
 pub use algos::*;
 pub use basis::GrobnerBasis;
 pub use display::{GbDisplay, GbStyle};
 pub use error::BuchbergerError;
-pub use trace::*;

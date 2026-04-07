@@ -13,10 +13,14 @@ use gbx_field::fp::FpDyn;
 use gbx_poly::order::{Grevlex, Lex};
 use gbx_poly::ring::Ring;
 
+#[tracing::instrument(
+    skip_all,
+    fields(case = %case.name, field = %case.field, order = %case.order)
+)]
 pub fn gbx_compute_basis(case: &TestCase) -> Result<GbxRunOutput> {
     match case.field.as_str() {
         "Fp" => gbx_compute_fp_dyn(case),
-        other => bail!("unsupported GBX field '{}'", other),
+        other => bail!("unsupported GBX field '{other}'"),
     }
 }
 
@@ -28,10 +32,8 @@ fn gbx_compute_fp_dyn(case: &TestCase) -> Result<GbxRunOutput> {
         bail!("vars must be non-empty");
     }
 
-    // build field ctx
     let field = FpDyn::prime(case.p)?;
 
-    // build ring ctx based on order
     match case.order.as_str() {
         "lex" | "lp" => {
             let ring = Ring::builder()
@@ -49,6 +51,6 @@ fn gbx_compute_fp_dyn(case: &TestCase) -> Result<GbxRunOutput> {
                 .build()?;
             compute_basis_in_ring(&ring, case)
         }
-        other => bail!("unsupported order '{}'. Supported: lex, dp/grevlex", other),
+        other => bail!("unsupported order '{other}'. Supported: lex, lp, dp, grevlex"),
     }
 }

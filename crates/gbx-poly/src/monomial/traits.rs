@@ -115,6 +115,12 @@ impl<T: MonomialView<Word = u32> + ?Sized> MonomialViewExtU32 for T {}
 
 /// Convenience methods for constructive monomials (`Monomial`) with `u32` exponents.
 pub trait MonomialExtU32: Monomial<Word = u32> {
+    /// Construct the multiplicative identity monomial `1`
+    /// in a ring with `n_vars` variables.
+    #[inline]
+    fn one(n_vars: usize) -> Result<Self> {
+        Self::try_from_exponents_iter(n_vars, core::iter::repeat(0u32).take(n_vars))
+    }
     /// Lexicographic compare on exponent vectors.
     ///
     /// Returns [`MonomialError::MismatchedArity`] if arities differ.

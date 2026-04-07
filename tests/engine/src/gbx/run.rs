@@ -1,27 +1,33 @@
 use anyhow::{bail, Result};
+use std::collections::BTreeMap;
 
 use gbx_field::fp::{FpDyn, FpDynElem};
-use gbx_grobner::{f4_traced, F4Options, F4TraceConfig, F4Tracer, TraceConfig, TraceLevel, TraceReportMode};
+use gbx_grobner::{f4, F4Options};
 use gbx_poly::monomial::DynamicMonomial;
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::PolyDyn;
 use gbx_poly::ring::{FieldCtx, RingCtx};
-
 use gbx_poly::{poly_terms, pretty_str, term, tuple_dump_str};
 
 use crate::gbx::parse::parse_poly_terms;
 use crate::utils::test_file_config::TestCase;
 
+#[derive(Debug, Clone, Default)]
 pub struct GbxRunOutput {
-    /// Stable dump for diffing (tuple format).
+    /// Stable dump for diffing.
     pub basis_dump_lines: Vec<String>,
     /// Pretty output for humans.
     pub basis_pretty_lines: Vec<String>,
+    /// Optional phase timings collected inside GBX path.
+    pub phases_ms: BTreeMap<String, u128>,
+    /// Optional counters collected inside GBX path.
+    pub counters: BTreeMap<String, u64>,
 }
 
+#[tracing::instrument(skip_all, fields(case = %case.name))]
 pub fn compute_basis_in_ring<O>(ring: &RingCtx<FpDyn, O>, case: &TestCase) -> Result<GbxRunOutput>
 where
-    O: MonomialOrder + std::clone::Clone,
+    O: MonomialOrder + Clone,
 {
     let gens = parse_generators_in_ring(ring, case)?;
     let gb = compute_grobner_basis_dyn(ring, &gens)?;
@@ -36,7 +42,14 @@ where
         .map(|p| pretty_str!(ring, p, &case.vars))
         .collect::<Vec<_>>();
 
-    Ok(GbxRunOutput { basis_dump_lines, basis_pretty_lines })
+    let mut counters = BTreeMap::new();
+    counters.insert("input_generators".to_string(), gens.len() as u64);
+    counters.insert(
+        "output_basis_len".to_string(),
+        basis_dump_lines.len() as u64,
+    );
+
+    Ok(GbxRunOutput { basis_dump_lines, basis_pretty_lines, phases_ms: BTreeMap::new(), counters })
 }
 
 fn parse_generators_in_ring<O>(ring: &RingCtx<FpDyn, O>, case: &TestCase) -> Result<Vec<PolyDyn<FpDynElem>>>
@@ -67,34 +80,18 @@ where
         terms.push(term!(coeff, mono));
     }
 
-    // from_terms_in() normalizes canonical representation
-    let p: PolyDyn<FpDynElem> = poly_terms![ring; terms]?;
-    Ok(p)
+    let poly: PolyDyn<FpDynElem> = poly_terms![ring; terms]?;
+    Ok(poly)
 }
 
-/// Compute Grobner basis from generators using the real Buchberger engine.
-/// Returns a Vec<P> basis in whatever ordering your GrobnerBasis stores.
 fn compute_grobner_basis_dyn<O>(ring: &RingCtx<FpDyn, O>, gens: &[PolyDyn<FpDynElem>]) -> Result<Vec<PolyDyn<FpDynElem>>>
 where
-    O: MonomialOrder + std::clone::Clone,
+    O: MonomialOrder + Clone,
 {
     if gens.is_empty() {
         return Ok(Vec::new());
     }
 
-    let tracer = F4Tracer::shared(F4TraceConfig {
-        core: TraceConfig { level: TraceLevel::Verbose, report_mode: TraceReportMode::Verbose, snapshot_every: 100, memory_every: 0, final_memory: true },
-        progress_every: 50,
-        print_on_insert: false,
-        print_each_batch: true,
-        print_batch_timings: true,
-        print_phase_summary: true,
-        print_breakdown: true,
-        sample_memory_on_progress: false,
-        sample_memory_on_summary: true,
-    });
-
-    let f4_opts = F4Options::default();
-    let gb = f4_traced(ring, gens.iter().cloned(), f4_opts, Option::from(tracer))?;
+    let gb = f4(ring, gens.iter().cloned(), F4Options::default())?;
     Ok(gb.as_slice().to_vec())
 }

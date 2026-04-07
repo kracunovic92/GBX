@@ -6,14 +6,18 @@ license.workspace = true
 repository.workspace = true
 version.workspace = true
 
+[features]
+default = []
+instrumentation = ["dep:tracing"]
+
+
 [dependencies]
 gbx-alg = { path = "../gbx-alg", default-features = false }
 gbx-storage = { path = "../gbx-storage", default-features = false }
 gbx-field = { path = "../gbx-field", default-features = false }
 gbx-poly = { path = "../gbx-poly", default-features = false }
 thiserror = "2.0.18"
-anyhow = "1.0.102"
-simplify = "0.1.2"
-parking_lot = "0.12.5"
+tracing = { version = "0.1.44", optional = true }
+
 [lints]
 workspace = true

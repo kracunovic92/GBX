@@ -26,7 +26,7 @@
 macro_rules! write_gb_pretty {
     ($dst:expr, $ring:expr, $basis:expr, $vars:expr) => {{
         use core::fmt::Write as _;
-        let disp = $crate::grobner::display::GbDisplay::pretty_lines($ring, $basis, $vars);
+        let disp = $crate::display::GbDisplay::pretty_lines($ring, $basis, $vars);
         ($dst).write_fmt(format_args!("{}", disp))
     }};
 }
@@ -63,7 +63,7 @@ macro_rules! write_gb_pretty {
 macro_rules! write_gb_tuple {
     ($dst:expr, $ring:expr, $basis:expr, $vars:expr) => {{
         use core::fmt::Write as _;
-        let disp = $crate::grobner::display::GbDisplay::tuple_lines($ring, $basis, $vars);
+        let disp = $crate::display::GbDisplay::tuple_lines($ring, $basis, $vars);
         ($dst).write_fmt(format_args!("{}", disp))
     }};
 }

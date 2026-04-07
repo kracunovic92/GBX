@@ -5,12 +5,15 @@ use std::path::Path;
 mod cli;
 mod pipeline;
 mod poly_builder;
+mod tracing;
 
+use crate::tracing::init_tracing;
 use cli::{Cli, Command};
 use pipeline::types::GrobnerStageOptions;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    init_tracing();
 
     match cli.cmd {
         Command::Parse { file, normalize } => run_parse(&file, normalize),

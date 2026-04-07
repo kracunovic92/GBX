@@ -1,34 +1,24 @@
 #![allow(missing_docs)]
+
 mod cli;
 mod engine;
 mod gbx;
 mod singular;
+mod tracing;
 mod utils;
 
-use crate::cli::{BackendChoice, Cli};
-use crate::engine::config::{EngineConfig, EngineSelection};
+use crate::cli::Cli;
+use crate::engine::config::EngineConfig;
 use crate::engine::engine::run_runner;
-use crate::gbx::config::GbxConfig;
-use crate::singular::config::SingularConfig;
+use crate::tracing::init_tracing;
 use anyhow::Result;
 use clap::Parser;
 
 fn main() -> Result<()> {
+    init_tracing();
+
     let cli = Cli::parse();
+    let cfg = EngineConfig::from(cli);
 
-    let selection = match cli.backend {
-        BackendChoice::Singular => EngineSelection::SingularOnly,
-        BackendChoice::Gbx => EngineSelection::GbxOnly,
-        BackendChoice::Both => EngineSelection::Both,
-    };
-
-    run_runner(EngineConfig {
-        cases_path: cli.cases,
-        out_dir: cli.out_dir,
-        clean: cli.clean,
-        selection,
-        compare: cli.compare,
-        singular: SingularConfig { bin: cli.singular.bin },
-        gbx: GbxConfig { normalize: cli.gbx.normalize, criteria: cli.gbx.criteria },
-    })
+    run_runner(cfg)
 }

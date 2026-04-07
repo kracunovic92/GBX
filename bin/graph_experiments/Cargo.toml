@@ -7,6 +7,13 @@ publish = false
 description = "Manual testing / live experimentation binary for GBX"
 license = "MIT OR Apache-2.0"
 
+[features]
+instrumentation = [
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "gbx-grobner/instrumentation",
+]
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
@@ -17,3 +24,5 @@ gbx-field = { path = "../../crates/gbx-field" }
 gbx-storage = { path = "../../crates/gbx-storage" }
 gbx-alg = { path = "../../crates/gbx-alg" }
 gbx-grobner = { path = "../../crates/gbx-grobner" }
+tracing = { version = "0.1.44", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"], optional = true }
