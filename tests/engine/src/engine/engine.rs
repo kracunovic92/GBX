@@ -56,6 +56,8 @@ fn run_case(layout: &OutputLayout, case: &TestCase, singular: &SingularBackend, 
     let report = build_compare_report(
         &case.name,
         &singular_run.basis.canonical_lines,
+        &gbx_run.basis.canonical_lines,
+        &singular_run.basis.pretty_lines,
         &gbx_run.basis.pretty_lines,
     );
     write_compare(&layout.compare, &stem, &report)?;

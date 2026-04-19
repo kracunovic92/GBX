@@ -52,6 +52,9 @@ where
     }
 
     *gb = GrobnerBasis::new(ctx.id(), out);
+    // Important: reduction may change leading monomials and create new redundancies.
+    gb.retain(|p| !p.is_zero());
+    minimize_in_place(ctx, gb)?;
 
     for p in gb.as_mut_vec() {
         p.normalize_in_place(ctx)?;

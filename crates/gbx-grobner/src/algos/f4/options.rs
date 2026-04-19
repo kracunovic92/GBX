@@ -20,6 +20,6 @@ pub struct F4Options {
 
 impl Default for F4Options {
     fn default() -> Self {
-        Self { batch_size: 128, normalize_inputs: true, normalize_extracted: true, safety_reduce_extracted: true, post: BasisPostOptionsKind::Reduced }
+        Self { batch_size: 64, normalize_inputs: true, normalize_extracted: true, safety_reduce_extracted: true, post: BasisPostOptionsKind::Reduced }
     }
 }

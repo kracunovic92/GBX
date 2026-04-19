@@ -52,7 +52,7 @@ impl Backend for SingularBackend {
             ok: rr.ok,
             stdout: rr.stdout.clone(),
             stderr: rr.stderr.clone(),
-            basis: BasisArtifacts { canonical_lines, pretty_lines: Vec::new() },
+            basis: BasisArtifacts { canonical_lines: canonical_lines.clone(), pretty_lines: canonical_lines.clone() },
             metrics: RunMetrics {
                 wall_time_ms: rr.wall_time.as_millis(),
                 stdout_bytes: rr.stdout.len(),

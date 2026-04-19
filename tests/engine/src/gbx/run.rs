@@ -14,13 +14,22 @@ use crate::utils::test_file_config::TestCase;
 
 #[derive(Debug, Clone, Default)]
 pub struct GbxRunOutput {
-    /// Stable dump for diffing.
+    /// Canonical structural dump for diffing.
     pub basis_dump_lines: Vec<String>,
-    /// Pretty output for humans.
+
+    /// Human-readable printer output.
     pub basis_pretty_lines: Vec<String>,
-    /// Optional phase timings collected inside GBX path.
+
+    /// Normalized pretty lines used only for text comparison/debugging.
+    pub basis_pretty_normalized_lines: Vec<String>,
+
+    /// Parsed input generators in canonical form.
+    pub input_dump_lines: Vec<String>,
+
+    /// Parsed input generators in pretty form.
+    pub input_pretty_lines: Vec<String>,
+
     pub phases_ms: BTreeMap<String, u128>,
-    /// Optional counters collected inside GBX path.
     pub counters: BTreeMap<String, u64>,
 }
 
@@ -32,6 +41,16 @@ where
     let gens = parse_generators_in_ring(ring, case)?;
     let gb = compute_grobner_basis_dyn(ring, &gens)?;
 
+    let input_dump_lines = gens
+        .iter()
+        .map(|p| tuple_dump_str!(ring, p))
+        .collect::<Vec<_>>();
+
+    let input_pretty_lines = gens
+        .iter()
+        .map(|p| pretty_str!(ring, p, &case.vars))
+        .collect::<Vec<_>>();
+
     let basis_dump_lines = gb
         .iter()
         .map(|p| tuple_dump_str!(ring, p))
@@ -42,6 +61,11 @@ where
         .map(|p| pretty_str!(ring, p, &case.vars))
         .collect::<Vec<_>>();
 
+    let basis_pretty_normalized_lines = basis_pretty_lines
+        .iter()
+        .map(|s| normalize_poly_text(s))
+        .collect::<Vec<_>>();
+
     let mut counters = BTreeMap::new();
     counters.insert("input_generators".to_string(), gens.len() as u64);
     counters.insert(
@@ -49,9 +73,8 @@ where
         basis_dump_lines.len() as u64,
     );
 
-    Ok(GbxRunOutput { basis_dump_lines, basis_pretty_lines, phases_ms: BTreeMap::new(), counters })
+    Ok(GbxRunOutput { basis_dump_lines, basis_pretty_lines, basis_pretty_normalized_lines, input_dump_lines, input_pretty_lines, phases_ms: BTreeMap::new(), counters })
 }
-
 fn parse_generators_in_ring<O>(ring: &RingCtx<FpDyn, O>, case: &TestCase) -> Result<Vec<PolyDyn<FpDynElem>>>
 where
     O: MonomialOrder,
@@ -94,4 +117,20 @@ where
 
     let gb = f4(ring, gens.iter().cloned(), F4Options::default())?;
     Ok(gb.as_slice().to_vec())
+}
+fn normalize_poly_text(s: &str) -> String {
+    let mut s = s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+
+    if let Some(rest) = s.strip_prefix("GB:") {
+        s = rest.to_string();
+    }
+
+    s = s.replace('*', "");
+
+    s = s.replace("+-", "-");
+    s = s.replace("-+", "-");
+    s = s.replace("++", "+");
+    s = s.replace("--", "+");
+
+    s
 }

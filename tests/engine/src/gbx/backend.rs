@@ -105,14 +105,37 @@ fn push_kv(out: &mut String, k: &str, v: &str) {
 }
 
 fn format_stdout(out: &crate::gbx::run::GbxRunOutput) -> String {
-    if out.basis_pretty_lines.is_empty() {
-        return String::new();
+    let mut s = String::new();
+
+    s.push_str("=== gbx input (dump) ===\n");
+    for line in &out.input_dump_lines {
+        s.push_str(line);
+        s.push('\n');
     }
 
-    let mut s = String::new();
+    s.push_str("\n=== gbx input (pretty) ===\n");
+    for line in &out.input_pretty_lines {
+        s.push_str(line);
+        s.push('\n');
+    }
+
+    s.push_str("\n=== gbx basis (dump) ===\n");
+    for line in &out.basis_dump_lines {
+        s.push_str(line);
+        s.push('\n');
+    }
+
+    s.push_str("\n=== gbx basis (pretty) ===\n");
     for line in &out.basis_pretty_lines {
         s.push_str(line);
         s.push('\n');
     }
+
+    s.push_str("\n=== gbx basis (pretty normalized) ===\n");
+    for line in &out.basis_pretty_normalized_lines {
+        s.push_str(line);
+        s.push('\n');
+    }
+
     s
 }
