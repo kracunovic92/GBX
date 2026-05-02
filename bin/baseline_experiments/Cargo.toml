@@ -1,0 +1,47 @@
+[package]
+name = "baseline_experiments"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+description = "Baseline F4 experiments for GBX"
+license = "MIT OR Apache-2.0"
+
+[features]
+default = []
+
+instrumentation = [
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "gbx-grobner/instrumentation",
+]
+
+profiling-alloc = [
+    "instrumentation",
+    "dep:stats_alloc",
+    "gbx-grobner/profiling-alloc",
+]
+
+profile-dump = [
+    "instrumentation",
+    "gbx-grobner/profile-dump",
+]
+
+
+profile-full = [
+    "instrumentation",
+    "profiling-alloc",
+    "profile-dump",
+]
+
+[dependencies]
+anyhow = "1"
+
+gbx-poly = { path = "../../crates/gbx-poly" }
+gbx-field = { path = "../../crates/gbx-field" }
+gbx-grobner = { path = "../../crates/gbx-grobner" }
+
+tracing = { version = "0.1.44", optional = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"], optional = true }
+
+stats_alloc = { version = "0.1", optional = true }
