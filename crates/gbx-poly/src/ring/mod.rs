@@ -1,28 +1,43 @@
-//! Ring context and context-driven field arithmetic.
+//! Ring context for polynomial arithmetic.
 //!
-//! This module defines the **ring context** used by polynomial operations and
-//! Gröbner basis algorithms.
+//! Polynomial objects in this crate do not store the full ring information.
+//! Instead, arithmetic is performed with an explicit [`RingCtx`].
 //!
-//! # Design goals
-//! - Keep polynomials/terms **thin**: no modulus/order/nvars stored per term.
-//! - Ensure all polynomial operations occur in one consistent **ring context**.
-//! - Support both:
-//!   - **dynamic** prime fields (`FpDyn` + `FpDynElem` where arithmetic lives in the ctx)
-//!   - **static** prime fields (`Fp<P>` where arithmetic lives on the element type)
+//! A [`RingCtx`] contains:
+//! - the coefficient field context,
+//! - the monomial order,
+//! - the number of variables,
+//! - a unique [`RingId`] used to detect accidental mixing of polynomials from
+//!   different rings.
 //!
-//! # What lives in `RingCtx`?
-//! - field arithmetic provider (`FieldCtx`)
-//! - term order value `O` (often a ZST like `Lex`)
-//! - `nvars` (number of variables)
-//! - a unique `RingId` for mismatch detection
+//! This keeps polynomial and term structures small while still making every
+//! operation explicit about which ring it belongs to.
 //!
-//! # What does NOT live in polynomials?
-//! - modulus `p`
-//! - term order
-//! - number of variables
+//! # Example
 //!
-//! Instead, polynomial operations take `&RingCtx` explicitly and can validate
-//! ring identity via `RingId`.
+//! ```
+//! use gbx_field::fp::Fp;
+//! use gbx_poly::order::Lex;
+//! use gbx_poly::ring::Ring;
+//!
+//! let field = Fp::prime(32003).unwrap();
+//!
+//! let ring = Ring::builder()
+//!     .field(field)
+//!     .order(Lex)
+//!     .nvars(4)
+//!     .build()
+//!     .unwrap();
+//!
+//! assert_eq!(ring.nvars, 4);
+//! ```
+//!
+//! Polynomial operations should receive `&RingCtx` explicitly:
+//!
+//! ```ignore
+//! let sum = p.add(&ring, &q)?;
+//! let product = p.mul(&ring, &q)?;
+//! ```
 
 mod builder;
 mod ctx;
@@ -32,6 +47,6 @@ mod ring;
 
 pub use builder::RingBuilder;
 pub use ctx::{RingCtx, RingId};
-pub use error::{Result, RingError};
-pub use field::{FieldCtx, StaticFpCtx};
+pub use error::{RingError, RingResult};
+pub use field::FieldCtx;
 pub use ring::Ring;

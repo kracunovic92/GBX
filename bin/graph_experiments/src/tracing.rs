@@ -1,19 +1,18 @@
+#[cfg(feature = "instrumentation")]
 pub fn init_tracing() {
-    #[cfg(feature = "instrumentation")]
-    {
-        use std::sync::Once;
-        use tracing_subscriber::{filter::LevelFilter, fmt};
+    use tracing_subscriber::fmt::format::FmtSpan;
+    use tracing_subscriber::{fmt, EnvFilter};
 
-        static INIT: Once = Once::new();
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,gbx_grobner=debug,graph_experiments=debug"));
 
-        INIT.call_once(|| {
-            fmt()
-                .with_max_level(LevelFilter::TRACE)
-                .with_target(false)
-                .with_thread_ids(false)
-                .with_thread_names(false)
-                .compact()
-                .init();
-        });
-    }
+    fmt()
+        .with_env_filter(filter)
+        .with_target(true)
+        .with_level(true)
+        .with_span_events(FmtSpan::CLOSE)
+        .compact()
+        .init();
 }
+
+#[cfg(not(feature = "instrumentation"))]
+pub fn init_tracing() {}

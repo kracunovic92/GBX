@@ -3,25 +3,34 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! # gbx-field
+//! Runtime prime fields for the GBX ecosystem.
 //!
-//! Concrete number systems for the GBX ecosystem.
+//! This crate provides the coefficient field implementation used by
+//! `gbx-poly` and Gröbner basis algorithms.
 //!
-//! Types:
-//! - [`zp::Zp`]: integers mod `P` (a commutative ring)
-//! - [`fp::Fp`]: prime field mod `P` (a field API, optional runtime prime validation)
-//! - [`complex`]: floating complex numbers (std-only; not algebraically exact)
-
-mod macros;
+//! The main type is [`fp::Fp`], a runtime prime-field context.
+//!
+//! Elements are represented by [`fp::FpElem`]. An element stores only its
+//! reduced representative; it does not store the modulus. Arithmetic is
+//! performed by the surrounding [`fp::Fp`] context.
+//!
+//! # Example
+//!
+//! ```
+//! use gbx_field::fp::Fp;
+//!
+//! let f = Fp::prime(7).unwrap();
+//!
+//! let a = f.new(5);
+//! let b = f.new(6);
+//!
+//! assert_eq!(f.repr_u32(f.add(a, b)), 4);
+//! assert_eq!(f.repr_u32(f.mul(a, b)), 2);
+//! ```
 
 mod error;
+
 pub mod fp;
-/// Convenient re-exports for common GBX field types.
-///
-/// This is intended for ergonomic imports in downstream crates:
-/// ```
-/// use gbx_field::prelude::*;
-/// ```
 pub mod prelude;
-pub mod zp;
+
 pub use error::*;

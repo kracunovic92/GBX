@@ -1,57 +1,40 @@
 use crate::algos::f4::pairs::critical_pair::CriticalPair;
 use crate::algos::f4::pairs::selector::{MinDegreeSelector, PairSelector};
 use crate::algos::f4::state::F4State;
-use crate::instrumentation::{f4_debug, f4_span};
 
-use crate::symbolic::{SymbolicProduct, SymbolicSource};
-use gbx_poly::monomial::{Monomial, MonomialAlgos};
+use crate::algos::f4::symbolic::{SymbolicProduct, SymbolicSource};
+
+use gbx_poly::monomial::Monomial;
 use gbx_poly::polynomial::PolynomialView;
-use gbx_poly::term::TermView;
 
-pub struct PairSelection<M> {
-    pub selected_pairs: Vec<CriticalPair<M>>, // P_d
-    pub l_d: Vec<SymbolicProduct<M>>,         // L_d
+/// Output of the pair-selection phase.
+///
+/// `selected_pairs` is the selected F4 batch `P_d`.
+/// `l_d` is the symbolic product list `L_d`.
+pub struct PairSelection {
+    pub selected_pairs: Vec<CriticalPair>,
+    pub l_d: Vec<SymbolicProduct<Monomial>>,
 }
 
-#[cfg_attr(feature = "instrumentation", tracing::instrument(level = "debug", skip(state, selector)))]
-pub fn select_pairs_phase<P>(state: &mut F4State<P>, selector: &mut MinDegreeSelector) -> PairSelection<<P::Term as TermView>::Mono>
+pub fn select_pairs_phase<P>(state: &mut F4State<P>, selector: &mut MinDegreeSelector) -> PairSelection
 where
     P: PolynomialView,
-    P::Term: TermView,
-    <P::Term as TermView>::Mono: Clone + Monomial + MonomialAlgos,
 {
     let selected_pairs = {
-        f4_span!("select_pairs");
         let pairs = state.pending.drain_all();
         let selection = selector.select(pairs);
+
         state.pending.replace(selection.remaining);
+
         selection.selected
     };
 
-    f4_debug!(
-        selected_pairs = selected_pairs.len(),
-        pending_remaining = state.pending.len(),
-        "selected pairs"
-    );
-
-    let l_d = {
-        f4_span!("build_l_d");
-        build_l_d(&selected_pairs)
-    };
-
-    f4_debug!(
-        selected_pairs = selected_pairs.len(),
-        l_d_len = l_d.len(),
-        "built l_d"
-    );
+    let l_d = build_l_d(&selected_pairs);
 
     PairSelection { selected_pairs, l_d }
 }
 
-fn build_l_d<M>(pairs: &[CriticalPair<M>]) -> Vec<SymbolicProduct<M>>
-where
-    M: Clone + Monomial + MonomialAlgos,
-{
+fn build_l_d(pairs: &[CriticalPair]) -> Vec<SymbolicProduct<Monomial>> {
     let mut l_d = Vec::with_capacity(pairs.len() * 2);
 
     for pair in pairs {
@@ -64,4 +47,108 @@ where
     }
 
     l_d
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use gbx_field::fp::FpElem;
+    use gbx_poly::monomial::MonomialView;
+    use gbx_poly::polynomial::Polynomial;
+
+    type P = Polynomial<FpElem>;
+
+    fn m(exps: &[u32]) -> Monomial {
+        Monomial::from_slice(exps)
+    }
+
+    fn pair(i: usize, j: usize, lcm: &[u32], degree: u32, ti: &[u32], tj: &[u32]) -> CriticalPair {
+        CriticalPair::new_for_test(i, j, m(lcm), degree, m(ti), m(tj))
+    }
+
+    #[test]
+    fn build_l_d_creates_two_symbolic_products_per_pair() {
+        let p = pair(0, 1, &[2, 1], 3, &[0, 1], &[1, 0]);
+
+        let l_d = build_l_d(&[p]);
+
+        assert_eq!(l_d.len(), 2);
+
+        match l_d[0].source {
+            SymbolicSource::Basis(i) => assert_eq!(i, 0),
+            _ => panic!("expected basis source"),
+        }
+
+        match l_d[1].source {
+            SymbolicSource::Basis(i) => assert_eq!(i, 1),
+            _ => panic!("expected basis source"),
+        }
+
+        assert_eq!(l_d[0].multiplier.exponents(), &[0, 1]);
+        assert_eq!(l_d[1].multiplier.exponents(), &[1, 0]);
+    }
+
+    #[test]
+    fn select_pairs_phase_selects_min_degree_pairs_and_keeps_remaining() {
+        let mut state = F4State::<P>::new();
+
+        let p01 = pair(0, 1, &[2, 1], 3, &[0, 1], &[1, 0]);
+        let p02 = pair(0, 2, &[2, 2], 4, &[0, 2], &[2, 0]);
+        let p12 = pair(1, 2, &[1, 2], 3, &[0, 1], &[1, 0]);
+
+        assert!(state.pending.insert(p01));
+        assert!(state.pending.insert(p02));
+        assert!(state.pending.insert(p12));
+
+        let mut selector = MinDegreeSelector::default();
+
+        let selection = select_pairs_phase(&mut state, &mut selector);
+
+        assert_eq!(selection.selected_pairs.len(), 2);
+        assert!(selection.selected_pairs.iter().all(|p| p.degree() == 3));
+
+        assert_eq!(selection.l_d.len(), 4);
+
+        assert_eq!(state.pending.len(), 1);
+        assert!(state.pending.as_slice().iter().all(|p| p.degree() == 4));
+    }
+
+    #[test]
+    fn select_pairs_phase_respects_batch_size() {
+        let mut state = F4State::<P>::new();
+
+        let p01 = pair(0, 1, &[2, 1], 3, &[0, 1], &[1, 0]);
+        let p12 = pair(1, 2, &[1, 2], 3, &[0, 1], &[1, 0]);
+        let p02 = pair(0, 2, &[2, 2], 4, &[0, 2], &[2, 0]);
+
+        assert!(state.pending.insert(p01));
+        assert!(state.pending.insert(p12));
+        assert!(state.pending.insert(p02));
+
+        let mut selector = MinDegreeSelector::new(1);
+
+        let selection = select_pairs_phase(&mut state, &mut selector);
+
+        assert_eq!(selection.selected_pairs.len(), 1);
+        assert_eq!(selection.selected_pairs[0].degree(), 3);
+
+        assert_eq!(selection.l_d.len(), 2);
+
+        assert_eq!(state.pending.len(), 2);
+        assert!(state.pending.as_slice().iter().any(|p| p.degree() == 3));
+        assert!(state.pending.as_slice().iter().any(|p| p.degree() == 4));
+    }
+
+    #[test]
+    fn select_pairs_phase_handles_empty_pending_set() {
+        let mut state = F4State::<P>::new();
+        let mut selector = MinDegreeSelector::default();
+
+        let selection = select_pairs_phase(&mut state, &mut selector);
+
+        assert!(selection.selected_pairs.is_empty());
+        assert!(selection.l_d.is_empty());
+        assert!(state.pending.is_empty());
+    }
 }

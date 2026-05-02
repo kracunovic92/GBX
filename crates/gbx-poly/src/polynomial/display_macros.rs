@@ -2,11 +2,13 @@
 ///
 /// Usage inside Display:
 /// ```
+/// use gbx_poly::write_pretty;
 /// write_pretty!(f, ring, poly, vars)
 /// ```
 ///
 /// Usage into String:
 /// ```
+/// use gbx_poly::write_pretty;
 /// let mut s = String::new();
 /// write_pretty!(&mut s, ring, poly, vars).unwrap();
 /// ```
@@ -23,6 +25,7 @@ macro_rules! write_pretty {
 ///
 /// Usage:
 /// ```
+/// use gbx_poly::write_tuple_dump;
 /// write_tuple_dump!(f, ring, poly)
 /// ```
 #[macro_export]

@@ -9,7 +9,7 @@ use super::types::{BuildRingOutput, GrevlexRing};
 pub fn run(nvars: usize, p: u32) -> Result<BuildRingOutput> {
     let t0 = Instant::now();
 
-    let field = gbx_field::fp::FpDyn::prime(p).context("invalid modulus p")?;
+    let field = gbx_field::fp::Fp::prime(p).context("invalid modulus p")?;
     let ring: GrevlexRing = Ring::builder()
         .field(field)
         .order(Grevlex)
@@ -22,10 +22,7 @@ pub fn run(nvars: usize, p: u32) -> Result<BuildRingOutput> {
 
     println!("--- build_ring ---");
     println!("ring_build: {build_ms} ms");
-    println!(
-        "ring: nvars={}, order=Grevlex, field=FpDyn(p={p})",
-        ring.nvars
-    );
+    println!("ring: nvars={}, order=Grevlex, field=Fp(p={p})", ring.nvars);
 
     Ok(BuildRingOutput { ring, vars, build_ms })
 }

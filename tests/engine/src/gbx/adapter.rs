@@ -9,7 +9,7 @@ use crate::gbx::run::{compute_basis_in_ring, GbxRunOutput};
 use crate::utils::test_file_config::TestCase;
 use anyhow::{bail, Result};
 
-use gbx_field::fp::FpDyn;
+use gbx_field::fp::Fp;
 use gbx_poly::order::{Grevlex, Lex};
 use gbx_poly::ring::Ring;
 
@@ -32,7 +32,7 @@ fn gbx_compute_fp_dyn(case: &TestCase) -> Result<GbxRunOutput> {
         bail!("vars must be non-empty");
     }
 
-    let field = FpDyn::prime(case.p)?;
+    let field = Fp::prime(case.p)?;
 
     match case.order.as_str() {
         "lex" | "lp" => {

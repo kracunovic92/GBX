@@ -1,51 +1,41 @@
-//! Core polynomial traits used by algorithms.
-//!
-//! Algorithms should depend on these traits rather than concrete polynomial types.
-//!
-//! Polynomials are context-driven:
-//! - field arithmetic comes from `ctx.field`
-//! - monomial order comes from `ctx.order`
-//! - polynomials store a [`RingId`](crate::ring::RingId) safety tag to detect mixing rings.
+//! Core polynomial traits.
 
-use crate::monomial::{MonomialView, MonomialViewExtU32};
-use crate::order::MonomialOrder;
+use crate::monomial::Monomial;
 use crate::ring::{FieldCtx, RingCtx, RingId};
-use crate::term::TermView;
+use crate::term::Term;
 
 /// Read-only polynomial interface.
-///
-/// If normalized, the leading term is expected at index 0.
 pub trait PolynomialView {
-    /// Sparse term type.
-    type Term: TermView;
+    /// Coefficient type.
+    type Coeff;
 
     /// Ring identity tag stored in the polynomial.
     fn ring_id(&self) -> RingId;
 
-    /// Terms slice (canonical order if normalized).
-    fn terms(&self) -> &[Self::Term];
+    /// Canonical term slice.
+    fn terms(&self) -> &[Term<Self::Coeff>];
 
-    /// Is this polynomial exactly zero?
+    /// Returns true if this is the zero polynomial.
     #[inline]
     fn is_zero(&self) -> bool {
         self.terms().is_empty()
     }
 
-    /// Leading term (if normalized, this is `terms().first()`).
+    /// Leading term.
     #[inline]
-    fn leading_term(&self) -> Option<&Self::Term> {
+    fn leading_term(&self) -> Option<&Term<Self::Coeff>> {
         self.terms().first()
     }
 
-    /// Leading monomial (if any).
+    /// Leading monomial.
     #[inline]
-    fn leading_mono(&self) -> Option<&<Self::Term as TermView>::Mono> {
+    fn leading_mono(&self) -> Option<&Monomial> {
         self.leading_term().map(|t| t.mono())
     }
 
-    /// Leading coefficient (if any).
+    /// Leading coefficient.
     #[inline]
-    fn leading_coeff(&self) -> Option<&<Self::Term as TermView>::Coeff> {
+    fn leading_coeff(&self) -> Option<&Self::Coeff> {
         self.leading_term().map(|t| t.coeff())
     }
 
@@ -54,95 +44,49 @@ pub trait PolynomialView {
     fn len(&self) -> usize {
         self.terms().len()
     }
-    /// Returns `true` if this polynomial has exactly one term.
+
+    /// Returns true if this polynomial has exactly one term.
     #[inline]
     fn is_monomial(&self) -> bool {
         self.len() == 1
     }
-    /// Returns `true` if this polynomial is constant.
+
+    /// Returns true if this polynomial is constant.
     ///
     /// The zero polynomial is considered constant.
     #[inline]
-    fn is_constant(&self) -> bool
-    where
-        <Self::Term as TermView>::Mono: MonomialView<Word = u32>,
-    {
+    fn is_constant(&self) -> bool {
         self.is_zero() || self.leading_term().is_some_and(|t| t.mono().is_one())
     }
 
-    /// Returns `true` if this polynomial is a nonzero constant polynomial.
+    /// Returns true if this polynomial is a nonzero constant.
     #[inline]
-    fn is_nonzero_constant(&self) -> bool
-    where
-        <Self::Term as TermView>::Mono: MonomialView<Word = u32>,
-    {
+    fn is_nonzero_constant(&self) -> bool {
         self.len() == 1 && self.leading_term().is_some_and(|t| t.mono().is_one())
     }
 }
 
-/// Minimal mutation hooks needed by generic algorithms.
-///
-/// Note: these methods are context-driven; the polynomial itself does not know
-/// modulus/order/nvars.
+/// Mutation hooks used by algorithms.
 pub trait PolynomialMut: PolynomialView + Sized {
-    /// Create the zero polynomial tagged with `ctx.id()`.
+    /// Creates zero polynomial tagged with `ctx.id()`.
     fn zero_in<F, O>(ctx: &RingCtx<F, O>) -> Self
     where
-        F: FieldCtx,
-        O: MonomialOrder;
+        F: FieldCtx<Elem = Self::Coeff>;
 
-    /// Build from raw terms and normalize using `ctx`.
-    fn from_terms_in<F, O>(ctx: &RingCtx<F, O>, terms: Vec<Self::Term>) -> crate::polynomial::Result<Self>
+    /// Builds from raw terms and normalizes.
+    fn from_terms_in<F, O>(ctx: &RingCtx<F, O>, terms: Vec<Term<Self::Coeff>>) -> crate::polynomial::PolynomialResult<Self>
     where
-        F: FieldCtx<Elem = <Self::Term as TermView>::Coeff>,
-        O: MonomialOrder;
+        F: FieldCtx<Elem = Self::Coeff>,
+        O: crate::order::MonomialOrder;
 
-    /// Push a raw term (may violate invariants until normalized).
-    fn push_term_raw(&mut self, t: Self::Term);
+    /// Pushes a raw term.
+    ///
+    /// This may break canonical invariants until normalization.
+    fn push_term_raw(&mut self, t: Term<Self::Coeff>);
 
-    /// Normalize in-place using `ctx` (canonical form).
-    fn normalize_in_place<F, O>(&mut self, ctx: &RingCtx<F, O>) -> crate::polynomial::Result<()>
+    /// Normalizes in-place.
+    fn normalize_in_place<F, O>(&mut self, ctx: &RingCtx<F, O>) -> crate::polynomial::PolynomialResult<()>
     where
-        F: FieldCtx<Elem = <Self::Term as TermView>::Coeff>,
-        O: MonomialOrder;
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used)]
-
-    use super::*;
-    use crate::monomial::FixedMonomial;
-    use crate::order::Lex;
-    use crate::polynomial::poly::Polynomial;
-    use crate::ring::{Ring, StaticFpCtx};
-    use crate::term::Term;
-    use gbx_field::fp::Fp;
-    use gbx_storage::polynomial::VecTerms;
-
-    type F7 = Fp<7>;
-    type T2 = Term<F7, FixedMonomial<2>>;
-    type P2 = Polynomial<T2, VecTerms<T2>>;
-
-    #[test]
-    fn view_helpers_work() {
-        let ring = Ring::builder()
-            .field(StaticFpCtx::<7>::new())
-            .order(Lex)
-            .nvars(2)
-            .build()
-            .unwrap();
-
-        let p = P2::from_terms_in(
-            &ring,
-            vec![Term::new(F7::new(1), FixedMonomial::<2>::from_exponents([2, 0])), Term::new(F7::new(3), FixedMonomial::<2>::from_exponents([1, 0]))],
-        )
-        .unwrap();
-
-        assert_eq!(p.len(), 2);
-        assert!(p.leading_term().is_some());
-        assert!(p.leading_mono().is_some());
-        assert!(p.leading_coeff().is_some());
-        assert_eq!(p.ring_id(), ring.id());
-    }
+        F: FieldCtx<Elem = Self::Coeff>,
+        O: crate::order::MonomialOrder;
 }

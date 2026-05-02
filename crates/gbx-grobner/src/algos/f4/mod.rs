@@ -1,18 +1,24 @@
 //! F4 Gröbner basis algorithm.
 //!
 //! This module contains a correctness-first, CPU-oriented F4 implementation.
-//! The current pipeline is intentionally simple:
 //!
+//! The implementation is context-driven:
+//! - coefficient arithmetic comes from `RingCtx::field`,
+//! - monomial order comes from `RingCtx::order`,
+//! - variable count comes from `RingCtx::nvars`,
+//! - ring identity is checked through polynomial `RingId` tags.
+//!
+//! Current pipeline:
 //! - select a batch of critical pairs,
-//! - build batch input from those pairs,
+//! - build S-polynomial products,
 //! - perform symbolic preprocessing,
-//! - construct the coefficient matrix,
-//! - row-reduce it,
-//! - extract candidate basis elements.
+//! - build a coefficient matrix,
+//! - row-reduce the matrix,
+//! - extract candidate basis elements,
+//! - insert nonzero reductions into the basis.
 //!
-//! The module layout is designed so that individual stages can later be replaced
-//! by more faithful or more optimized variants, including improved F4-style
-//! symbolic preprocessing and reduction reuse.
+//! The module layout keeps each phase replaceable so symbolic preprocessing,
+//! sparse matrix construction, and reduction reuse can be improved independently.
 
 pub mod api;
 pub mod engine;

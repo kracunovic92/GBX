@@ -1,16 +1,15 @@
 use anyhow::{bail, Result};
 use std::collections::BTreeMap;
 
-use gbx_field::fp::{FpDyn, FpDynElem};
-use gbx_grobner::{f4, F4Options};
-use gbx_poly::monomial::DynamicMonomial;
-use gbx_poly::order::MonomialOrder;
-use gbx_poly::polynomial::PolyDyn;
-use gbx_poly::ring::{FieldCtx, RingCtx};
-use gbx_poly::{poly_terms, pretty_str, term, tuple_dump_str};
-
 use crate::gbx::parse::parse_poly_terms;
 use crate::utils::test_file_config::TestCase;
+use gbx_field::fp::{Fp, FpElem};
+use gbx_grobner::{f4, F4Options};
+use gbx_poly::monomial::Monomial;
+use gbx_poly::order::MonomialOrder;
+use gbx_poly::polynomial::Polynomial;
+use gbx_poly::ring::{FieldCtx, RingCtx};
+use gbx_poly::{poly_terms, pretty_str, term, tuple_dump_str};
 
 #[derive(Debug, Clone, Default)]
 pub struct GbxRunOutput {
@@ -34,9 +33,9 @@ pub struct GbxRunOutput {
 }
 
 #[tracing::instrument(skip_all, fields(case = %case.name))]
-pub fn compute_basis_in_ring<O>(ring: &RingCtx<FpDyn, O>, case: &TestCase) -> Result<GbxRunOutput>
+pub fn compute_basis_in_ring<O>(ring: &RingCtx<Fp, O>, case: &TestCase) -> Result<GbxRunOutput>
 where
-    O: MonomialOrder + Clone,
+    O: MonomialOrder + Clone + std::marker::Sync,
 {
     let gens = parse_generators_in_ring(ring, case)?;
     let gb = compute_grobner_basis_dyn(ring, &gens)?;
@@ -75,7 +74,7 @@ where
 
     Ok(GbxRunOutput { basis_dump_lines, basis_pretty_lines, basis_pretty_normalized_lines, input_dump_lines, input_pretty_lines, phases_ms: BTreeMap::new(), counters })
 }
-fn parse_generators_in_ring<O>(ring: &RingCtx<FpDyn, O>, case: &TestCase) -> Result<Vec<PolyDyn<FpDynElem>>>
+fn parse_generators_in_ring<O>(ring: &RingCtx<Fp, O>, case: &TestCase) -> Result<Vec<Polynomial<FpElem>>>
 where
     O: MonomialOrder,
 {
@@ -90,7 +89,7 @@ where
     Ok(out)
 }
 
-fn parse_generator_in_ring<O>(ring: &RingCtx<FpDyn, O>, src: &str, vars: &[String], p: u32) -> Result<PolyDyn<FpDynElem>>
+fn parse_generator_in_ring<O>(ring: &RingCtx<Fp, O>, src: &str, vars: &[String], p: u32) -> Result<Polynomial<FpElem>>
 where
     O: MonomialOrder,
 {
@@ -98,18 +97,18 @@ where
 
     let mut terms = Vec::with_capacity(parsed.len());
     for (c_mod_p, exps) in parsed {
-        let coeff: FpDynElem = FieldCtx::new(&ring.field, c_mod_p);
-        let mono = DynamicMonomial::from_slice(&exps);
+        let coeff: FpElem = FieldCtx::new(&ring.field, c_mod_p);
+        let mono = Monomial::from_slice(&exps);
         terms.push(term!(coeff, mono));
     }
 
-    let poly: PolyDyn<FpDynElem> = poly_terms![ring; terms]?;
+    let poly: Polynomial<FpElem> = poly_terms![ring; terms]?;
     Ok(poly)
 }
 
-fn compute_grobner_basis_dyn<O>(ring: &RingCtx<FpDyn, O>, gens: &[PolyDyn<FpDynElem>]) -> Result<Vec<PolyDyn<FpDynElem>>>
+fn compute_grobner_basis_dyn<O>(ring: &RingCtx<Fp, O>, gens: &[Polynomial<FpElem>]) -> Result<Vec<Polynomial<FpElem>>>
 where
-    O: MonomialOrder + Clone,
+    O: MonomialOrder + Clone + std::marker::Sync,
 {
     if gens.is_empty() {
         return Ok(Vec::new());

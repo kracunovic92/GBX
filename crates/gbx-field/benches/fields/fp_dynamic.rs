@@ -1,12 +1,12 @@
 use criterion::Criterion;
 use std::hint::black_box;
 
-use gbx_field::fp::{FpDyn, FpDynElem};
+use gbx_field::fp::{Fp, FpElem};
 
 pub fn bench(c: &mut Criterion) {
-    let field = FpDyn::prime(998_244_353).unwrap();
-    let a: FpDynElem = field.new(123456789);
-    let b: FpDynElem = field.new(987654321);
+    let field = Fp::prime(998_244_353).unwrap();
+    let a: FpElem = field.new(123456789);
+    let b: FpElem = field.new(987654321);
 
     let mut group = c.benchmark_group("Fp_dynamic");
 

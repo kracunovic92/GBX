@@ -1,18 +1,17 @@
 #![allow(dead_code)]
-use gbx_field::fp::{FpDyn, FpDynElem};
+use gbx_field::fp::{Fp, FpElem};
 use gbx_graph::Graph;
 use gbx_grobner::GrobnerBasis;
-use gbx_poly::monomial::DynamicMonomial;
+
 use gbx_poly::order::Grevlex;
-use gbx_poly::polynomial::PolyDyn;
+use gbx_poly::polynomial::Polynomial;
 use gbx_poly::ring::RingCtx;
 use gbx_poly::term::Term;
-use gbx_storage::polynomial::VecTerms;
 
-pub type GrevlexRing = RingCtx<FpDyn, Grevlex>;
+pub type GrevlexRing = RingCtx<Fp, Grevlex>;
 
-pub type GbxTerm = Term<FpDynElem, DynamicMonomial>;
-pub type GbxPoly = PolyDyn<FpDynElem, VecTerms<GbxTerm>>;
+pub type GbxTerm = Term<FpElem>;
+pub type GbxPoly = Polynomial<FpElem>;
 pub type GbxBasis = GrobnerBasis<GbxPoly>;
 
 #[derive(Debug)]

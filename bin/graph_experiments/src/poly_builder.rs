@@ -1,10 +1,10 @@
-use gbx_field::fp::{FpDyn, FpDynElem};
+use gbx_field::fp::{Fp, FpElem};
 use gbx_graph::BoolPolyBuilder;
-use gbx_poly::monomial::{DynamicMonomial, Monomial};
+use gbx_poly::monomial::Monomial;
 use gbx_poly::order::MonomialOrder;
-use gbx_poly::polynomial::{PolyDyn, PolynomialView};
+use gbx_poly::polynomial::{Polynomial, PolynomialView};
 use gbx_poly::ring::RingCtx;
-use gbx_poly::term::{Term, TermView};
+use gbx_poly::term::Term;
 
 /// Bool polynomial builder backed by gbx_poly sparse polynomials (dynamic monomials).
 ///
@@ -16,7 +16,7 @@ pub struct GbxPolyBuilder<'a, O>
 where
     O: MonomialOrder,
 {
-    ring: &'a RingCtx<FpDyn, O>,
+    ring: &'a RingCtx<Fp, O>,
     nvars: usize,
 }
 
@@ -24,35 +24,35 @@ impl<'a, O> GbxPolyBuilder<'a, O>
 where
     O: MonomialOrder,
 {
-    pub fn new(ring: &'a RingCtx<FpDyn, O>) -> Self {
+    pub fn new(ring: &'a RingCtx<Fp, O>) -> Self {
         Self { ring, nvars: ring.nvars }
     }
 
     #[inline]
-    fn coeff(&self, c: u32) -> FpDynElem {
+    fn coeff(&self, c: u32) -> FpElem {
         self.ring.field.new(c)
     }
 
     #[inline]
-    fn mono_one(&self) -> DynamicMonomial {
-        DynamicMonomial::one(self.nvars)
+    fn mono_one(&self) -> Monomial {
+        Monomial::one(self.nvars)
     }
 
     #[inline]
-    fn mono_var(&self, index: usize) -> DynamicMonomial {
+    fn mono_var(&self, index: usize) -> Monomial {
         // x_index => exponent vector with 1 at `index`
         let mut exps = vec![0u32; self.nvars];
         exps[index] = 1;
-        DynamicMonomial::from_slice(&exps)
+        Monomial::from_slice(&exps)
     }
 
     #[inline]
-    fn poly_from_terms(&self, terms: Vec<Term<FpDynElem, DynamicMonomial>>) -> PolyDyn<FpDynElem> {
-        PolyDyn::from_terms_in(self.ring, terms).expect("PolyDyn::from_terms_in failed")
+    fn poly_from_terms(&self, terms: Vec<Term<FpElem>>) -> Polynomial<FpElem> {
+        Polynomial::from_terms_in(self.ring, terms).expect("PolyDyn::from_terms_in failed")
     }
 
     #[inline]
-    fn poly_neg(&self, p: &PolyDyn<FpDynElem>) -> PolyDyn<FpDynElem> {
+    fn poly_neg(&self, p: &Polynomial<FpElem>) -> Polynomial<FpElem> {
         let zero = self.coeff(0);
 
         let mut out = Vec::with_capacity(p.len());
@@ -65,7 +65,7 @@ where
     }
 
     #[inline]
-    fn poly_add(&self, a: &PolyDyn<FpDynElem>, b: &PolyDyn<FpDynElem>) -> PolyDyn<FpDynElem> {
+    fn poly_add(&self, a: &Polynomial<FpElem>, b: &Polynomial<FpElem>) -> Polynomial<FpElem> {
         let mut terms = Vec::with_capacity(a.len() + b.len());
         terms.extend(a.terms().iter().cloned());
         terms.extend(b.terms().iter().cloned());
@@ -73,13 +73,13 @@ where
     }
 
     #[inline]
-    fn poly_sub(&self, a: &PolyDyn<FpDynElem>, b: &PolyDyn<FpDynElem>) -> PolyDyn<FpDynElem> {
+    fn poly_sub(&self, a: &Polynomial<FpElem>, b: &Polynomial<FpElem>) -> Polynomial<FpElem> {
         let nb = self.poly_neg(b);
         self.poly_add(a, &nb)
     }
 
     #[inline]
-    fn poly_mul(&self, a: &PolyDyn<FpDynElem>, b: &PolyDyn<FpDynElem>) -> PolyDyn<FpDynElem> {
+    fn poly_mul(&self, a: &Polynomial<FpElem>, b: &Polynomial<FpElem>) -> Polynomial<FpElem> {
         if a.is_zero() || b.is_zero() {
             return self.zero();
         }
@@ -110,7 +110,7 @@ where
     }
 
     #[inline]
-    fn poly_pow(&self, a: &PolyDyn<FpDynElem>, exp: u32) -> PolyDyn<FpDynElem> {
+    fn poly_pow(&self, a: &Polynomial<FpElem>, exp: u32) -> Polynomial<FpElem> {
         match exp {
             0 => self.one(),
             1 => a.clone(),
@@ -139,7 +139,7 @@ impl<'a, O> BoolPolyBuilder for GbxPolyBuilder<'a, O>
 where
     O: MonomialOrder,
 {
-    type Poly = PolyDyn<FpDynElem>;
+    type Poly = Polynomial<FpElem>;
 
     fn zero(&self) -> Self::Poly {
         // IMPORTANT: empty term list still produces a polynomial tagged with the ring id.

@@ -1,6 +1,6 @@
 //! Error types for Gröbner basis construction.
 
-use crate::{PostError, SPolyError};
+use crate::PostError;
 use gbx_alg::DivByZero;
 use gbx_poly::polynomial::{PolynomialError, ReduceError};
 use thiserror::Error;
@@ -12,10 +12,6 @@ pub enum BuchbergerError {
     /// Error originating from polynomial/term/monomial operations.
     #[error(transparent)]
     Poly(#[from] PolynomialError),
-
-    /// Error while constructing an S-polynomial.
-    #[error(transparent)]
-    SPoly(#[from] SPolyError),
 
     /// Error while reducing a polynomial w.r.t. the current basis.
     #[error(transparent)]

@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::monomial::{MonomialDisplay, MonomialView};
+use crate::monomial::MonomialDisplay;
 use crate::order::MonomialOrder;
 use crate::ring::{FieldCtx, RingCtx};
 use crate::term::TermView;
@@ -104,7 +104,6 @@ where
     F: FieldCtx,
     O: MonomialOrder,
     T: TermView<Coeff = F::Elem>,
-    T::Mono: MonomialView<Word = u32>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let c_u = self.ring.field.repr_u32(*self.term.coeff());
@@ -112,12 +111,11 @@ where
 
         match self.style {
             TermStyle::Tuple => {
-                // (coeff,[e..])
                 write!(f, "({},{})", c_u, MonomialDisplay::exponents(mono))
             }
+
             TermStyle::Pretty => {
-                let is_one = mono.exponents().iter().all(|&e| e == 0);
-                if is_one {
+                if mono.is_one() {
                     if let Some(p) = self.ring.field.modulus_u32() {
                         let s = to_signed_rep(c_u, Some(p));
                         write!(f, "{s}")
@@ -133,10 +131,11 @@ where
                         None => MonomialDisplay::product(mono),
                     };
 
-                    if abs == 1 {
-                        if signed < 0 { write!(f, "-{mono_disp}") } else { write!(f, "{mono_disp}") }
-                    } else {
-                        if signed < 0 { write!(f, "-{}*{}", abs, mono_disp) } else { write!(f, "{}*{}", abs, mono_disp) }
+                    match (signed < 0, abs) {
+                        (true, 1) => write!(f, "-{mono_disp}"),
+                        (false, 1) => write!(f, "{mono_disp}"),
+                        (true, _) => write!(f, "-{}*{}", abs, mono_disp),
+                        (false, _) => write!(f, "{}*{}", abs, mono_disp),
                     }
                 }
             }

@@ -1,6 +1,4 @@
 //! Runtime-selectable monomial orders.
-//!
-//! This is for user input (CLI/config) where order is not known at compile time.
 
 use core::cmp::Ordering;
 use core::str::FromStr;
@@ -8,12 +6,11 @@ use core::str::FromStr;
 use crate::order::{MonomialOrder, GREVLEX, LEX};
 
 /// Runtime-selectable monomial order.
-///
-/// Use this when the order is chosen from user input (CLI/config).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OrderSpec {
     /// Lexicographic order.
     Lex,
+
     /// Graded reverse lexicographic order.
     Grevlex,
 }
@@ -29,7 +26,7 @@ impl OrderSpec {
     }
 }
 
-/// Error returned when parsing an order from a string fails.
+/// Error returned when parsing an unknown monomial order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct OrderParseError {
@@ -37,7 +34,7 @@ pub struct OrderParseError {
 }
 
 impl OrderParseError {
-    /// Formating error
+    /// Returns the normalized input string that failed to parse.
     #[inline]
     pub fn got(&self) -> &str {
         &self.got
@@ -56,17 +53,15 @@ impl std::error::Error for OrderParseError {}
 impl FromStr for OrderSpec {
     type Err = OrderParseError;
 
-    /// Parse a monomial order from a string.
-    ///
-    /// Accepted forms (case-insensitive, surrounding whitespace ignored):
-    /// - `"lex"`, `"lexicographic"`
-    /// - `"grevlex"`, `"gradedrevlex"`, `"graded_reverse_lex"`, `"graded-reverse-lex"`
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let key = s.trim().to_ascii_lowercase();
+
         match key.as_str() {
             "lex" | "lexicographic" => Ok(OrderSpec::Lex),
+
             "grevlex" | "gradedrevlex" | "graded_reverse_lex" | "graded-reverse-lex" | "graded reverse lex" | "graded reverse lexicographic" => Ok(OrderSpec::Grevlex),
-            _ => Err(OrderParseError { got: key.to_string() }),
+
+            _ => Err(OrderParseError { got: key }),
         }
     }
 }
@@ -79,14 +74,20 @@ impl MonomialOrder for OrderSpec {
             OrderSpec::Grevlex => GREVLEX.cmp_exps(a, b),
         }
     }
+
+    #[inline]
+    fn cmp<M: crate::monomial::MonomialView>(&self, a: &M, b: &M) -> Ordering {
+        match self {
+            OrderSpec::Lex => LEX.cmp(a, b),
+            OrderSpec::Grevlex => GREVLEX.cmp(a, b),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::monomial::FixedMonomial;
-    use crate::order::MonomialOrder;
-    use core::cmp::Ordering;
+    use crate::monomial::Monomial;
 
     #[test]
     fn parse_lex_variants() {
@@ -118,14 +119,27 @@ mod tests {
     #[test]
     fn parse_unknown_is_error() {
         let err = OrderSpec::from_str("wat").unwrap_err();
+
         assert!(err.got().contains("wat"));
     }
 
     #[test]
     fn orderspec_compares_like_lex() {
         let o = OrderSpec::Lex;
-        let a = FixedMonomial::<2>::from_exponents([1, 5]);
-        let b = FixedMonomial::<2>::from_exponents([2, 0]);
+
+        let a = Monomial::from_slice(&[1, 5]);
+        let b = Monomial::from_slice(&[2, 0]);
+
+        assert_eq!(o.cmp(&a, &b), Ordering::Less);
+    }
+
+    #[test]
+    fn orderspec_compares_like_grevlex() {
+        let o = OrderSpec::Grevlex;
+
+        let a = Monomial::from_slice(&[1, 0, 0]);
+        let b = Monomial::from_slice(&[0, 2, 0]);
+
         assert_eq!(o.cmp(&a, &b), Ordering::Less);
     }
 }

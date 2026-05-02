@@ -1,46 +1,32 @@
-//! Monomial orders (term orders) for Gröbner basis computations.
+//! Monomial orders used by Gröbner basis algorithms.
 //!
-//! This module defines:
-//! - [`MonomialOrder`] – a trait for total orders on exponent vectors.
-//! - [`Lex`]           – lexicographic order.
-//! - [`Grevlex`]       – graded reverse lexicographic order.
-//! - [`OrderSpec`]     – runtime-selectable order parsed from strings.
+//! A monomial order compares exponent vectors and determines which term is
+//! considered larger.
 //!
-//! Orders are defined over exponent slices (`&[u32]`) rather than a specific
-//! monomial type. Any monomial representation can use these orders as long as it
-//! can expose its exponent vector (e.g. via [`crate::monomial::MonomialView::exponents`]).
+//! This module provides:
+//! - [`Lex`] for lexicographic order,
+//! - [`Grevlex`] for graded reverse lexicographic order,
+//! - [`OrderSpec`] for runtime-selected orders,
+//! - [`MonomialOrder`] as the shared comparison trait.
 //!
-//! # Static vs runtime selection
+//! Orders operate on exponent slices and on [`crate::monomial::MonomialView`].
 //!
-//! **Static (compile-time)**: use the ZST markers [`Lex`] / [`Grevlex`] (fast, monomorphized).
+//! # Example
 //!
 //! ```
+//! use gbx_poly::monomial::Monomial;
 //! use gbx_poly::order::{LEX, MonomialOrder};
-//! use gbx_poly::monomial::FixedMonomial;
 //!
-//! let a = FixedMonomial::<2>::from_exponents([1, 0]);
-//! let b = FixedMonomial::<2>::from_exponents([0, 5]);
+//! let a = Monomial::from_slice(&[1, 0]);
+//! let b = Monomial::from_slice(&[0, 5]);
 //!
-//! // Compare with lex order
-//! let _ = LEX.cmp(&a, &b);
+//! assert!(LEX.cmp(&a, &b).is_gt());
 //! ```
 //!
-//! **Runtime (config/CLI)**: parse into [`OrderSpec`].
+//! # Arity
 //!
-//! ```
-//! use core::str::FromStr;
-//! use gbx_poly::order::{MonomialOrder, OrderSpec};
-//! use gbx_poly::monomial::FixedMonomial;
-//!
-//! let o = OrderSpec::from_str("grevlex").unwrap();
-//! let a = FixedMonomial::<3>::from_exponents([1, 0, 0]);
-//! let b = FixedMonomial::<3>::from_exponents([0, 2, 0]);
-//! let _ = o.cmp(&a, &b);
-//! ```
-//!
-//! # Panics
-//! All comparisons assume both exponent vectors have the same length.
-//! A mismatch indicates a programmer error (mixing rings / arities) and will panic.
+//! Comparisons assume both monomials have the same number of variables.
+//! A mismatch is considered a programmer error and will panic.
 
 mod grevlex;
 mod lex;

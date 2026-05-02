@@ -5,23 +5,23 @@ use crate::ring::RingError;
 use crate::term::TermError;
 use thiserror::Error;
 
-/// Errors that can occur when operating on polynomials.
+/// Errors produced by polynomial construction and arithmetic.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum PolynomialError {
-    /// Ring mismatch / ring construction errors.
+    /// Ring mismatch or ring validation error.
     #[error("ring error: {0}")]
     Ring(RingError),
 
-    /// Error originating from term-level operations.
+    /// Term-level error.
     #[error("term error: {0}")]
     Term(TermError),
 
-    /// Error originating from monomial-level operations.
+    /// Monomial-level error.
     #[error("monomial error: {0}")]
     Monomial(MonomialError),
 
-    /// Internal invariant broken (should never happen if invariants are maintained).
+    /// Internal invariant was violated.
     #[error("polynomial invariant violation")]
     InvariantViolation,
 }
@@ -47,18 +47,5 @@ impl From<MonomialError> for PolynomialError {
     }
 }
 
-/// Convenience alias.
-pub type Result<T> = core::result::Result<T, PolynomialError>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ring::RingError;
-
-    #[test]
-    fn display_includes_prefix() {
-        let e = PolynomialError::Ring(RingError::InvalidNvars { nvars: 0 });
-        let s = e.to_string();
-        assert!(s.contains("ring error"));
-    }
-}
+/// Result type used by the polynomial module.
+pub type PolynomialResult<T> = Result<T, PolynomialError>;

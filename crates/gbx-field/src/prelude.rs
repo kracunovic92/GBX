@@ -1,5 +1,4 @@
-#[cfg(feature = "zp")]
-pub use crate::zp::Zp;
+//! Common imports for `gbx-field`.
 
-#[cfg(feature = "fp")]
-pub use crate::fp::Fp;
+pub use crate::error::{FieldError, FieldResult};
+pub use crate::fp::{Fp, FpElem};

@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// Errors that can occur when operating on monomials.
+/// Errors produced by monomial construction and arithmetic.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 #[allow(missing_docs)]
@@ -21,10 +21,10 @@ pub enum MonomialError {
     #[error("wrong exponent length: expected {expected}, got {got}")]
     WrongLength { expected: usize, got: usize },
 
-    /// Attempted exact division but the divisor does not divide the dividend.
+    /// Exact division was requested but the divisor does not divide the dividend.
     #[error("not divisible")]
     NotDivisible,
 }
 
-/// Convenience alias for monomial results.
-pub type Result<T> = core::result::Result<T, MonomialError>;
+/// Result type used by the monomial module.
+pub type MonomialResult<T> = Result<T, MonomialError>;

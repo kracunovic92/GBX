@@ -11,6 +11,13 @@ use crate::tracing::init_tracing;
 use cli::{Cli, Command};
 use pipeline::types::GrobnerStageOptions;
 
+#[cfg(feature = "profiling-alloc")]
+use stats_alloc::{StatsAlloc, INSTRUMENTED_SYSTEM};
+
+#[cfg(feature = "profiling-alloc")]
+#[global_allocator]
+static GLOBAL: &StatsAlloc<std::alloc::System> = &INSTRUMENTED_SYSTEM;
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
     init_tracing();

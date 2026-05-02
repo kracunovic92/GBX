@@ -1,12 +1,13 @@
+//! Term error
 use core::fmt;
 
 use crate::monomial::MonomialError;
 
-/// Errors that can occur when operating on terms.
+/// Errors produced by term construction and arithmetic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TermError {
-    /// Monomial arithmetic failed (overflow / mismatched arity, etc.).
+    /// Monomial arithmetic failed.
     Monomial(MonomialError),
 }
 
@@ -28,18 +29,18 @@ impl fmt::Display for TermError {
 #[cfg(feature = "std")]
 impl std::error::Error for TermError {}
 
-/// Convenience alias for term results.
-pub type Result<T> = core::result::Result<T, TermError>;
+/// Result type used by the term module.
+pub type TermResult<T> = Result<T, TermError>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::monomial::MonomialError;
 
     #[test]
     fn monomial_error_converts() {
         let e = MonomialError::DegreeOverflow;
         let te: TermError = e.clone().into();
+
         assert_eq!(te, TermError::Monomial(e));
     }
 
@@ -47,6 +48,7 @@ mod tests {
     fn display_includes_monomial_prefix() {
         let te: TermError = MonomialError::DegreeOverflow.into();
         let s = te.to_string();
+
         assert!(s.contains("monomial error"));
     }
 }

@@ -7,7 +7,7 @@ members = [
     "tests/engine",
     "tools/graph",
     "bin/graph_experiments"
-    , "crates/gbx-grobner"]
+    , "crates/gbx-grobner", "bin/baseline_experiments"]
 
 exclude = ["bin"]
 resolver = "3"

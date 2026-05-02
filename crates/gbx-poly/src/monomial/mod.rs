@@ -1,45 +1,51 @@
-//! Monomials (exponent vectors)
+//! Dynamic monomials.
 //!
-//! A **monomial** in `n` variables is an exponent vector `α ∈ ℕ^n` representing
+//! A monomial is an exponent vector `α ∈ ℕ^n` representing:
 //!
 //! ```text
-//! x^α = x₀^{α₀} * x₁^{α₁} * ... * x_{n-1}^{α_{n-1}}.
+//! x^α = x₀^α₀ * x₁^α₁ * ... * xₙ₋₁^αₙ₋₁
 //! ```
 //!
-//! ## Types
-//! - [`FixedMonomial<N>`]: fixed arity known at compile time.
-//! - [`DynamicMonomial`]: arity stored at runtime.
+//! In GBX, monomials are runtime-sized. The number of variables belongs to the
+//! surrounding `RingCtx`, not to the type of the monomial.
 //!
-//! Both implement [`MonomialView`] (read-only) and [`Monomial`] (constructive).
+//! The main type is [`Monomial`].
 //!
-//! ## Term orders
-//! Gröbner basis algorithms require a fixed term order. We provide:
-//! - [`Lex`]
-//! - [`Grevlex`]
+//! A monomial stores:
+//! - an exponent vector,
+//! - a cached total degree.
 //!
-//! Orders operate on exponent slices (`u32` by default), so they work with any monomial exposing
-//! [`MonomialView::exponents`].
+//! Monomial operations are checked:
+//! - multiplication checks exponent overflow,
+//! - lcm/gcd/quotient check arity,
+//! - degree computation checks overflow.
 //!
-//! ## Errors
-//! Invariants such as matching arity and checked arithmetic are reported via
-//! [`MonomialError`].
+//! # Example
+//!
+//! ```
+//! use gbx_poly::monomial::{Monomial, MonomialView};
+//!
+//! let m = Monomial::from_slice(&[1, 0, 2]);
+//!
+//! assert_eq!(m.exponents(), &[1, 0, 2]);
+//! assert_eq!(m.degree(), 3);
+//! ```
 
 mod algos;
 mod display;
-mod dynamic;
 mod error;
-mod fixed;
 mod macros;
+mod monomial;
 mod traits;
 
-/// This should represent public interface for other
+/// Prelude functions
 pub mod prelude {
-    pub use super::{checked_gcd, checked_lcm, checked_quotient, divides, DynamicMonomial, FixedMonomial, Monomial, MonomialAlgos, MonomialError, MonomialView, MonomialViewExtU32, Result};
+    pub use super::{checked_div_exact, checked_gcd, checked_lcm, checked_lcm_degree, checked_quotient, divides, gcd_is_one, Monomial, MonomialDisplay, MonomialError, MonomialStyle, MonomialView};
 }
 
-pub use algos::{checked_gcd, checked_lcm, checked_lcm_degree, checked_quotient, divides, gcd_is_one, MonomialAlgos};
-pub use display::MonomialDisplay;
-pub use dynamic::DynamicMonomial;
-pub use error::{MonomialError, Result};
-pub use fixed::FixedMonomial;
-pub use traits::{Monomial, MonomialExtU32, MonomialView, MonomialViewExtU32};
+pub use algos::{checked_div_exact, checked_gcd, checked_lcm, checked_lcm_degree, checked_quotient, divides, gcd_is_one};
+
+pub use display::{MonomialDisplay, MonomialStyle};
+pub use error::{MonomialError, MonomialResult};
+pub use monomial::Monomial;
+pub use traits::MonomialView;

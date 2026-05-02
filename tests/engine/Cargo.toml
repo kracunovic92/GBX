@@ -8,8 +8,6 @@ version.workspace = true
 
 [features]
 instrumentation = [
-    "dep:tracing",
-    "dep:tracing-subscriber",
     "gbx-grobner/instrumentation",
 ]
 [dependencies]
@@ -21,8 +19,8 @@ clap = { version = "4.5.59", features = ["derive"] }
 gbx-poly = { path = "../../crates/gbx-poly" }
 gbx-field = { path = "../../crates/gbx-field" } # if needed
 gbx-grobner = { path = "../../crates/gbx-grobner" }
-tracing = { version = "0.1.44", optional = true }
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"], optional = true }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [lints]
 workspace = true

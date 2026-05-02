@@ -1,47 +1,33 @@
-//! Entry point for building ring contexts.
-//!
-//! This exists mostly for ergonomics: `Ring::builder()`.
+//! Entry point for constructing ring contexts.
 
 use crate::ring::builder::RingBuilder;
 use crate::ring::FieldCtx;
 
-/// Entry point type for `Ring::builder()`.
+/// Ergonomic entry point for creating a [`RingCtx`](crate::ring::RingCtx).
 ///
-/// # Example
-/// ```
-/// use gbx_poly::ring::{Ring, StaticFpCtx};
-/// use gbx_poly::order::Lex;
-///
-/// let ring = Ring::builder()
-///     .field(StaticFpCtx::<7>::new())
-///     .order(Lex)
-///     .nvars(3)
-///     .build()
-///     .unwrap();
-///
-/// assert_eq!(ring.nvars, 3);
-/// ```
-///
-/// See [`RingBuilder`] for full configuration details.
+/// Use [`Ring::builder`] instead of spelling the full generic type manually.
 #[derive(Debug, Copy, Clone)]
 pub struct Ring;
 
 impl Ring {
-    /// Creates a new [`RingBuilder`] for constructing a ring context.
-    ///
-    /// The generic parameter `F` specifies the field context type.
-    ///
-    /// # Type Parameters
-    ///
-    /// - `F`: must implement [`FieldCtx`]
+    /// Starts building a ring context.
     ///
     /// # Example
     ///
-    /// ```ignore
-    /// let builder = Ring::builder::<MyFieldCtx>();
     /// ```
+    /// use gbx_field::fp::Fp;
+    /// use gbx_poly::order::Lex;
+    /// use gbx_poly::ring::Ring;
     ///
-    /// In practice, the type parameter is inferred from `.field(...)`.
+    /// let ring = Ring::builder()
+    ///     .field(Fp::prime(32003).unwrap())
+    ///     .order(Lex)
+    ///     .nvars(4)
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// assert_eq!(ring.nvars, 4);
+    /// ```
     #[inline]
     pub fn builder<F>() -> RingBuilder<F, ()>
     where

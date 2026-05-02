@@ -43,7 +43,7 @@ pub enum Command {
         #[arg(short = 'k', long)]
         k: usize,
 
-        /// Prime modulus p for FpDyn
+        /// Prime modulus p for Fp
         #[arg(long, default_value_t = 32003)]
         p: u32,
 
@@ -66,7 +66,7 @@ pub enum Command {
         #[arg(short = 'k', long)]
         k: usize,
 
-        /// Prime modulus p for FpDyn
+        /// Prime modulus p for Fp
         #[arg(long, default_value_t = 32003)]
         p: u32,
 

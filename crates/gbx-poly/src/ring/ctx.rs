@@ -1,50 +1,50 @@
-//! The ring context.
+//! Ring context.
 //!
-//! `RingCtx` binds together:
-//! - a field arithmetic provider (`FieldCtx`)
-//! - a monomial order value `O`
-//! - number of variables `nvars`
-//! - a unique `RingId` used to reject operations across different rings
+//! A [`RingCtx`] stores the data needed to interpret and manipulate
+//! polynomials:
 //!
-//! The order type `O` is stored but not constrained here; consumers (monomial comparisons,
-//! polynomial sorting) can bound `O` with whatever order trait you use.
+//! - coefficient field arithmetic,
+//! - monomial order,
+//! - number of variables,
+//! - unique ring identity.
+//!
+//! Polynomial operations should take `&RingCtx` explicitly instead of storing
+//! this information inside every polynomial.
 
-use crate::ring::error::{Result, RingError};
+use crate::ring::error::{RingError, RingResult};
 use crate::ring::field::FieldCtx;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 static NEXT_RING_ID: AtomicU64 = AtomicU64::new(1);
 
-/// Unique identity for a ring context.
+/// Unique identity of a ring context.
 ///
-/// Intended to be stored inside polynomials as a tiny tag so you can detect
-/// mixed-ring usage early and provide meaningful errors.
+/// This is used to detect accidental operations between polynomials created
+/// under different ring contexts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct RingId(u64);
 
 impl RingId {
-    /// Simple getter :)
+    /// Id
     #[inline]
     pub fn get(self) -> u64 {
         self.0
     }
 }
 
-/// Ring context for polynomial/Groebner operations.
+/// Context for polynomial and Gröbner basis operations.
 #[derive(Clone, Debug)]
 pub struct RingCtx<F, O>
 where
     F: FieldCtx,
 {
-    /// Field arithmetic provider (dynamic field context or static adapter).
+    /// Coefficient field arithmetic.
     pub field: F,
 
-    /// Term order (e.g. Lex, Grevlex).
+    /// Monomial order.
     pub order: O,
 
-    /// Number of variables in the polynomial ring.
-    ///
-    /// For dynamic monomials, this is the ring invariant arity.
+    /// Number of variables.
     pub nvars: usize,
 
     id: RingId,
@@ -54,33 +54,30 @@ impl<F, O> RingCtx<F, O>
 where
     F: FieldCtx,
 {
-    /// Construct a ring context.
-    ///
-    /// # Errors
-    /// Returns `RingError::InvalidNvars` if `nvars == 0`.
-    pub fn new(field: F, order: O, nvars: usize) -> Result<Self> {
+    /// Creates a new ring context.
+    pub fn new(field: F, order: O, nvars: usize) -> RingResult<Self> {
         if nvars == 0 {
             return Err(RingError::InvalidNvars { nvars });
         }
 
         let id = RingId(NEXT_RING_ID.fetch_add(1, Ordering::Relaxed));
+
         Ok(Self { field, order, nvars, id })
     }
 
-    /// Ring identity tag.
+    /// Returns this ring context's unique identity.
     #[inline]
     pub fn id(&self) -> RingId {
         self.id
     }
 
-    /// Ensure `poly_ring_id` matches this ring's id.
-    ///
-    /// Use this in polynomial ops to prevent mixing rings.
+    /// Checks that a polynomial belongs to this ring context.
     #[inline]
-    pub fn assert_same_ring_id(&self, poly_ring_id: RingId) -> Result<()> {
+    pub fn assert_same_ring_id(&self, poly_ring_id: RingId) -> RingResult<()> {
         if poly_ring_id != self.id {
             return Err(RingError::MismatchedRing { expected: self.id.get(), got: poly_ring_id.get() });
         }
+
         Ok(())
     }
 }
@@ -91,26 +88,30 @@ mod tests {
 
     use super::*;
     use crate::order::Lex;
-    use crate::ring::field::StaticFpCtx;
+    use gbx_field::fp::Fp;
 
     #[test]
     fn ring_id_changes_between_instances() {
-        let a = RingCtx::new(StaticFpCtx::<7>::new(), Lex, 3).unwrap();
-        let b = RingCtx::new(StaticFpCtx::<7>::new(), Lex, 3).unwrap();
+        let a = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
+        let b = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
+
         assert_ne!(a.id(), b.id());
     }
 
     #[test]
     fn invalid_nvars_is_error() {
-        let err = RingCtx::new(StaticFpCtx::<7>::new(), Lex, 0).unwrap_err();
+        let err = RingCtx::new(Fp::prime(7).unwrap(), Lex, 0).unwrap_err();
+
         assert!(matches!(err, RingError::InvalidNvars { .. }));
     }
 
     #[test]
     fn assert_same_ring_id_detects_mismatch() {
-        let a = RingCtx::new(StaticFpCtx::<7>::new(), Lex, 3).unwrap();
-        let b = RingCtx::new(StaticFpCtx::<7>::new(), Lex, 3).unwrap();
+        let a = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
+        let b = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
+
         let err = a.assert_same_ring_id(b.id()).unwrap_err();
+
         assert!(matches!(err, RingError::MismatchedRing { .. }));
     }
 }

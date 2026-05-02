@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 /// Dense coefficient matrix used by the F4 linear phase.
 ///
 /// Rows correspond to symbolic products.
@@ -45,21 +43,20 @@ impl<M> MatrixRowMeta<M> {
 }
 
 /// Full F4 matrix object:
-/// - dense coefficient rows
-/// - ordered monomial columns
-/// - per-row metadata
+/// - dense coefficient rows,
+/// - ordered monomial columns,
+/// - per-row metadata.
 #[derive(Debug, Clone)]
-pub struct F4Matrix<P, M, C> {
+pub struct F4Matrix<M, C> {
     pub matrix: DenseMatrix<C>,
     pub columns: Vec<M>,
     pub metadata: Vec<MatrixRowMeta<M>>,
-    pub _poly: PhantomData<P>,
 }
 
-impl<P, M, C> F4Matrix<P, M, C> {
+impl<M, C> F4Matrix<M, C> {
     #[must_use]
     pub fn new(matrix: DenseMatrix<C>, columns: Vec<M>, metadata: Vec<MatrixRowMeta<M>>) -> Self {
-        Self { matrix, columns, metadata, _poly: PhantomData }
+        Self { matrix, columns, metadata }
     }
 
     #[must_use]

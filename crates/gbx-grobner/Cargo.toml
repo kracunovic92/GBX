@@ -9,7 +9,22 @@ version.workspace = true
 [features]
 default = []
 instrumentation = ["dep:tracing"]
+profiling-alloc = [
+    "instrumentation",
+    "dep:stats_alloc",
+]
 
+profile-dump = [
+    "instrumentation",
+    "dep:serde",
+    "dep:serde_json",
+]
+
+profile-full = [
+    "instrumentation",
+    "profiling-alloc",
+    "profile-dump",
+]
 
 [dependencies]
 gbx-alg = { path = "../gbx-alg", default-features = false }
@@ -18,6 +33,11 @@ gbx-field = { path = "../gbx-field", default-features = false }
 gbx-poly = { path = "../gbx-poly", default-features = false }
 thiserror = "2.0.18"
 tracing = { version = "0.1.44", optional = true }
+stats_alloc = { version = "0.1", optional = true }
+
+serde = { version = "1", optional = true, features = ["derive"] }
+serde_json = { version = "1", optional = true }
+rayon = { version = "1.12.0" }
 
 [lints]
 workspace = true

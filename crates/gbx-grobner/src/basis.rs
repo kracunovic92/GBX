@@ -139,13 +139,14 @@ mod tests {
     #![allow(clippy::unwrap_used)]
 
     use super::*;
+    use gbx_field::prelude::Fp;
     use gbx_poly::order::Lex;
-    use gbx_poly::ring::{Ring, StaticFpCtx};
+    use gbx_poly::ring::Ring;
 
     #[test]
     fn empty_in_tags_ring() {
         let ring = Ring::builder()
-            .field(StaticFpCtx::<7>::new())
+            .field(Fp::prime(7).unwrap())
             .order(Lex)
             .nvars(2)
             .build()
@@ -159,18 +160,17 @@ mod tests {
     #[test]
     fn assert_same_ring_works() {
         let a = Ring::builder()
-            .field(StaticFpCtx::<7>::new())
+            .field(Fp::prime(7).unwrap())
             .order(Lex)
             .nvars(2)
             .build()
             .unwrap();
         let b = Ring::builder()
-            .field(StaticFpCtx::<7>::new())
+            .field(Fp::prime(7).unwrap())
             .order(Lex)
             .nvars(2)
             .build()
             .unwrap();
-
         let gb: GrobnerBasis<u32> = GrobnerBasis::new(a.id(), alloc::vec![1, 2, 3]);
         assert!(gb.assert_same_ring(&a).is_ok());
         assert!(gb.assert_same_ring(&b).is_err());
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn retain_filters_elements() {
         let ring = Ring::builder()
-            .field(StaticFpCtx::<7>::new())
+            .field(Fp::prime(7).unwrap())
             .order(Lex)
             .nvars(2)
             .build()
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn retain_can_clear_all() {
         let ring = Ring::builder()
-            .field(StaticFpCtx::<7>::new())
+            .field(Fp::prime(7).unwrap())
             .order(Lex)
             .nvars(2)
             .build()
@@ -208,14 +208,14 @@ mod tests {
         gb.retain(|_| false);
 
         assert!(gb.is_empty());
-        assert_eq!(gb.as_slice(), &[]);
+        assert_eq!(gb.as_slice(), &[] as &[u32]);
         assert_eq!(gb.ring_id(), ring.id());
     }
 
     #[test]
     fn retain_keeps_all() {
         let ring = Ring::builder()
-            .field(StaticFpCtx::<7>::new())
+            .field(Fp::prime(7).unwrap())
             .order(Lex)
             .nvars(2)
             .build()

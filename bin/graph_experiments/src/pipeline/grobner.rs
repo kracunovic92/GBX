@@ -4,7 +4,7 @@ use std::time::Instant;
 use super::types::{GbxPoly, GrevlexRing, GrobnerOutput, GrobnerStageOptions};
 use gbx_grobner::{f4, F4Options};
 
-pub fn run(ring: &GrevlexRing, polys: &[GbxPoly], opts: GrobnerStageOptions) -> Result<GrobnerOutput> {
+pub fn run(ring: &GrevlexRing, polys: &[GbxPoly], _opts: GrobnerStageOptions) -> Result<GrobnerOutput> {
     let f4_opts = F4Options::default();
 
     let t0 = Instant::now();

@@ -1,12 +1,10 @@
-//! Display adapter for a perfect human-view of Grobner basis
+//! Display adapter for Gröbner bases.
 
 use crate::display::style::GbStyle;
 use core::fmt;
-use gbx_poly::monomial::MonomialView;
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolyDisplay, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
-use gbx_poly::term::TermView;
 
 /// Display adapter for a Gröbner basis.
 ///
@@ -17,8 +15,7 @@ pub struct GbDisplay<'a, F, O, P>
 where
     F: FieldCtx,
     O: MonomialOrder,
-    P: PolynomialView,
-    P::Term: TermView<Coeff = F::Elem>,
+    P: PolynomialView<Coeff = F::Elem>,
 {
     ring: &'a RingCtx<F, O>,
     polys: &'a [P],
@@ -30,33 +27,30 @@ impl<'a, F, O, P> GbDisplay<'a, F, O, P>
 where
     F: FieldCtx,
     O: MonomialOrder,
-    P: PolynomialView,
-    P::Term: TermView<Coeff = F::Elem>,
+    P: PolynomialView<Coeff = F::Elem>,
 {
     /// Creates a human-readable Gröbner basis formatter.
     ///
-    /// Each polynomial is rendered on its own line
-    /// using [`PolyDisplay::pretty`].
+    /// Each polynomial is rendered on its own line using [`PolyDisplay::pretty`].
+    #[inline]
     pub fn pretty_lines(ring: &'a RingCtx<F, O>, polys: &'a [P], vars: &'a [String]) -> Self {
         Self { ring, polys, vars, style: GbStyle::PrettyLines }
     }
+
     /// Creates a stable tuple-based Gröbner basis formatter.
     ///
-    /// Each polynomial is rendered on its own line
-    /// using [`PolyDisplay::tuple_dump`].
+    /// Each polynomial is rendered on its own line using [`PolyDisplay::tuple_dump`].
+    #[inline]
     pub fn tuple_lines(ring: &'a RingCtx<F, O>, polys: &'a [P], vars: &'a [String]) -> Self {
         Self { ring, polys, vars, style: GbStyle::TupleLines }
     }
 }
 
-impl<'a, F, O, P> fmt::Display for GbDisplay<'a, F, O, P>
+impl<F, O, P> fmt::Display for GbDisplay<'_, F, O, P>
 where
     F: FieldCtx,
     O: MonomialOrder,
-    P: PolynomialView,
-    P::Term: TermView<Coeff = F::Elem>,
-    // pretty + tuple in your PolyDisplay currently assumes u32 words:
-    <P::Term as TermView>::Mono: MonomialView<Word = u32>,
+    P: PolynomialView<Coeff = F::Elem>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (i, p) in self.polys.iter().enumerate() {
@@ -66,16 +60,14 @@ where
 
             match self.style {
                 GbStyle::PrettyLines => {
-                    let disp = PolyDisplay::pretty(self.ring, p, self.vars);
-                    write!(f, "{disp}")?;
+                    write!(f, "{}", PolyDisplay::pretty(self.ring, p, self.vars))?;
                 }
                 GbStyle::TupleLines => {
-                    // if your tuple_dump needs vars, pass vars; otherwise ignore
-                    let disp = PolyDisplay::tuple_dump(self.ring, p, self.vars);
-                    write!(f, "{disp}")?;
+                    write!(f, "{}", PolyDisplay::tuple_dump(self.ring, p, self.vars))?;
                 }
             }
         }
+
         Ok(())
     }
 }

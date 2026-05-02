@@ -1,30 +1,26 @@
-//! Gröbner basis algorithms (context-driven).
+//! Gröbner basis algorithms.
 //!
-//! This module provides a correctness-first Buchberger baseline.
+//! Algorithms in this crate are context-driven through
+//! [`gbx_poly::ring::RingCtx`].
 //!
-//! The algorithms are **context-driven** via [`RingCtx`](crate::ring::RingCtx):
-//! - coefficient arithmetic uses `ctx.field`
-//! - monomial order (used by normalization/reduction) uses `ctx.order`
-//! - ring mixing is detected using the [`RingId`](crate::ring::RingId) tag stored in polynomials
+//! The ring context supplies:
+//! - coefficient arithmetic,
+//! - monomial order,
+//! - variable count,
+//! - ring identity checks.
 //!
-//! ## Main entry points
-//! - [`buchberger`] (defaults: LIFO pair processing, no pairing pruning)
-//! - [`buchberger_with`] (custom pair queue + pairing)
+//! Main entry points:
+//! - [`buchberger`]
+//! - [`buchberger_with`]
 //!
-//! ## Errors
-//! Errors are reported as [`BuchbergerError`] and include:
-//! - polynomial/term/monomial/ring errors
-//! - S-polynomial construction errors
-//! - reduction errors
-//!
-//! ## Panics
-//! None (beyond panics in user-provided storage backends).
+//! Post-processing helpers can minimize and reduce a computed basis.
 
 mod algos;
 mod basis;
 mod display;
-mod error;
+pub mod error;
 mod instrumentation;
+
 #[cfg(test)]
 pub mod test_utils;
 
