@@ -17,6 +17,7 @@ gbx-storage = { path = "../gbx-storage", default-features = false }
 gbx-field = { path = "../gbx-field", default-features = false }
 thiserror = "2.0.18"
 criterion = "0.8.1"
+tracing = "0.1.44"
 
 [lints]
 workspace = true

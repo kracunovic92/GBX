@@ -118,8 +118,15 @@ fn render_script(ctx: &TestContext<'_>, ring_decl: &str, ideal_decl: &str) -> St
 {ideal}
 
 option(redSB);
+
+timer = 1;
+int t0 = timer;
+
 ideal G = groebner(I);
 G = interred(G);
+
+int t1 = timer;
+print("TIME_MS:" + string((t1 - t0) * 1000));
 
 int n = size(G);
 for (int i = 1; i <= n; i = i + 1)

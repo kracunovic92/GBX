@@ -1,62 +1,51 @@
 use gbx_poly::monomial::Monomial;
 
-/// Source polynomial used by a symbolic product.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum SymbolicSource {
-    /// Current Gröbner basis polynomial `basis[index]`.
-    Basis(usize),
-
-    /// Previously reduced row from batch history.
-    HistoryReducedRow { batch_index: usize, row_index: usize },
-}
-
-/// A non-evaluated product `m * f`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SymbolicProduct<M = Monomial> {
-    pub source: SymbolicSource,
+/// A non-evaluated product `m * source`.
+///
+/// In the F4 paper, this is an element of `T × R[x]`.
+/// It is kept unevaluated so `Simplify` can rewrite it before multiplication.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct UnevaluatedProduct<M = Monomial> {
     pub multiplier: M,
+    pub source: ProductSource,
 }
 
-impl<M> SymbolicProduct<M> {
+impl<M> UnevaluatedProduct<M> {
     #[inline]
     #[must_use]
-    pub fn new(source: SymbolicSource, multiplier: M) -> Self {
+    pub fn new(source: ProductSource, multiplier: M) -> Self {
         Self { source, multiplier }
     }
 
     #[inline]
     #[must_use]
     pub fn from_basis(basis_index: usize, multiplier: M) -> Self {
-        Self { source: SymbolicSource::Basis(basis_index), multiplier }
+        Self { source: ProductSource::Basis(basis_index), multiplier }
     }
 }
 
-/// Why a symbolic row was inserted into the current symbolic family.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SymbolicRowKind {
-    /// Row came directly from the selected pair batch.
-    InitialSeed,
+/// Source row used by an unevaluated product.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ProductSource {
+    /// A polynomial from the current basis `G`.
+    Basis(usize),
 
-    /// Row was added because some monomial in the current symbolic family was top-reducible.
-    TopReducerClosure,
-
-    /// Row was inserted after a non-trivial simplify step.
-    Simplified,
+    /// A row from a previous reduced batch `F̃_j`.
+    HistoryReducedRow { batch_index: usize, row_index: usize },
 }
 
 /// A materialized symbolic product together with origin metadata.
 #[derive(Debug, Clone)]
 pub struct SymbolicRow<P, M = Monomial> {
-    pub product: SymbolicProduct<M>,
+    pub product: UnevaluatedProduct<M>,
     pub polynomial: P,
-    pub kind: SymbolicRowKind,
 }
 
 impl<P, M> SymbolicRow<P, M> {
     #[inline]
     #[must_use]
-    pub fn new(product: SymbolicProduct<M>, polynomial: P, kind: SymbolicRowKind) -> Self {
-        Self { product, polynomial, kind }
+    pub fn new(product: UnevaluatedProduct<M>, polynomial: P) -> Self {
+        Self { product, polynomial }
     }
 }
 
@@ -85,7 +74,19 @@ impl<P, M> SymbolicPreprocessOutput<P, M> {
     pub fn is_empty(&self) -> bool {
         self.rows.is_empty()
     }
+
+    pub fn into_rows_parts(self) -> (Vec<P>, Vec<UnevaluatedProduct<M>>, Vec<M>) {
+        let mut polynomials = Vec::with_capacity(self.rows.len());
+        let mut products = Vec::with_capacity(self.rows.len());
+
+        for row in self.rows {
+            products.push(row.product);
+            polynomials.push(row.polynomial);
+        }
+
+        (polynomials, products, self.symbolic_heads)
+    }
 }
 
 /// Convenient concrete symbolic product type.
-pub type PolyProduct = SymbolicProduct<Monomial>;
+pub type PolyProduct = UnevaluatedProduct<Monomial>;

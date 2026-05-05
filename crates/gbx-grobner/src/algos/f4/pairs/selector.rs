@@ -62,12 +62,16 @@ impl PairSelector for MinDegreeSelector {
         let mut remaining = Vec::new();
 
         for pair in pairs {
-            if pair.degree() == min_degree && selected.len() < self.batch_size {
+            if pair.degree() == min_degree && selected.len() < self.batch_size() {
                 selected.push(pair);
             } else {
                 remaining.push(pair);
             }
         }
+        debug_assert!(
+            !selected.is_empty() || remaining.is_empty(),
+            "MinDegreeSelector stalled: selected is empty but remaining is non-empty"
+        );
 
         Selection { selected, remaining }
     }

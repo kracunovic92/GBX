@@ -6,3 +6,9 @@ pub type PolyMono = Monomial;
 
 /// Coefficient type of an F4 polynomial.
 pub type PolyCoeff<P> = <P as PolynomialView>::Coeff;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IterationOutcome {
+    Progress,
+    Done,
+}

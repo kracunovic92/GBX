@@ -3,6 +3,7 @@ pub mod dense;
 pub mod extract;
 pub mod reducer;
 pub mod reducer_dense;
+pub mod roman_sparse;
 pub mod types;
 
 pub use reducer::BatchReducer;

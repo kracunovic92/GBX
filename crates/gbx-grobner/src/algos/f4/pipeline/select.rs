@@ -2,21 +2,25 @@ use crate::algos::f4::pairs::critical_pair::CriticalPair;
 use crate::algos::f4::pairs::selector::{MinDegreeSelector, PairSelector};
 use crate::algos::f4::state::F4State;
 
-use crate::algos::f4::symbolic::{SymbolicProduct, SymbolicSource};
-
+use crate::pairs::PairSide;
+use crate::symbolic::{ProductSource, UnevaluatedProduct};
 use gbx_poly::monomial::Monomial;
 use gbx_poly::polynomial::PolynomialView;
 
-/// Output of the pair-selection phase.
+/// Output of the F4 pair-selection stage.
 ///
-/// `selected_pairs` is the selected F4 batch `P_d`.
-/// `l_d` is the symbolic product list `L_d`.
-pub struct PairSelection {
+/// `selected_pairs` is the selected critical-pair batch `P_d`.
+/// `l_d` is `L_d = Left(P_d) ∪ Right(P_d)`.
+pub struct SelectedPairBatch {
     pub selected_pairs: Vec<CriticalPair>,
-    pub l_d: Vec<SymbolicProduct<Monomial>>,
+    pub l_d: Vec<UnevaluatedProduct<Monomial>>,
 }
 
-pub fn select_pairs_phase<P>(state: &mut F4State<P>, selector: &mut MinDegreeSelector) -> PairSelection
+/// Selects one F4 batch from pending critical pairs.
+///
+/// This stage computes `P_d := Sel(P)`, removes those pairs from `P`,
+/// and builds `L_d = Left(P_d) ∪ Right(P_d)` as unevaluated products.
+pub fn select_pairs_phase<P>(state: &mut F4State<P>, selector: &mut MinDegreeSelector) -> SelectedPairBatch
 where
     P: PolynomialView,
 {
@@ -31,22 +35,22 @@ where
 
     let l_d = build_l_d(&selected_pairs);
 
-    PairSelection { selected_pairs, l_d }
+    SelectedPairBatch { selected_pairs, l_d }
 }
 
-fn build_l_d(pairs: &[CriticalPair]) -> Vec<SymbolicProduct<Monomial>> {
+/// Builds `L_d = Left(P_d) ∪ Right(P_d)` from selected critical pairs.
+fn build_l_d(pairs: &[CriticalPair]) -> Vec<UnevaluatedProduct<Monomial>> {
     let mut l_d = Vec::with_capacity(pairs.len() * 2);
 
     for pair in pairs {
-        let left = pair.left();
-        let right = pair.right();
-
-        l_d.push(SymbolicProduct { source: SymbolicSource::Basis(left.basis_index), multiplier: left.multiplier.clone() });
-
-        l_d.push(SymbolicProduct { source: SymbolicSource::Basis(right.basis_index), multiplier: right.multiplier.clone() });
+        l_d.push(pair_side_to_product(pair.left()));
+        l_d.push(pair_side_to_product(pair.right()));
     }
 
     l_d
+}
+fn pair_side_to_product(side: PairSide<'_>) -> UnevaluatedProduct<Monomial> {
+    UnevaluatedProduct { source: ProductSource::Basis(side.basis_index), multiplier: side.multiplier.clone() }
 }
 
 #[cfg(test)]
@@ -76,12 +80,12 @@ mod tests {
         assert_eq!(l_d.len(), 2);
 
         match l_d[0].source {
-            SymbolicSource::Basis(i) => assert_eq!(i, 0),
+            ProductSource::Basis(i) => assert_eq!(i, 0),
             _ => panic!("expected basis source"),
         }
 
         match l_d[1].source {
-            SymbolicSource::Basis(i) => assert_eq!(i, 1),
+            ProductSource::Basis(i) => assert_eq!(i, 1),
             _ => panic!("expected basis source"),
         }
 

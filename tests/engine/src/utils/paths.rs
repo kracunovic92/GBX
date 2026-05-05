@@ -2,57 +2,43 @@ use anyhow::{Context, Result};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
-pub struct RunDir {
-    pub dir: PathBuf,
-    pub script: PathBuf,
-    pub output: PathBuf,
-    pub stats: PathBuf,
-    pub basis: PathBuf,
-    pub basis_pretty: PathBuf,
-    pub meta: PathBuf,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
 pub struct OutputLayout {
-    pub base: PathBuf,
     pub runs: PathBuf,
     pub compare: PathBuf,
+    pub summary: PathBuf,
 }
 
 impl OutputLayout {
     pub fn new(base: PathBuf) -> Self {
-        Self { runs: base.join("runs"), compare: base.join("compare"), base }
+        Self { runs: base.join("runs"), compare: base.join("compare"), summary: base.join("summary") }
     }
 
     pub fn ensure(&self) -> Result<()> {
         std::fs::create_dir_all(&self.runs).with_context(|| format!("creating {}", self.runs.display()))?;
         std::fs::create_dir_all(&self.compare).with_context(|| format!("creating {}", self.compare.display()))?;
+        std::fs::create_dir_all(&self.summary).with_context(|| format!("creating {}", self.summary.display()))?;
         Ok(())
     }
 
     pub fn clean(&self) -> Result<()> {
-        for p in [&self.runs, &self.compare] {
+        for p in [&self.runs, &self.compare, &self.summary] {
             if p.exists() {
                 std::fs::remove_dir_all(p).with_context(|| format!("removing {}", p.display()))?;
             }
         }
+
         self.ensure()
     }
 
-    pub fn make_run_dir(&self, run_id: &str, script_ext: &str) -> Result<RunDir> {
-        let dir = self.runs.join(run_id);
+    pub fn run_stats_file(&self, backend: &str, case_stem: &str) -> PathBuf {
+        self.runs.join(format!("{backend}_test_{case_stem}.txt"))
+    }
 
-        std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
+    pub fn compare_file(&self, case_stem: &str) -> PathBuf {
+        self.compare.join(format!("compare_{case_stem}.txt"))
+    }
 
-        Ok(RunDir {
-            script: dir.join(format!("script.{script_ext}")),
-            output: dir.join("output.txt"),
-            stats: dir.join("stats.txt"),
-            basis: dir.join("basis.txt"),
-            basis_pretty: dir.join("basis.pretty.txt"),
-            meta: dir.join("meta.txt"),
-            dir,
-        })
+    pub fn summary_file(&self, case_stem: &str) -> PathBuf {
+        self.summary.join(format!("summary_{case_stem}.txt"))
     }
 }

@@ -1,6 +1,6 @@
 use crate::algos::f4::error::F4Error;
-use crate::algos::f4::symbolic::types::{SymbolicProduct, SymbolicSource};
 
+use crate::symbolic::UnevaluatedProduct;
 use gbx_poly::monomial::{checked_div_exact, divides, Monomial};
 use gbx_poly::polynomial::PolynomialView;
 
@@ -12,7 +12,7 @@ use gbx_poly::polynomial::PolynomialView;
 /// First-pass implementation:
 /// - scans the basis linearly,
 /// - returns the first matching reducer.
-pub fn find_top_reducer_product<P>(monomial: &Monomial, basis: &[P]) -> Result<Option<SymbolicProduct<Monomial>>, F4Error>
+pub fn find_top_reducer_product<P>(monomial: &Monomial, basis: &[P]) -> Result<Option<UnevaluatedProduct<Monomial>>, F4Error>
 where
     P: PolynomialView,
 {
@@ -24,10 +24,10 @@ where
         if divides(lead_mono, monomial) {
             let multiplier = checked_div_exact(lead_mono, monomial)?;
 
-            return Ok(Some(SymbolicProduct {
-                source: SymbolicSource::Basis(basis_index),
+            return Ok(Some(UnevaluatedProduct::from_basis(
+                basis_index,
                 multiplier,
-            }));
+            )));
         }
     }
 

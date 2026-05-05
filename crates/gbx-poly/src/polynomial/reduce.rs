@@ -83,7 +83,8 @@ where
         I: IntoIterator<Item = (&'a Self, &'a Monomial, Self::Coeff, u32)>,
         Self: 'a,
     {
-        let reducers: Vec<_> = reducers.into_iter().collect();
+        let mut reducers: Vec<_> = reducers.into_iter().collect();
+        reducers.sort_by_key(|(_, _, _, degree)| *degree);
 
         let mut f = self.clone();
         f.normalize_in_place(ctx).map_err(ReduceError::from)?;
@@ -94,15 +95,44 @@ where
 
         let mut r = Self::zero_in(ctx);
 
+        let mut steps = 0usize;
+        let max_steps = 1_000_000usize;
+
         while let Some((lt_coeff, lt_mono, lt_degree)) = f
             .leading_term()
             .map(|lt| (*lt.coeff(), lt.mono().clone(), lt.mono().degree()))
         {
+            steps += 1;
+
+            if steps % 10_000 == 0 {
+                tracing::warn!(
+                    steps,
+                    f_terms = f.len(),
+                    r_terms = r.len(),
+                    lt = ?lt_mono,
+                    lt_degree,
+                    "normal_form.progress"
+                );
+            }
+
+            if steps > max_steps {
+                tracing::error!(
+                    steps,
+                    f_terms = f.len(),
+                    r_terms = r.len(),
+                    lt = ?lt_mono,
+                    lt_degree,
+                    "normal_form.stalled"
+                );
+
+                return Err(ReduceError::Poly(PolynomialError::InvariantViolation));
+            }
+
             let mut reduced = false;
 
-            for (g, lm_g, inv_lc_g, lm_degree_g) in &reducers {
+            for (reducer_index, (g, lm_g, inv_lc_g, lm_degree_g)) in reducers.iter().enumerate() {
                 if *lm_degree_g > lt_degree {
-                    continue;
+                    break;
                 }
 
                 let Some(q_m) = checked_quotient(lm_g, &lt_mono)? else {
@@ -111,12 +141,33 @@ where
 
                 let q_c = ctx.field.mul(lt_coeff, *inv_lc_g);
 
+                tracing::trace!(
+                    steps,
+                    reducer_index,
+                    f_terms_before = f.len(),
+                    lt = ?lt_mono,
+                    reducer_lm = ?lm_g,
+                    quotient_mono = ?q_m,
+                    "normal_form.reduce_step"
+                );
+
                 let _ = f
                     .pop_leading_term_raw(ctx)
                     .map_err(ReduceError::from)?
                     .ok_or(ReduceError::Poly(PolynomialError::InvariantViolation))?;
 
+                let old_terms = f.len();
+
                 f = sub_scaled_monomial_multiple_tail_canonical(ctx, &f, g, &q_m, q_c)?;
+
+                tracing::trace!(
+                    steps,
+                    reducer_index,
+                    f_terms_before_tail_sub = old_terms,
+                    f_terms_after = f.len(),
+                    new_lt = ?f.leading_mono(),
+                    "normal_form.after_tail_sub"
+                );
 
                 reduced = true;
                 break;
@@ -128,9 +179,19 @@ where
                     .map_err(ReduceError::from)?
                     .ok_or(ReduceError::Poly(PolynomialError::InvariantViolation))?;
 
+                tracing::trace!(
+                    steps,
+                    moved_mono = ?lt.mono(),
+                    f_terms_after_pop = f.len(),
+                    r_terms_before = r.len(),
+                    "normal_form.move_to_remainder"
+                );
+
                 r.push_term_raw(lt);
             }
         }
+
+        tracing::debug!(steps, r_terms = r.len(), "normal_form.done");
 
         Ok(r)
     }

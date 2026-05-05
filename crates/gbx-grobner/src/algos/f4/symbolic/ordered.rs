@@ -1,7 +1,6 @@
 use core::cmp::Ordering;
 
-use crate::algos::f4::symbolic::types::SymbolicSource;
-
+use crate::algos::f4::symbolic::types::ProductSource;
 use gbx_poly::monomial::MonomialView;
 use gbx_poly::order::MonomialOrder;
 
@@ -72,19 +71,19 @@ where
     }
 }
 
-/// Key for deduplicating symbolic products using:
-/// 1. source identity
-/// 2. multiplier under the active monomial order
+/// Key for deduplicating unevaluated products using:
+/// 1. product source identity,
+/// 2. multiplier under the active monomial order.
 #[derive(Debug, Clone)]
 pub struct OrderedProduct<'a, M, O> {
-    pub source: SymbolicSource,
+    pub source: ProductSource,
     pub multiplier: OrderedMono<'a, M, O>,
 }
 
 impl<'a, M, O> OrderedProduct<'a, M, O> {
     #[inline]
     #[must_use]
-    pub fn new(source: SymbolicSource, multiplier: M, order: &'a O) -> Self {
+    pub fn new(source: ProductSource, multiplier: M, order: &'a O) -> Self {
         Self { source, multiplier: OrderedMono::new(multiplier, order) }
     }
 }

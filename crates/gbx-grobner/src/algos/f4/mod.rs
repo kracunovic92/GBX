@@ -31,6 +31,7 @@ pub mod extract;
 pub mod linear;
 pub mod pairs;
 mod pipeline;
+mod simplify;
 pub mod symbolic;
 
 pub use api::f4;

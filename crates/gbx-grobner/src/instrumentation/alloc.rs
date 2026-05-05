@@ -50,24 +50,12 @@ pub fn with_alloc_profile<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
     let elapsed_ms = elapsed_ms(started);
     let profile = AllocProfile::from(region.change());
 
-    let net_bytes = profile
-        .bytes_allocated
-        .saturating_sub(profile.bytes_deallocated);
-
     tracing::debug!(
         phase,
         elapsed_ms,
-        allocations = profile.allocations,
-        deallocations = profile.deallocations,
-        reallocations = profile.reallocations,
-        bytes_allocated = profile.bytes_allocated,
-        bytes_deallocated = profile.bytes_deallocated,
-        bytes_reallocated = profile.bytes_reallocated,
-        net_bytes,
         mib_allocated = bytes_to_mib(profile.bytes_allocated),
         mib_deallocated = bytes_to_mib(profile.bytes_deallocated),
         mib_reallocated = bytes_to_mib(profile.bytes_reallocated),
-        mib_net = bytes_to_mib(net_bytes),
         "F4 phase profile"
     );
 

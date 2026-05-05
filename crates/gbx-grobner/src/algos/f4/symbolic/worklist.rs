@@ -6,10 +6,13 @@ use gbx_poly::monomial::Monomial;
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::PolynomialView;
 
-/// Incremental worklist for monomials in `T(F_d)`.
+/// Incremental ordered worklist for monomials in `T(F_d)`.
 ///
-/// `seen` tracks monomials discovered at least once.
-/// `pending` tracks discovered monomials not yet processed.
+/// `seen` contains monomials discovered from rows of `F_d`.
+/// `pending` contains discovered monomials that have not yet been popped.
+///
+/// The worklist itself does not know about `Done`; the preprocessing state
+/// decides whether a popped monomial has already been processed.
 #[derive(Debug, Clone)]
 pub struct MonomialWorklist<'a, O> {
     pending: BTreeSet<OrderedMono<'a, Monomial, O>>,
@@ -50,24 +53,6 @@ where
     /// Pop the next pending monomial according to the active monomial order.
     pub fn pop_next(&mut self) -> Option<OrderedMono<'a, Monomial, O>> {
         self.pending.pop_first()
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.pending.is_empty()
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.pending.len()
-    }
-
-    #[inline]
-    #[must_use]
-    pub fn has_seen(&self, mono: &OrderedMono<'a, Monomial, O>) -> bool {
-        self.seen.contains(mono)
     }
 }
 

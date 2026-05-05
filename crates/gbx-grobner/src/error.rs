@@ -24,6 +24,7 @@ pub enum BuchbergerError {
     /// Error while trying to division with 0
     #[error("{0}")]
     DivByZero(DivByZero),
+    /// Error for postprocessing
     #[error(transparent)]
     Post(#[from] PostError),
 }

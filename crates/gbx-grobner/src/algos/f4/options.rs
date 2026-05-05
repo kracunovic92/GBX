@@ -17,14 +17,26 @@ pub struct F4Options {
 
     /// Final post-processing after the main loop.
     pub post: BasisPostOptionsKind,
+    pub reducer_kind: F4ReducerKind,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum F4ReducerKind {
+    Dense,
+    Roman,
+    RomanParallel,
+}
+impl Default for F4ReducerKind {
+    fn default() -> Self {
+        Self::Dense
+    }
+}
 #[derive(Debug, Clone)]
 pub struct ValidatedF4Options(F4Options);
 
 impl Default for F4Options {
     fn default() -> Self {
-        Self { batch_size: 64, normalize_inputs: true, normalize_extracted: true, safety_reduce_extracted: true, post: BasisPostOptionsKind::Reduced }
+        Self { batch_size: 64, normalize_inputs: true, normalize_extracted: true, safety_reduce_extracted: true, post: BasisPostOptionsKind::Reduced, reducer_kind: F4ReducerKind::Roman }
     }
 }
 
@@ -52,6 +64,10 @@ impl ValidatedF4Options {
     #[must_use]
     pub fn into_inner(self) -> F4Options {
         self.0
+    }
+
+    pub fn reducer_kind(&self) -> F4ReducerKind {
+        self.reducer_kind
     }
 }
 

@@ -21,4 +21,10 @@ pub enum PostError {
     /// Internal invariant broken during minimization/reduction.
     #[error("Gröbner basis postprocessing invariant violation")]
     InvariantViolation,
+    /// Leading monomial changed
+    #[error("Gröbner basis postprocessing invariant violation")]
+    LeadingMonomialChangedDuringReduction,
+    /// Something went wrong
+    #[error("Zero polynomials in-reduce")]
+    ZeroPolynomialInReduction,
 }
