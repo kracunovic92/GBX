@@ -6,7 +6,6 @@
 mod error;
 mod minimize;
 mod reduction;
-mod types;
 
 pub use error::PostError;
 pub use minimize::{make_monic_in_place, minimize_in_place};

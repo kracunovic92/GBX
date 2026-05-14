@@ -1,6 +1,5 @@
 #![allow(missing_docs, unused_imports)]
 pub mod alloc;
-pub mod dump;
 pub mod snapshot;
 
 #[cfg(feature = "instrumentation")]

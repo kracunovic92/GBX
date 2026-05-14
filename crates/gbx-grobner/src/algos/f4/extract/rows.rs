@@ -1,3 +1,4 @@
+//! Basic extraction
 use std::collections::BTreeSet;
 
 use crate::algos::f4::error::Result;

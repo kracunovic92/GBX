@@ -21,6 +21,7 @@ use gbx_poly::ring::{FieldCtx, RingCtx};
 /// ```
 ///
 /// where `p` is the corresponding reduced historical row.
+#[derive(Debug, Clone)]
 pub struct SimplifyIndex {
     /// Rewrite rules grouped by product source.
     by_source: HashMap<ProductSource, SourceSimplifyRules>,

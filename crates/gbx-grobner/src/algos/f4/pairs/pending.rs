@@ -1,3 +1,4 @@
+//! Pending critical-pair storage.
 use std::collections::BTreeSet;
 
 use crate::algos::f4::error::Result;
@@ -11,39 +12,43 @@ use gbx_poly::polynomial::PolynomialView;
 /// Invariant:
 /// - `pairs` contains at most one critical pair for each unordered index pair `{i, j}`
 /// - `present` stores exactly the normalized keys of the pairs currently in `pairs`
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PendingPairs {
     pairs: Vec<CriticalPair>,
     present: BTreeSet<(usize, usize)>,
 }
 
-impl Default for PendingPairs {
-    fn default() -> Self {
-        Self { pairs: Vec::new(), present: BTreeSet::new() }
-    }
-}
-
 impl PendingPairs {
+    /// Creates an empty pending-pair set.
+    #[inline]
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns `true` when no pairs are pending.
+    #[inline]
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.pairs.is_empty()
     }
 
+    /// Returns the number of pending pairs.
+    #[inline]
     #[must_use]
     pub fn len(&self) -> usize {
         self.pairs.len()
     }
 
+    /// Borrows the pending pairs in insertion order.
+    #[inline]
     #[must_use]
     pub fn as_slice(&self) -> &[CriticalPair] {
         &self.pairs
     }
 
+    /// Returns `true` when the unordered pair `{i, j}` is pending.
+    #[inline]
     #[must_use]
     pub fn contains(&self, i: usize, j: usize) -> bool {
         self.present.contains(&normalize_pair_key(i, j))
@@ -63,28 +68,36 @@ impl PendingPairs {
         }
     }
 
+    /// Consumes the pending set and returns its pairs.
+    #[inline]
     #[must_use]
     pub fn into_vec(self) -> Vec<CriticalPair> {
         self.pairs
     }
 
+    /// Removes all pending pairs.
+    #[inline]
     pub fn clear(&mut self) {
         self.pairs.clear();
         self.present.clear();
     }
 
+    /// Removes and returns all pending pairs.
     pub fn drain_all(&mut self) -> Vec<CriticalPair> {
         self.present.clear();
         std::mem::take(&mut self.pairs)
     }
 
+    /// Replaces the pending set with `pairs`.
+    ///
+    /// Duplicate unordered index pairs are collapsed, preserving the first
+    /// occurrence.
     pub fn replace(&mut self, pairs: Vec<CriticalPair>) {
-        self.present = pairs
-            .iter()
-            .map(|pair| normalize_pair_key(pair.i(), pair.j()))
-            .collect();
+        self.clear();
 
-        self.pairs = pairs;
+        for pair in pairs {
+            self.insert(pair);
+        }
     }
 }
 
@@ -100,22 +113,24 @@ where
     P: PolynomialView,
     C: PairCriterion<P>,
 {
-    let mut out = Vec::new();
+    let mut pairs = Vec::new();
 
     for i in 0..basis.len() {
         for j in (i + 1)..basis.len() {
             if let Some(pair) = make_pair(basis, i, j)? {
                 if criterion.allows(basis, &pair) {
-                    out.push(pair);
+                    pairs.push(pair);
                 }
             }
         }
     }
 
-    Ok(out)
+    Ok(pairs)
 }
 
-/// Construct and insert all admissible critical pairs involving one newly inserted basis element.
+/// Inserts all admissible pairs involving `new_index`.
+///
+/// This is used after appending a new basis element.
 pub fn add_pairs_with_new_basis_element<P, C>(basis: &[P], new_index: usize, pending: &mut PendingPairs, criterion: &C) -> Result<()>
 where
     P: PolynomialView,
@@ -132,11 +147,10 @@ where
     Ok(())
 }
 
-/// Construct one critical pair from two basis indices.
+/// Constructs a critical pair from two basis indices.
 ///
-/// Returns `Ok(None)` when:
-/// - `i == j`, or
-/// - one of the two basis polynomials is zero.
+/// Returns `Ok(None)` when the indices are equal or either basis element is
+/// zero.
 pub fn make_pair<P>(basis: &[P], i: usize, j: usize) -> Result<Option<CriticalPair>>
 where
     P: PolynomialView,

@@ -1,13 +1,15 @@
+//! Pending-pair updates after basis insertion.
+
 use crate::algos::f4::error::Result;
 use crate::algos::f4::pairs::criterion::PairCriterion;
 use crate::algos::f4::pairs::pending::{add_pairs_with_new_basis_element, PendingPairs};
 
 use gbx_poly::polynomial::PolynomialView;
 
-/// Insert one new polynomial into the basis and generate all newly induced critical pairs.
+/// Appends a polynomial to the basis and inserts its induced critical pairs.
 ///
-/// If the new polynomial is inserted at index `k`, this creates all admissible pairs
-/// `(i, k)` with `0 <= i < k` and inserts them into the pending set.
+/// The new polynomial is inserted at the next basis index. All admissible pairs
+/// between the new element and older basis elements are added to `pending`.
 pub fn update_with_polynomial<P, C>(basis: &mut Vec<P>, pending: &mut PendingPairs, polynomial: P, criterion: &C) -> Result<()>
 where
     P: PolynomialView,
@@ -17,13 +19,13 @@ where
 
     basis.push(polynomial);
 
-    add_pairs_with_new_basis_element(basis, new_index, pending, criterion)?;
-
-    Ok(())
+    add_pairs_with_new_basis_element(basis, new_index, pending, criterion)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::algos::f4::pairs::criterion::{NoCriterion, ProductCriterion};
     use crate::test_utils::test_ring;
 
@@ -47,6 +49,20 @@ mod tests {
         update_with_polynomial(&mut basis, &mut pending, f2, &NoCriterion).expect("update should succeed");
 
         assert_eq!(basis.len(), 2);
+    }
+
+    #[test]
+    fn update_with_polynomial_adds_pair_with_previous_basis_element() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f1: P = poly![&ring; (1, [2, 0])].unwrap();
+        let f2: P = poly![&ring; (1, [1, 1])].unwrap();
+
+        let mut basis = vec![f1];
+        let mut pending = PendingPairs::new();
+
+        update_with_polynomial(&mut basis, &mut pending, f2, &NoCriterion).expect("update should succeed");
+
         assert_eq!(pending.len(), 1);
         assert!(pending.contains(0, 1));
     }
@@ -84,6 +100,37 @@ mod tests {
         update_with_polynomial(&mut basis, &mut pending, f2, &ProductCriterion).expect("update should succeed");
 
         assert_eq!(basis.len(), 2);
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn update_with_zero_polynomial_appends_but_adds_no_pairs() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f1: P = poly![&ring; (1, [2, 0])].unwrap();
+        let zero = P::zero_in(&ring);
+
+        let mut basis = vec![f1];
+        let mut pending = PendingPairs::new();
+
+        update_with_polynomial(&mut basis, &mut pending, zero, &NoCriterion).expect("update should succeed");
+
+        assert_eq!(basis.len(), 2);
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn update_into_empty_basis_appends_without_pairs() {
+        let ring = test_ring(7, 2, Lex).expect("test ring construction should succeed");
+
+        let f: P = poly![&ring; (1, [2, 0])].unwrap();
+
+        let mut basis = Vec::new();
+        let mut pending = PendingPairs::new();
+
+        update_with_polynomial(&mut basis, &mut pending, f, &NoCriterion).expect("update should succeed");
+
+        assert_eq!(basis.len(), 1);
         assert!(pending.is_empty());
     }
 }

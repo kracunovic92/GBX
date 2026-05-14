@@ -1,3 +1,4 @@
+//! Critical-pair batch selection.
 use crate::algos::f4::pairs::critical_pair::CriticalPair;
 
 /// Result of selecting one F4 batch from the current pending critical pairs.
@@ -29,11 +30,15 @@ pub struct MinDegreeSelector {
 }
 
 impl MinDegreeSelector {
+    /// Creates a selector with a maximum selected batch size.
+    #[inline]
     #[must_use]
     pub fn new(batch_size: usize) -> Self {
-        Self { batch_size }
+        Self { batch_size: batch_size.max(1) }
     }
 
+    /// Returns the maximum selected batch size.
+    #[inline]
     #[must_use]
     pub fn batch_size(&self) -> usize {
         self.batch_size

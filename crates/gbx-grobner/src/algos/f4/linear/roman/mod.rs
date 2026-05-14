@@ -1,33 +1,35 @@
-//! Roman/Pearce-style sparse-buffer matrix reduction for F4.
+//! Roman/Pearce-style sparse-buffer reduction for F4 matrices.
 //!
-//! Memory model:
-//! - sparse input rows,
-//! - sparse pivot rows,
-//! - one dense active-row buffer of length `ncols`.
+//! This reducer keeps F4 rows sparse, reduces one active row through a dense
+//! temporary buffer, and stores normalized sparse pivot rows. The public reducer
+//! types in this module implement [`BatchReducer`] and can be selected as F4
+//! matrix-reduction backends.
 //!
-//! Important semantic point:
-//! The pivot table is internal reduction data. The reducer must not return all
-//! pivots. It should return only rows whose leading column was not already a
-//! leading column of an input row.
+//! The pivot table is internal reduction state. F4 extraction returns only
+//! reduced rows whose leading column was not already the leading column of an
+//! input row.
 
-pub mod bridge;
 pub mod buffer;
 pub mod build;
 pub mod extract;
 pub mod parallel;
+pub mod reduce;
 pub mod row;
 pub mod sequential;
 
 use crate::algos::f4::error::Result;
-use crate::algos::f4::linear::reducer::BatchReducer;
-use crate::linear::roman_sparse::bridge::{roman_sparse_buffer_reduce, roman_sparse_buffer_reduce_parallel};
+use crate::linear::roman::reduce::{roman_sparse_buffer_reduce, roman_sparse_buffer_reduce_parallel};
+use crate::linear::BatchReducer;
+
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 
+/// Sequential Roman/Pearce-style sparse-buffer reducer.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct RomanSparseBufferReducer;
 
+/// Parallel Roman/Pearce-style sparse-buffer reducer.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct RomanParallelSparseBufferReducer;
 

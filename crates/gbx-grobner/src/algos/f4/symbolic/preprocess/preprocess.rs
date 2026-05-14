@@ -1,23 +1,20 @@
+//! Public symbolic preprocessing entry point.
+
 use crate::algos::f4::error::Result;
 use crate::algos::f4::simplify::SimplifyIndex;
-use crate::state::BatchHistory;
-use crate::symbolic::{SymbolicPreprocessOutput, SymbolicPreprocessState, UnevaluatedProduct};
+use crate::algos::f4::state::BatchHistory;
+use crate::algos::f4::symbolic::preprocess::state::SymbolicPreprocessState;
+use crate::algos::f4::symbolic::{SymbolicPreprocessOutput, UnevaluatedProduct};
+
 use gbx_poly::monomial::Monomial;
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 
-/// Builds the symbolic preprocessing row set `F_d` for one F4 batch.
+/// Builds the symbolic row set for one F4 batch.
 ///
-/// Input:
-/// - `l_d`: unevaluated products `L_d = Left(P_d) ∪ Right(P_d)`.
-/// - `basis`: current basis `G`.
-/// - `history`: previous batches, used to materialize historical row sources.
-/// - `simplify_index`: rewrite rules compiled from previous batches.
-///
-/// Output:
-/// - materialized rows of `F_d`,
-/// - leading monomials `HT(F_d)`.
+/// The input products are simplified before materialization. The resulting row
+/// set is closed under top reduction by the current basis.
 pub fn symbolic_preprocess<P, F, O>(
     ctx: &RingCtx<F, O>,
     l_d: &[UnevaluatedProduct<Monomial>],

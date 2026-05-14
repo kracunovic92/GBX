@@ -7,7 +7,7 @@ use crate::utils::test_file_config::TestCase;
 
 use gbx_field::fp::{Fp, FpElem};
 use gbx_grobner::engine::run_f4_with_reducer;
-use gbx_grobner::linear::roman_sparse::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
+use gbx_grobner::linear::roman::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
 use gbx_grobner::linear::DenseF4MatrixReducer;
 use gbx_grobner::F4Options;
 
@@ -40,11 +40,6 @@ where
     let basis_pretty_lines = gb
         .iter()
         .map(|p| pretty_str!(ring, p, &case.vars))
-        .collect::<Vec<_>>();
-
-    let basis_pretty_normalized_lines = basis_pretty_lines
-        .iter()
-        .map(|s| normalize_poly_text(s))
         .collect::<Vec<_>>();
 
     let mut counters = BTreeMap::new();
@@ -120,22 +115,4 @@ where
 
     let poly: Polynomial<FpElem> = poly_terms![ring; terms]?;
     Ok(poly)
-}
-
-fn normalize_poly_text(s: &str) -> String {
-    let mut s = s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
-
-    if let Some(rest) = s.strip_prefix("GB:") {
-        s = rest.to_string();
-    }
-
-    s = s.replace('*', "");
-    s = s.replace('^', "");
-
-    s = s.replace("+-", "-");
-    s = s.replace("-+", "-");
-    s = s.replace("++", "+");
-    s = s.replace("--", "+");
-
-    s
 }

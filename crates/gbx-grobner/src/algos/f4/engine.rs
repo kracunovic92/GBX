@@ -1,24 +1,30 @@
+//! F4 engine driver.
+//!
+//! This module contains the reducer-independent control flow for the F4
+//! implementation. Matrix reduction is delegated to [`BatchReducer`]
+//! implementations so that dense, sparse, parallel, and experimental reducers
+//! can share the same pipeline.
+
 use crate::algos::f4::error::Result;
-use crate::algos::f4::options::ValidatedF4Options;
+use crate::algos::f4::linear::DenseF4MatrixReducer;
+use crate::algos::f4::options::{F4ReducerKind, ValidatedF4Options};
 use crate::algos::f4::pairs::criterion::ProductCriterion;
 use crate::algos::f4::pairs::selector::MinDegreeSelector;
 use crate::algos::f4::pipeline::{initialize_state, post_process_basis, run_iteration};
 use crate::basis::GrobnerBasis;
-
-use crate::instrumentation::alloc::with_alloc_profile;
-
-use crate::linear::roman_sparse::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
+use crate::f4_info;
+use crate::linear::roman::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
 use crate::linear::BatchReducer;
+
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 
-/// Run the F4 engine with validated options.
-use crate::algos::f4::linear::DenseF4MatrixReducer;
-use crate::algos::f4::options::F4ReducerKind;
-use crate::f4_info;
-
-
+/// Computes a Gröbner basis using the F4 algorithm.
+///
+/// The reducer backend is selected from [`ValidatedF4Options`]. Use
+/// [`run_f4_with_reducer`] when a specific reducer implementation should be
+/// supplied explicitly, for example in benchmarks or reducer tests.
 pub fn run_f4<P, F, O>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: ValidatedF4Options) -> Result<GrobnerBasis<P>>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
@@ -44,6 +50,12 @@ where
     }
 }
 
+/// Computes a Gröbner basis using an explicitly supplied F4 reducer.
+///
+/// This is the reducer-injection entry point used by tests, benchmarks, and
+/// experimental reduction backends. The F4 control flow is identical to
+/// [`run_f4`]; only the matrix-reduction implementation is provided by the
+/// caller.
 pub fn run_f4_with_reducer<P, F, O, R>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: ValidatedF4Options, reducer: &R) -> Result<GrobnerBasis<P>>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
@@ -65,7 +77,7 @@ where
         run_iteration(ctx, &mut state, &opts, &mut selector, reducer, &criterion)?;
     }
 
-    f4_info!("f4.iteration.end");
+    f4_info!("f4.engine.done");
 
     post_process_basis(ctx, state.basis, &opts)
 }

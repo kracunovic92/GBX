@@ -13,7 +13,7 @@
 //! ```
 
 use crate::algos::f4::error::{F4Error, Result};
-use crate::linear::roman_sparse::row::{SparseMatrixRow, SparsePivotRow};
+use crate::linear::roman::row::{SparseMatrixRow, SparsePivotRow};
 use gbx_poly::ring::FieldCtx;
 
 /// Dense temporary accumulator used to reduce one sparse matrix row.

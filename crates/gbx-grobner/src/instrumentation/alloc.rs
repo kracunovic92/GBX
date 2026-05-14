@@ -3,22 +3,21 @@
 use crate::f4_debug;
 use std::time::Instant;
 
+/// Allocation traffic recorded for one profiled region.
+#[cfg(feature = "profiling-alloc")]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AllocProfile {
-    pub allocations: usize,
-    pub deallocations: usize,
-    pub reallocations: usize,
-
     pub bytes_allocated: usize,
     pub bytes_deallocated: usize,
     pub bytes_reallocated: usize,
 }
 
+#[cfg(feature = "profiling-alloc")]
 #[inline]
 fn bytes_to_mib(bytes: usize) -> f64 {
     bytes as f64 / 1024.0 / 1024.0
 }
-
+#[cfg(feature = "profiling-alloc")]
 #[inline]
 fn elapsed_ms(started: Instant) -> f64 {
     started.elapsed().as_secs_f64() * 1000.0
@@ -27,14 +26,7 @@ fn elapsed_ms(started: Instant) -> f64 {
 #[cfg(feature = "profiling-alloc")]
 impl From<stats_alloc::Stats> for AllocProfile {
     fn from(stats: stats_alloc::Stats) -> Self {
-        Self {
-            allocations: stats.allocations,
-            deallocations: stats.deallocations,
-            reallocations: stats.reallocations,
-            bytes_allocated: stats.bytes_allocated,
-            bytes_deallocated: stats.bytes_deallocated,
-            bytes_reallocated: stats.bytes_reallocated as usize,
-        }
+        Self { bytes_allocated: stats.bytes_allocated, bytes_deallocated: stats.bytes_deallocated, bytes_reallocated: stats.bytes_reallocated as usize }
     }
 }
 
@@ -66,8 +58,8 @@ pub fn with_alloc_profile<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
 /// Timing-only version used when allocation profiling is disabled.
 #[cfg(not(feature = "profiling-alloc"))]
 #[inline]
-pub fn with_alloc_profile<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
-    let started = Instant::now();
+pub fn with_alloc_profile<T>(_phase: &'static str, f: impl FnOnce() -> T) -> T {
+    let _started = Instant::now();
 
     let result = f();
 

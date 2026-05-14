@@ -3,7 +3,6 @@ use anyhow::{Context, Result};
 use gbx_field::fp::{Fp, FpElem};
 use gbx_grobner::{f4, F4Options};
 use gbx_poly::monomial::Monomial;
-use gbx_poly::order::Lex;
 use gbx_poly::poly;
 use gbx_poly::polynomial::Polynomial;
 use gbx_poly::ring::{Ring, RingCtx};
@@ -23,7 +22,11 @@ fn main() -> Result<()> {
 
     let field = Fp::prime(32003).context("invalid modulus p")?;
 
-    let ring = Ring::builder().field(field).order(Lex).nvars(7).build()?;
+    let ring = Ring::builder()
+        .field(field)
+        .order(gbx_poly::order::Grevlex)
+        .nvars(7)
+        .build()?;
 
     let generators = cyclic7_generators(&ring)?;
 
@@ -66,7 +69,7 @@ fn init_tracing() {
 #[cfg(not(feature = "instrumentation"))]
 fn init_tracing() {}
 
-fn cyclic7_generators(ring: &RingCtx<Fp, Lex>) -> Result<Vec<P>> {
+fn cyclic7_generators(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>) -> Result<Vec<P>> {
     let g1: P = poly![
         ring;
         (1, [1, 0, 0, 0, 0, 0, 0]),
@@ -93,7 +96,7 @@ fn cyclic7_generators(ring: &RingCtx<Fp, Lex>) -> Result<Vec<P>> {
     Ok(vec![g1, g2, g3, g4, g5, g6, g7])
 }
 
-fn cyclic_sum(ring: &RingCtx<Fp, Lex>, width: usize) -> Result<P> {
+fn cyclic_sum(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>, width: usize) -> Result<P> {
     debug_assert!((1..=6).contains(&width));
 
     let terms = (0..7)
@@ -112,7 +115,7 @@ fn cyclic_sum(ring: &RingCtx<Fp, Lex>, width: usize) -> Result<P> {
     poly_from_terms(ring, &terms)
 }
 
-fn poly_from_terms(ring: &RingCtx<Fp, Lex>, terms: &[(u32, [u32; 7])]) -> Result<P> {
+fn poly_from_terms(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>, terms: &[(u32, [u32; 7])]) -> Result<P> {
     let terms = terms
         .iter()
         .map(|(coeff, exps)| Term::new(ring.field.new(*coeff), Monomial::from_slice(exps)))

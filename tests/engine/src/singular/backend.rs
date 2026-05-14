@@ -23,7 +23,7 @@ impl SingularBackend {
 }
 
 impl Backend for SingularBackend {
-    fn name(&self) -> std::string::String {
+    fn name(&self) -> String {
         "singular".parse().unwrap()
     }
 

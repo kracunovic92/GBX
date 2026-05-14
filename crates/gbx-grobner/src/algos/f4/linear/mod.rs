@@ -1,10 +1,12 @@
-pub mod build;
-pub mod dense;
-pub mod extract;
-pub mod reducer;
-pub mod reducer_dense;
-pub mod roman_sparse;
-pub mod types;
+//! Linear algebra backends used by the F4 algorithm.
+//!
+//! The F4 engine delegates matrix reduction to implementations of
+//! [`BatchReducer`]. Concrete backends live in submodules.
 
+pub mod dense;
+pub mod reducer;
+pub mod roman;
+
+pub use dense::{dense_matrix_reduce, DenseF4MatrixReducer};
 pub use reducer::BatchReducer;
-pub use reducer_dense::{dense_matrix_reduce, DenseF4MatrixReducer};
+pub use roman::*;

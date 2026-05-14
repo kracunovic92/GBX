@@ -1,11 +1,7 @@
 //! Critical-pair management for the F4 algorithm.
 //!
-//! This module is responsible for:
-//! - constructing critical pairs from basis elements,
-//! - filtering them with Buchberger-style criteria,
-//! - storing pending pairs,
-//! - selecting the next batch for one F4 iteration,
-//! - updating the pending set after basis insertion.
+//! This module contains the data structures and strategies used to create,
+//! filter, store, and select critical pairs during F4 iterations.
 
 pub mod criterion;
 pub mod critical_pair;

@@ -73,7 +73,7 @@ pub fn run_singular_script(singular_bin: &str, script: &str) -> Result<RunResult
     let mut status: libc::c_int = 0;
     let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
 
-    let waited = unsafe { libc::wait4(pid, &mut status as *mut libc::c_int, 0, usage.as_mut_ptr()) };
+    let waited = unsafe { libc::wait4(pid, &mut status, 0, usage.as_mut_ptr()) };
 
     if waited < 0 {
         return Err(std::io::Error::last_os_error()).context("wait4 failed for Singular");
@@ -100,5 +100,5 @@ pub fn run_singular_script(singular_bin: &str, script: &str) -> Result<RunResult
 }
 
 fn exited_successfully(status: libc::c_int) -> bool {
-    unsafe { libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0 }
+    libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0
 }

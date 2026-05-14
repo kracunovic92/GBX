@@ -1,3 +1,4 @@
+//! Entry point for my algo
 use crate::algos::f4::engine::run_f4;
 use crate::algos::f4::error::Result;
 use crate::algos::f4::options::F4Options;

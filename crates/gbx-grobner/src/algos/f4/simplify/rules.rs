@@ -9,7 +9,7 @@ use super::target::{DivisorRewrite, RewriteTarget};
 /// These rules represent historical products with the same source `f`.
 /// For a current product `t * f`, exact rewrites are checked first.
 /// If no exact rewrite exists, divisor rewrites are searched.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(super) struct SourceSimplifyRules {
     /// Exact rewrite:
     ///
