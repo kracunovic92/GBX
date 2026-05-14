@@ -1,15 +1,22 @@
+//! Dense one-row accumulator for sparse-buffer row reduction.
+//!
+//! This is **not** a dense matrix.
+//!
+//! `DenseReductionBuffer` stores one active row of length `ncols` and keeps a
+//! list of touched columns so clearing is proportional to the number of touched
+//! entries, not the full number of columns.
+//!
+//! This matches the Roman/Pearce style:
+//!
+//! ```text
+//! sparse row -> dense buffer -> reduce by sparse pivots -> sparse pivot row
+//! ```
+
 use crate::algos::f4::error::{F4Error, Result};
 use crate::linear::roman_sparse::row::{SparseMatrixRow, SparsePivotRow};
 use gbx_poly::ring::FieldCtx;
 
 /// Dense temporary accumulator used to reduce one sparse matrix row.
-///
-/// Important:
-/// - `values` has length ncols.
-/// - `touched` stores only columns that have been written.
-/// - `marked[col]` prevents duplicate entries in `touched`.
-///
-/// Clearing is O(number of touched columns), not O(number of columns).
 #[derive(Debug, Clone)]
 pub struct DenseReductionBuffer<C> {
     values: Vec<C>,
@@ -21,15 +28,32 @@ impl<C> DenseReductionBuffer<C>
 where
     C: Copy + Eq + Default,
 {
+    /// Creates a new one-row buffer with `ncols` columns.
+    ///
+    /// Memory usage is `O(ncols)`, not `O(nrows * ncols)`.
     pub fn new(ncols: usize) -> Self {
         Self { values: vec![C::default(); ncols], touched: Vec::new(), marked: vec![false; ncols] }
     }
 
+    /// Number of currently touched columns.
     #[inline]
     pub fn touched_len(&self) -> usize {
         self.touched.len()
     }
 
+    /// Number of columns in the buffer.
+    #[inline]
+    pub fn ncols(&self) -> usize {
+        self.values.len()
+    }
+
+    /// Reads a coefficient.
+    #[inline]
+    pub fn value_at(&self, col: usize) -> C {
+        self.values[col]
+    }
+
+    /// Clears only columns that were touched since the last clear.
     #[inline]
     pub fn clear(&mut self) {
         let zero = C::default();
@@ -59,6 +83,9 @@ where
         self.values[col] = value;
     }
 
+    /// Loads a sparse matrix row into the buffer.
+    ///
+    /// The buffer must be clear before this is called.
     pub fn load_sparse_row(&mut self, row: &SparseMatrixRow<C>) {
         debug_assert!(
             self.touched.is_empty(),
@@ -68,12 +95,17 @@ where
         let zero = C::default();
 
         for &(col, coeff) in &row.entries {
+            debug_assert!(col < self.ncols(), "sparse row column index out of bounds");
+
             if coeff != zero {
                 self.write_value(col, coeff);
             }
         }
     }
 
+    /// Loads a sparse pivot row into the buffer.
+    ///
+    /// This is mostly useful for tests and debugging.
     pub fn load_pivot_row(&mut self, pivot: &SparsePivotRow<C>) {
         debug_assert!(
             self.touched.is_empty(),
@@ -82,11 +114,18 @@ where
 
         let zero = C::default();
 
+        debug_assert!(
+            pivot.lead_col < self.ncols(),
+            "pivot leading column out of bounds"
+        );
+
         if pivot.lead_coeff != zero {
             self.write_value(pivot.lead_col, pivot.lead_coeff);
         }
 
         for &(col, coeff) in &pivot.tail {
+            debug_assert!(col < self.ncols(), "pivot tail column out of bounds");
+
             if coeff != zero {
                 self.write_value(col, coeff);
             }
@@ -95,8 +134,10 @@ where
 
     /// Finds the current leading nonzero column.
     ///
-    /// Simple first version: scan touched columns and take min column index.
-    /// Later we can optimize this with sorted touched columns, a heap, or bitset.
+    /// Current implementation scans touched columns and returns the minimum
+    /// nonzero column. This is simple and correct. If profiling shows this is
+    /// hot, the next improvement is to maintain touched columns in a structure
+    /// that supports faster leading-column lookup.
     pub fn leading_col(&self) -> Option<usize> {
         let zero = C::default();
 
@@ -109,8 +150,7 @@ where
 
     /// Reduces this buffer by a normalized sparse pivot row.
     ///
-    /// Assumes pivot lead coefficient is 1.
-    /// Since we store normalized pivots, factor = buffer[pivot.lead_col].
+    /// Assumes `pivot.lead_coeff == 1`.
     pub fn reduce_by_pivot<F>(&mut self, field: &F, pivot: &SparsePivotRow<C>) -> Result<()>
     where
         F: FieldCtx<Elem = C>,
@@ -125,7 +165,7 @@ where
         // Cancel leading column.
         self.values[pivot.lead_col] = zero;
 
-        // Sparse AXPY over pivot tail:
+        // Sparse AXPY:
         // buffer[col] -= factor * pivot[col]
         for &(col, pivot_coeff) in &pivot.tail {
             let old = self.values[col];
@@ -142,10 +182,10 @@ where
         Ok(())
     }
 
-    /// Converts current buffer into a normalized pivot row.
+    /// Converts the current buffer into a normalized sparse pivot row.
     ///
     /// The returned pivot row has:
-    /// - lead coefficient normalized to 1,
+    /// - leading coefficient normalized to one,
     /// - tail sorted by increasing column index,
     /// - no zero entries.
     pub fn to_normalized_pivot<F>(&self, field: &F, lead_col: usize) -> Result<SparsePivotRow<C>>
@@ -161,7 +201,7 @@ where
 
         let normalized_lead = field.mul(lead_coeff, inv);
 
-        let mut tail = Vec::new();
+        let mut tail = Vec::with_capacity(self.touched.len().saturating_sub(1));
 
         for &col in &self.touched {
             if col == lead_col {
@@ -184,5 +224,51 @@ where
         tail.sort_unstable_by_key(|&(col, _)| col);
 
         Ok(SparsePivotRow { lead_col, lead_coeff: normalized_lead, tail })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_sparse_row_tracks_only_nonzero_entries() {
+        let row = SparseMatrixRow { entries: vec![(0, 10), (2, 0), (4, 30)] };
+
+        let mut buffer = DenseReductionBuffer::new(8);
+        buffer.load_sparse_row(&row);
+
+        assert_eq!(buffer.touched_len(), 2);
+        assert_eq!(buffer.value_at(0), 10);
+        assert_eq!(buffer.value_at(2), 0);
+        assert_eq!(buffer.value_at(4), 30);
+        assert_eq!(buffer.leading_col(), Some(0));
+    }
+
+    #[test]
+    fn clear_only_resets_touched_entries() {
+        let row = SparseMatrixRow { entries: vec![(3, 11), (6, 22)] };
+
+        let mut buffer = DenseReductionBuffer::new(10);
+        buffer.load_sparse_row(&row);
+
+        assert_eq!(buffer.touched_len(), 2);
+
+        buffer.clear();
+
+        assert_eq!(buffer.touched_len(), 0);
+        assert_eq!(buffer.value_at(3), 0);
+        assert_eq!(buffer.value_at(6), 0);
+        assert_eq!(buffer.leading_col(), None);
+    }
+
+    #[test]
+    fn leading_col_ignores_zeroed_touched_entries() {
+        let row = SparseMatrixRow { entries: vec![(5, 10), (2, 20)] };
+
+        let mut buffer = DenseReductionBuffer::new(8);
+        buffer.load_sparse_row(&row);
+
+        assert_eq!(buffer.leading_col(), Some(2));
     }
 }

@@ -9,6 +9,7 @@ use crate::algos::f4::state::F4State;
 
 use crate::instrumentation::alloc::with_alloc_profile;
 
+use crate::f4_info;
 use crate::linear::BatchReducer;
 use crate::types::IterationOutcome;
 use gbx_poly::order::MonomialOrder;
@@ -49,7 +50,7 @@ where
     let basis_before_insert = state.basis.len();
 
     insert_new_rows(ctx, state, extracted_rows, criterion)?;
-    tracing::info!(
+    f4_info!(
         basis_before_insert,
         basis_after_insert = state.basis.len(),
         pending_before_insert,

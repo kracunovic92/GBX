@@ -19,4 +19,4 @@ pub enum FieldError {
 }
 
 /// Result type used by `gbx-field`.
-pub type FieldResult<T> = core::result::Result<T, FieldError>;
+pub type FieldResult<T> = Result<T, FieldError>;

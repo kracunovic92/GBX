@@ -16,6 +16,7 @@ use gbx_poly::ring::{FieldCtx, RingCtx};
 /// Run the F4 engine with validated options.
 use crate::algos::f4::linear::DenseF4MatrixReducer;
 use crate::algos::f4::options::F4ReducerKind;
+use crate::f4_info;
 
 
 pub fn run_f4<P, F, O>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: ValidatedF4Options) -> Result<GrobnerBasis<P>>
@@ -64,7 +65,7 @@ where
         run_iteration(ctx, &mut state, &opts, &mut selector, reducer, &criterion)?;
     }
 
-    tracing::info!("f4.iteration.end");
+    f4_info!("f4.iteration.end");
 
     post_process_basis(ctx, state.basis, &opts)
 }

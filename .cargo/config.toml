@@ -8,3 +8,24 @@ RUST_BACKTRACE = { value = "1", force = false }
 
 [profile.dev]
 debug = 2
+
+
+[alias]
+experiment = [
+    "run",
+    "-p", "graph_experiments",
+    "--release",
+    "--features", "profile-full",
+    "--",
+    "grobner",
+    "instances/myciel3.col",
+    "--dump-basis"
+]
+alltests = [
+    "run",
+    "-p", "test-engine",
+    "--release", "--features", "profile-full",
+    "--",
+    "--cases", "grobner_cases.toml",
+    "--gbx.reducer", "roman"
+]

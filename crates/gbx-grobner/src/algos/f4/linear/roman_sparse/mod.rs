@@ -1,12 +1,25 @@
+//! Roman/Pearce-style sparse-buffer matrix reduction for F4.
+//!
+//! Memory model:
+//! - sparse input rows,
+//! - sparse pivot rows,
+//! - one dense active-row buffer of length `ncols`.
+//!
+//! Important semantic point:
+//! The pivot table is internal reduction data. The reducer must not return all
+//! pivots. It should return only rows whose leading column was not already a
+//! leading column of an input row.
+
 pub mod bridge;
 pub mod buffer;
+pub mod build;
+pub mod extract;
 pub mod parallel;
 pub mod row;
 pub mod sequential;
 
 use crate::algos::f4::error::Result;
 use crate::algos::f4::linear::reducer::BatchReducer;
-
 use crate::linear::roman_sparse::bridge::{roman_sparse_buffer_reduce, roman_sparse_buffer_reduce_parallel};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialView};

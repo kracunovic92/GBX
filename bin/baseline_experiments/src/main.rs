@@ -23,14 +23,14 @@ fn main() -> Result<()> {
 
     let field = Fp::prime(32003).context("invalid modulus p")?;
 
-    let ring = Ring::builder().field(field).order(Lex).nvars(6).build()?;
+    let ring = Ring::builder().field(field).order(Lex).nvars(7).build()?;
 
-    let generators = cyclic6_generators(&ring)?;
+    let generators = cyclic7_generators(&ring)?;
 
-    println!("case=cyclic6");
+    println!("case=cyclic7");
     println!("field=Fp(32003)");
     println!("order=lp");
-    println!("nvars=6");
+    println!("nvars=7");
     println!("generators={}", generators.len());
 
     let opts = F4Options::default();
@@ -66,40 +66,42 @@ fn init_tracing() {
 #[cfg(not(feature = "instrumentation"))]
 fn init_tracing() {}
 
-fn cyclic6_generators(ring: &RingCtx<Fp, Lex>) -> Result<Vec<P>> {
+fn cyclic7_generators(ring: &RingCtx<Fp, Lex>) -> Result<Vec<P>> {
     let g1: P = poly![
         ring;
-        (1, [1, 0, 0, 0, 0, 0]),
-        (1, [0, 1, 0, 0, 0, 0]),
-        (1, [0, 0, 1, 0, 0, 0]),
-        (1, [0, 0, 0, 1, 0, 0]),
-        (1, [0, 0, 0, 0, 1, 0]),
-        (1, [0, 0, 0, 0, 0, 1])
+        (1, [1, 0, 0, 0, 0, 0, 0]),
+        (1, [0, 1, 0, 0, 0, 0, 0]),
+        (1, [0, 0, 1, 0, 0, 0, 0]),
+        (1, [0, 0, 0, 1, 0, 0, 0]),
+        (1, [0, 0, 0, 0, 1, 0, 0]),
+        (1, [0, 0, 0, 0, 0, 1, 0]),
+        (1, [0, 0, 0, 0, 0, 0, 1])
     ]?;
 
     let g2 = cyclic_sum(ring, 2)?;
     let g3 = cyclic_sum(ring, 3)?;
     let g4 = cyclic_sum(ring, 4)?;
     let g5 = cyclic_sum(ring, 5)?;
+    let g6 = cyclic_sum(ring, 6)?;
 
-    let g6: P = poly![
+    let g7: P = poly![
         ring;
-        (1_u32, [1, 1, 1, 1, 1, 1]),
-        (32002_u32, [0, 0, 0, 0, 0, 0])
+        (1_u32, [1, 1, 1, 1, 1, 1, 1]),
+        (32002_u32, [0, 0, 0, 0, 0, 0, 0])
     ]?;
 
-    Ok(vec![g1, g2, g3, g4, g5, g6])
+    Ok(vec![g1, g2, g3, g4, g5, g6, g7])
 }
 
 fn cyclic_sum(ring: &RingCtx<Fp, Lex>, width: usize) -> Result<P> {
-    debug_assert!((1..=5).contains(&width));
+    debug_assert!((1..=6).contains(&width));
 
-    let terms = (0..6)
+    let terms = (0..7)
         .map(|start| {
-            let mut exps = [0_u32; 6];
+            let mut exps = [0_u32; 7];
 
             for offset in 0..width {
-                let idx = (start + offset) % 6;
+                let idx = (start + offset) % 7;
                 exps[idx] = 1;
             }
 
@@ -110,7 +112,7 @@ fn cyclic_sum(ring: &RingCtx<Fp, Lex>, width: usize) -> Result<P> {
     poly_from_terms(ring, &terms)
 }
 
-fn poly_from_terms(ring: &RingCtx<Fp, Lex>, terms: &[(u32, [u32; 6])]) -> Result<P> {
+fn poly_from_terms(ring: &RingCtx<Fp, Lex>, terms: &[(u32, [u32; 7])]) -> Result<P> {
     let terms = terms
         .iter()
         .map(|(coeff, exps)| Term::new(ring.field.new(*coeff), Monomial::from_slice(exps)))

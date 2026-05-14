@@ -68,6 +68,10 @@ impl<M, C> F4Matrix<M, C> {
     pub fn ncols(&self) -> usize {
         self.matrix.ncols
     }
+    #[must_use]
+    pub fn row_ref(&self, i: usize) -> &[C] {
+        &self.matrix.rows[i]
+    }
 
     #[must_use]
     pub fn is_empty(&self) -> bool {

@@ -13,8 +13,7 @@ categories = ["mathematics", "science", "no-std"]
 
 [features]
 default = ["std"]
-
-std = ["gbx-alg/std"]
+std = []
 
 laws = ["gbx-alg/laws"]
 

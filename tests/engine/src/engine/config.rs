@@ -29,7 +29,7 @@ fn expand_reducers(input: &[CliGbxReducerKind]) -> Vec<GbxReducerKind> {
     for item in input {
         let kind = match item {
             CliGbxReducerKind::All => continue,
-            CliGbxReducerKind::Dense => GbxReducerKind::Dense,
+            // CliGbxReducerKind::Dense => GbxReducerKind::Dense,
             CliGbxReducerKind::Roman => GbxReducerKind::Roman,
             CliGbxReducerKind::RomanParallel => GbxReducerKind::RomanParallel,
         };

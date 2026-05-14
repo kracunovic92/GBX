@@ -27,7 +27,7 @@ profile-full = [
 ]
 
 [dependencies]
-gbx-alg = { path = "../gbx-alg", default-features = false }
+gbx-alg = { path = "../gbx-alg", default-features = true }
 gbx-storage = { path = "../gbx-storage", default-features = false }
 gbx-field = { path = "../gbx-field", default-features = false }
 gbx-poly = { path = "../gbx-poly", default-features = false }

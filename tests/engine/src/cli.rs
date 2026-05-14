@@ -45,7 +45,7 @@ pub struct RunGbxOneCli {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum CliGbxReducerKind {
     All,
-    Dense,
+    //Dense,
     Roman,
     RomanParallel,
 }

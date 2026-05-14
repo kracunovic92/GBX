@@ -1,5 +1,6 @@
 //! Per-phase allocation + timing profiling helpers.
 
+use crate::f4_debug;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -50,7 +51,7 @@ pub fn with_alloc_profile<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
     let elapsed_ms = elapsed_ms(started);
     let profile = AllocProfile::from(region.change());
 
-    tracing::debug!(
+    f4_debug!(
         phase,
         elapsed_ms,
         mib_allocated = bytes_to_mib(profile.bytes_allocated),

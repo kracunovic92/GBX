@@ -3,9 +3,9 @@
 //! Inverses are partial (undefined at `0`), so we expose a fallible API
 //! via [`TryInverse`] and [`CheckedDiv`].
 
-use core::fmt;
-
 use crate::{MulAbelianMonoid, Multiplicative, Ring};
+use core::fmt;
+use std::error;
 
 /// Error returned by checked division when dividing by zero (or non-invertible element).
 ///
@@ -19,8 +19,7 @@ impl fmt::Display for DivByZero {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for DivByZero {}
+impl error::Error for DivByZero {}
 
 /// Try to get the multiplicative inverse. Returns `None` for non-invertible elements.
 ///

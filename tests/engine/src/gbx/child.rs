@@ -11,7 +11,7 @@ pub fn run_gbx_one(args: RunGbxOneCli) -> Result<()> {
     };
 
     let reducer = match args.reducer {
-        CliGbxReducerKind::Dense => GbxReducerKind::Dense,
+        //CliGbxReducerKind::Dense => GbxReducerKind::Dense,
         CliGbxReducerKind::Roman => GbxReducerKind::Roman,
         CliGbxReducerKind::RomanParallel => GbxReducerKind::RomanParallel,
         CliGbxReducerKind::All => bail!("run-gbx-one requires a concrete reducer, not all"),

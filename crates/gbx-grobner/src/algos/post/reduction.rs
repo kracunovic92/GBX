@@ -1,6 +1,6 @@
 use crate::algos::post::minimize::minimize_in_place;
 use crate::algos::post::PostError;
-use crate::GrobnerBasis;
+use crate::{f4_debug, f4_info, f4_span, GrobnerBasis};
 use gbx_poly::monomial::{divides, Monomial};
 use std::time::Instant;
 
@@ -40,7 +40,7 @@ where
 
     if gb.is_empty() {
         stats.elapsed = started.elapsed();
-        tracing::info!(
+        f4_info!(
             input_len = stats.input_len,
             final_len = 0,
             elapsed_ms = stats.elapsed.as_secs_f64() * 1000.0,
@@ -63,7 +63,7 @@ where
     let violations = find_reduction_violations(gb.as_slice());
 
     if !violations.is_empty() {
-        tracing::warn!(
+        f4_debug!(
             violations = violations.len(),
             "post.reduce.after_reverse_interreduce.has_violations"
         );
@@ -77,7 +77,7 @@ where
     if !final_violations.is_empty() {
         let first = &final_violations[0];
 
-        tracing::error!(
+        f4_debug!(
             violations = final_violations.len(),
             i = first.i,
             j = first.j,
@@ -91,7 +91,7 @@ where
     stats.final_len = gb.len();
     stats.elapsed = started.elapsed();
 
-    tracing::info!(
+    f4_info!(
         input_len = stats.input_len,
         after_remove_zero_len = stats.after_remove_zero_len,
         after_minimize_len = stats.after_minimize_len,
@@ -142,13 +142,13 @@ where
 
     let mut reduced_rev: Vec<P> = Vec::with_capacity(n);
 
-    tracing::info!(len = n, "post.reduce.reverse_interreduce.start");
+    f4_info!(len = n, "post.reduce.reverse_interreduce.start");
 
     for i in (0..n).rev() {
         let gi = &snapshot[i];
 
         if gi.is_zero() {
-            tracing::debug!(i, "post.reduce.reverse_interreduce.skip_zero");
+            f4_debug!(i, "post.reduce.reverse_interreduce.skip_zero");
             continue;
         }
 
@@ -157,7 +157,7 @@ where
             .cloned()
             .ok_or(PostError::InvariantViolation)?;
 
-        tracing::debug!(
+        f4_debug!(
             i,
             lm = ?old_lm,
             terms = gi.len(),
@@ -168,7 +168,7 @@ where
         let mut r = reduce_basis_element_tail_only_with_reducers(ctx, gi, reduced_rev.as_slice(), i)?;
 
         if r.is_zero() {
-            tracing::warn!(
+            f4_debug!(
                 i,
                 old_lm = ?old_lm,
                 "post.reduce.reverse_interreduce.element.became_zero"
@@ -184,7 +184,7 @@ where
             .ok_or(PostError::InvariantViolation)?;
 
         if old_lm != new_lm {
-            tracing::error!(
+            f4_debug!(
                 i,
                 old_lm = ?old_lm,
                 new_lm = ?new_lm,
@@ -196,7 +196,7 @@ where
             return Err(PostError::LeadingMonomialChangedDuringReduction);
         }
 
-        tracing::debug!(
+        f4_debug!(
             i,
             lm = ?new_lm,
             old_terms = gi.len(),
@@ -209,7 +209,7 @@ where
 
     reduced_rev.reverse();
 
-    tracing::info!(
+    f4_info!(
         before = n,
         after = reduced_rev.len(),
         "post.reduce.reverse_interreduce.done"
@@ -237,7 +237,7 @@ where
         .cloned()
         .ok_or(PostError::ZeroPolynomialInReduction)?;
 
-    tracing::debug!(
+    f4_debug!(
         i,
         lm = ?lm,
         terms = gi.len(),
@@ -250,7 +250,7 @@ where
     tail.normalize_in_place(ctx)?;
 
     if tail.is_zero() {
-        tracing::debug!(
+        f4_debug!(
             i,
             lm = ?lm,
             "post.reduce.tail.empty"
@@ -272,7 +272,7 @@ where
     */
     reducers.sort_by_key(|g| g.len());
 
-    tracing::debug!(
+    f4_debug!(
         i,
         lm = ?lm,
         tail_terms = tail.len(),
@@ -281,7 +281,7 @@ where
     );
 
     for (reducer_pos, g) in reducers.iter().enumerate() {
-        tracing::trace!(
+        f4_debug!(
             i,
             reducer_pos,
             reducer_lm = ?g.leading_mono(),
@@ -292,7 +292,7 @@ where
 
     let reduced_tail = tail.normal_form(ctx, reducers.into_iter())?;
 
-    tracing::debug!(
+    f4_debug!(
         i,
         lm = ?lm,
         before_terms = tail.len(),
@@ -311,7 +311,7 @@ where
     let new_lm = result.leading_mono().cloned();
 
     if new_lm.as_ref() != Some(&lm) {
-        tracing::error!(
+        f4_debug!(
             i,
             old_lm = ?lm,
             new_lm = ?new_lm,
@@ -324,7 +324,7 @@ where
         return Err(PostError::LeadingMonomialChangedDuringReduction);
     }
 
-    tracing::debug!(
+    f4_debug!(
         i,
         lm = ?lm,
         result_terms = result.len(),
@@ -337,10 +337,10 @@ fn debug_basis_lms<P>(label: &'static str, basis: &[P])
 where
     P: PolynomialView,
 {
-    tracing::debug!(label, len = basis.len(), "post.reduce.basis_lms.start");
+    f4_debug!(label, len = basis.len(), "post.reduce.basis_lms.start");
 
     for (i, p) in basis.iter().enumerate() {
-        tracing::debug!(
+        f4_debug!(
             label,
             i,
             lm = ?p.leading_mono(),
@@ -350,7 +350,7 @@ where
         );
     }
 
-    tracing::debug!(label, len = basis.len(), "post.reduce.basis_lms.end");
+    f4_debug!(label, len = basis.len(), "post.reduce.basis_lms.end");
 }
 fn assert_minimal_leading_monomials<P>(basis: &[P]) -> Result<(), PostError>
 where
@@ -371,7 +371,7 @@ where
             };
 
             if divides(lmj, lmi) {
-                tracing::error!(
+                f4_debug!(
                     i,
                     j,
                     lm_i = ?lmi,
@@ -429,7 +429,7 @@ where
 
     let first = &violations[0];
 
-    tracing::error!(
+    f4_debug!(
         violations = violations.len(),
         i = first.i,
         j = first.j,
@@ -511,7 +511,7 @@ where
 
     reducers.sort_by_key(|(_, g)| g.len());
 
-    tracing::debug!(
+    f4_debug!(
         i,
         lm = ?lm,
         tail_terms = tail.len(),
@@ -520,7 +520,7 @@ where
     );
 
     for (j, g) in &reducers {
-        tracing::debug!(
+        f4_debug!(
             i,
             reducer = *j,
             reducer_lm = ?g.leading_mono(),
@@ -531,7 +531,7 @@ where
 
     let reduced_tail = tail.normal_form(ctx, reducers.iter().map(|(_, g)| *g))?;
 
-    tracing::debug!(
+    f4_debug!(
         i,
         lm = ?lm,
         before_terms = tail.len(),
@@ -550,7 +550,7 @@ where
     let new_lm = result.leading_mono().cloned();
 
     if new_lm.as_ref() != Some(&lm) {
-        tracing::error!(
+        f4_debug!(
             i,
             old_lm = ?lm,
             new_lm = ?new_lm,
@@ -578,7 +578,7 @@ where
     for pass in 0..max_passes {
         let violations = find_reduction_violations(&polys);
 
-        tracing::info!(
+        f4_info!(
             pass,
             violations = violations.len(),
             "post.reduce.selective_cleanup.pass.start"
@@ -587,7 +587,7 @@ where
         if violations.is_empty() {
             *gb = GrobnerBasis::new(ctx.id(), polys);
 
-            tracing::info!(pass, "post.reduce.selective_cleanup.done");
+            f4_info!(pass, "post.reduce.selective_cleanup.done");
 
             return Ok(());
         }
@@ -607,7 +607,7 @@ where
                 continue;
             }
 
-            tracing::debug!(
+            f4_debug!(
                 pass,
                 i,
                 selected_reducers = ?selected,
@@ -622,7 +622,7 @@ where
             let new_lm = reduced.leading_mono().cloned();
 
             if old_lm != new_lm {
-                tracing::error!(
+                f4_debug!(
                     pass,
                     i,
                     old_lm = ?old_lm,
@@ -639,7 +639,7 @@ where
             polys[i] = reduced;
             changed += 1;
 
-            tracing::debug!(
+            f4_debug!(
                 pass,
                 i,
                 old_terms,
@@ -648,7 +648,7 @@ where
             );
         }
 
-        tracing::info!(pass, changed, "post.reduce.selective_cleanup.pass.done");
+        f4_info!(pass, changed, "post.reduce.selective_cleanup.pass.done");
 
         if changed == 0 {
             break;
@@ -662,7 +662,7 @@ where
     if !violations.is_empty() {
         let first = &violations[0];
 
-        tracing::error!(
+        f4_debug!(
             violations = violations.len(),
             i = first.i,
             j = first.j,
