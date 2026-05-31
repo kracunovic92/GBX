@@ -1,7 +1,7 @@
 use crate::algos::post::PostError;
-use crate::{f4_debug, f4_info, GrobnerBasis};
+use crate::{GrobnerBasis, f4_debug, f4_info};
 
-use gbx_poly::monomial::{divides, Monomial};
+use gbx_poly::monomial::{Monomial, divides};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialReduce, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
@@ -10,7 +10,7 @@ use gbx_poly::term::Term;
 use super::validate::find_reduction_violations;
 
 /// Reduces basis elements in reverse order while preserving leading monomials.
-pub(crate) fn reverse_tail_interreduce<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
+pub fn reverse_tail_interreduce<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = P::Coeff>,
     O: MonomialOrder,
@@ -83,7 +83,7 @@ where
     Ok(())
 }
 
-pub(crate) fn selective_tail_cleanup<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
+pub fn selective_tail_cleanup<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = P::Coeff>,
     O: MonomialOrder,
@@ -158,13 +158,13 @@ where
     let violations = find_reduction_violations(gb.as_slice());
 
     if !violations.is_empty() {
-        let _first = &violations[0];
+        let first = &violations[0];
 
         f4_debug!(
             violations = violations.len(),
-            i = _first.i,
-            j = _first.j,
-            bad_term = ?_first.bad_term,
+            i = first.i,
+            j = first.j,
+            bad_term = ?first.bad_term,
             "post.reduce.selective_cleanup.failed"
         );
 
@@ -199,9 +199,9 @@ where
         "post.reduce.tail.before_normal_form"
     );
 
-    let reduced_tail = tail.normal_form(ctx, reducers.into_iter())?;
+    let reduced_tail = tail.normal_form(ctx, reducers)?;
 
-    finish_tail_reduction(ctx, gi, lm, lt, reduced_tail, i)
+    finish_tail_reduction(ctx, gi, &lm, lt, reduced_tail, i)
 }
 
 fn reduce_basis_element_tail_only_with_selected_indices<P, F, O>(ctx: &RingCtx<F, O>, gi: &P, basis: &[P], i: usize, selected: &[usize]) -> Result<P, PostError>
@@ -240,9 +240,9 @@ where
         "post.reduce.selective.tail.before_normal_form"
     );
 
-    let reduced_tail = tail.normal_form(ctx, reducers.into_iter())?;
+    let reduced_tail = tail.normal_form(ctx, reducers)?;
 
-    finish_tail_reduction(ctx, gi, lm, lt, reduced_tail, i)
+    finish_tail_reduction(ctx, gi, &lm, lt, reduced_tail, i)
 }
 
 fn split_leading_term<P, F, O>(ctx: &RingCtx<F, O>, p: &P) -> Result<(Monomial, Term<P::Coeff>, P), PostError>
@@ -270,7 +270,7 @@ where
     Ok((lm, lt, tail))
 }
 
-fn finish_tail_reduction<P, F, O>(ctx: &RingCtx<F, O>, _original: &P, old_lm: Monomial, old_lt: Term<P::Coeff>, reduced_tail: P, _i: usize) -> Result<P, PostError>
+fn finish_tail_reduction<P, F, O>(ctx: &RingCtx<F, O>, original: &P, previous_leading_mono: &Monomial, previous_leading_term: Term<P::Coeff>, reduced_tail: P, i: usize) -> Result<P, PostError>
 where
     F: FieldCtx<Elem = P::Coeff>,
     O: MonomialOrder,
@@ -278,19 +278,19 @@ where
     P::Coeff: Copy + Eq,
 {
     let mut result = reduced_tail;
-    let (lt_coeff, lt_mono) = old_lt.into_parts();
+    let (lt_coeff, lt_mono) = previous_leading_term.into_parts();
 
     result.push_term_raw(Term::new(lt_coeff, lt_mono));
     result.normalize_in_place(ctx)?;
 
     let new_lm = result.leading_mono().cloned();
 
-    if new_lm.as_ref() != Some(&old_lm) {
+    if new_lm.as_ref() != Some(previous_leading_mono) {
         f4_debug!(
-            _i,
-            old_lm = ?old_lm,
+            i,
+            old_lm = ?previous_leading_mono,
             new_lm = ?new_lm,
-            original_terms = _original.len(),
+            original_terms = original.len(),
             result_terms = result.len(),
             "post.reduce.tail.leading_monomial_changed"
         );

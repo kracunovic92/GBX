@@ -2,7 +2,7 @@
 
 use crate::algos::f4::error::Result;
 use crate::algos::f4::pairs::criterion::PairCriterion;
-use crate::algos::f4::pairs::pending::{add_pairs_with_new_basis_element, PendingPairs};
+use crate::algos::f4::pairs::pending::{PendingPairs, add_pairs_with_new_basis_element};
 
 use gbx_poly::polynomial::PolynomialView;
 
@@ -10,6 +10,10 @@ use gbx_poly::polynomial::PolynomialView;
 ///
 /// The new polynomial is inserted at the next basis index. All admissible pairs
 /// between the new element and older basis elements are added to `pending`.
+///
+/// # Errors
+///
+/// Returns a monomial error if critical-pair construction fails.
 pub fn update_with_polynomial<P, C>(basis: &mut Vec<P>, pending: &mut PendingPairs, polynomial: P, criterion: &C) -> Result<()>
 where
     P: PolynomialView,
@@ -24,6 +28,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::algos::f4::pairs::criterion::{NoCriterion, ProductCriterion};

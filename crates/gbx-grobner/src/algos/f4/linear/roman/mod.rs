@@ -18,8 +18,8 @@ pub mod row;
 pub mod sequential;
 
 use crate::algos::f4::error::Result;
-use crate::linear::roman::reduce::{roman_sparse_buffer_reduce, roman_sparse_buffer_reduce_parallel};
 use crate::linear::BatchReducer;
+use crate::linear::roman::reduce::{roman_sparse_buffer_reduce, roman_sparse_buffer_reduce_parallel};
 
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialView};

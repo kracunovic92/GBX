@@ -15,6 +15,10 @@ use gbx_poly::term::Term;
 /// Converts new sparse pivot rows into polynomial rows.
 ///
 /// Pivots whose leading columns were already input leading columns are skipped.
+///
+/// # Errors
+///
+/// Returns an error if a pivot row cannot be converted into a polynomial.
 pub fn extract_new_rows_from_sparse_pivots<P, F, O>(ctx: &RingCtx<F, O>, pivots: &[SparsePivotRow<P::Coeff>], columns: &[Monomial], input_lead_cols: &[bool]) -> Result<Vec<P>>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -47,6 +51,10 @@ where
 ///
 /// This is intended for debugging and tests. It should not be used as the F4
 /// reducer output because it also returns internal reducer pivots.
+///
+/// # Errors
+///
+/// Returns an error if any pivot row cannot be converted into a polynomial.
 pub fn sparse_pivots_to_polynomials<P, F, O>(ctx: &RingCtx<F, O>, pivots: &[SparsePivotRow<P::Coeff>], columns: &[Monomial]) -> Result<Vec<P>>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -94,6 +102,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use gbx_field::fp::{Fp, FpElem};
@@ -125,8 +134,8 @@ mod tests {
         let columns = columns();
 
         let pivots = vec![
-            SparsePivotRow { lead_col: 0, lead_coeff: FieldCtx::new(&ctx.field, 1), tail: vec![(2, FieldCtx::new(&ctx.field, 3))] },
-            SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::new(&ctx.field, 1), tail: vec![(3, FieldCtx::new(&ctx.field, 4))] },
+            SparsePivotRow { lead_col: 0, lead_coeff: FieldCtx::elem(&ctx.field, 1), tail: vec![(2, FieldCtx::elem(&ctx.field, 3))] },
+            SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::elem(&ctx.field, 1), tail: vec![(3, FieldCtx::elem(&ctx.field, 4))] },
         ];
 
         let input_lead_cols = vec![true, false, false, false];
@@ -142,7 +151,7 @@ mod tests {
         let ctx = test_ctx();
         let columns = columns();
 
-        let pivots = vec![SparsePivotRow { lead_col: 2, lead_coeff: FieldCtx::new(&ctx.field, 1), tail: vec![(3, FieldCtx::new(&ctx.field, 5))] }];
+        let pivots = vec![SparsePivotRow { lead_col: 2, lead_coeff: FieldCtx::elem(&ctx.field, 1), tail: vec![(3, FieldCtx::elem(&ctx.field, 5))] }];
 
         let input_lead_cols = vec![false];
 
@@ -158,8 +167,8 @@ mod tests {
         let columns = columns();
 
         let pivots = vec![
-            SparsePivotRow { lead_col: 0, lead_coeff: FieldCtx::new(&ctx.field, 1), tail: vec![(2, FieldCtx::new(&ctx.field, 3))] },
-            SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::new(&ctx.field, 1), tail: vec![(3, FieldCtx::new(&ctx.field, 4))] },
+            SparsePivotRow { lead_col: 0, lead_coeff: FieldCtx::elem(&ctx.field, 1), tail: vec![(2, FieldCtx::elem(&ctx.field, 3))] },
+            SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::elem(&ctx.field, 1), tail: vec![(3, FieldCtx::elem(&ctx.field, 4))] },
         ];
 
         let out: Vec<P> = sparse_pivots_to_polynomials(&ctx, &pivots, &columns).unwrap();
@@ -174,7 +183,7 @@ mod tests {
         let ctx = test_ctx();
         let columns = columns();
 
-        let pivot = SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::new(&ctx.field, 1), tail: vec![(2, FieldCtx::new(&ctx.field, 0)), (3, FieldCtx::new(&ctx.field, 7))] };
+        let pivot = SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::elem(&ctx.field, 1), tail: vec![(2, FieldCtx::elem(&ctx.field, 0)), (3, FieldCtx::elem(&ctx.field, 7))] };
 
         let out: Vec<P> = sparse_pivots_to_polynomials(&ctx, &[pivot], &columns).unwrap();
 
@@ -188,7 +197,7 @@ mod tests {
         let ctx = test_ctx();
         let columns = columns();
 
-        let pivot = SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::new(&ctx.field, 0), tail: vec![(2, FieldCtx::new(&ctx.field, 7))] };
+        let pivot = SparsePivotRow { lead_col: 1, lead_coeff: FieldCtx::elem(&ctx.field, 0), tail: vec![(2, FieldCtx::elem(&ctx.field, 7))] };
 
         let out: Vec<P> = sparse_pivots_to_polynomials(&ctx, &[pivot], &columns).unwrap();
 

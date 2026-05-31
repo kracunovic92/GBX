@@ -27,7 +27,8 @@ pub struct RingId(u64);
 impl RingId {
     /// Id
     #[inline]
-    pub fn get(self) -> u64 {
+    #[must_use]
+    pub const fn get(self) -> u64 {
         self.0
     }
 }
@@ -55,6 +56,10 @@ where
     F: FieldCtx,
 {
     /// Creates a new ring context.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RingError::InvalidNvars`] when `nvars` is zero.
     pub fn new(field: F, order: O, nvars: usize) -> RingResult<Self> {
         if nvars == 0 {
             return Err(RingError::InvalidNvars { nvars });
@@ -67,11 +72,16 @@ where
 
     /// Returns this ring context's unique identity.
     #[inline]
-    pub fn id(&self) -> RingId {
+    pub const fn id(&self) -> RingId {
         self.id
     }
 
     /// Checks that a polynomial belongs to this ring context.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RingError::MismatchedRing`] when `poly_ring_id` belongs to a
+    /// different ring context.
     #[inline]
     pub fn assert_same_ring_id(&self, poly_ring_id: RingId) -> RingResult<()> {
         if poly_ring_id != self.id {
@@ -84,34 +94,48 @@ where
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
-
     use super::*;
     use crate::order::Lex;
     use gbx_field::fp::Fp;
 
+    fn field_7() -> Fp {
+        match Fp::prime(7) {
+            Ok(field) => field,
+            Err(err) => panic!("7 should be prime: {err}"),
+        }
+    }
+
+    fn ring_3() -> RingCtx<Fp, Lex> {
+        match RingCtx::new(field_7(), Lex, 3) {
+            Ok(ring) => ring,
+            Err(err) => panic!("valid ring should build: {err}"),
+        }
+    }
+
     #[test]
     fn ring_id_changes_between_instances() {
-        let a = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
-        let b = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
+        let a = ring_3();
+        let b = ring_3();
 
         assert_ne!(a.id(), b.id());
     }
 
     #[test]
     fn invalid_nvars_is_error() {
-        let err = RingCtx::new(Fp::prime(7).unwrap(), Lex, 0).unwrap_err();
-
-        assert!(matches!(err, RingError::InvalidNvars { .. }));
+        assert!(matches!(
+            RingCtx::new(field_7(), Lex, 0),
+            Err(RingError::InvalidNvars { .. })
+        ));
     }
 
     #[test]
     fn assert_same_ring_id_detects_mismatch() {
-        let a = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
-        let b = RingCtx::new(Fp::prime(7).unwrap(), Lex, 3).unwrap();
+        let a = ring_3();
+        let b = ring_3();
 
-        let err = a.assert_same_ring_id(b.id()).unwrap_err();
-
-        assert!(matches!(err, RingError::MismatchedRing { .. }));
+        assert!(matches!(
+            a.assert_same_ring_id(b.id()),
+            Err(RingError::MismatchedRing { .. })
+        ));
     }
 }

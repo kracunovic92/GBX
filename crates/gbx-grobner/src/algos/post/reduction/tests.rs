@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use super::*;
 
 use crate::algos::post::reduction::validate::{assert_fully_reduced_basis, assert_minimal_leading_monomials, find_reduction_violations};

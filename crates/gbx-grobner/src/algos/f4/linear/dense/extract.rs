@@ -22,6 +22,10 @@ where
 }
 
 /// Decodes one dense row into a polynomial.
+///
+/// # Errors
+///
+/// Returns an error if polynomial construction or normalization fails.
 pub fn decode_dense_row<P, F, O>(ctx: &RingCtx<F, O>, coeffs: &[P::Coeff], columns: &[Monomial]) -> Result<P>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -44,6 +48,11 @@ where
 }
 
 /// Extracts rows whose leading monomial is new relative to symbolic input.
+///
+/// # Errors
+///
+/// Returns an error if any extracted dense row cannot be decoded into a
+/// polynomial.
 pub fn extract_new_rows_from_dense<P, F, O>(ctx: &RingCtx<F, O>, symbolic_rows: &[P], reduced_rows: &[Vec<P::Coeff>], columns: &[Monomial]) -> Result<Vec<P>>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -77,6 +86,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::test_utils::test_ring;
@@ -109,7 +119,7 @@ mod tests {
 
         let columns = vec![Monomial::from_slice(&[2, 0]), Monomial::from_slice(&[1, 0]), Monomial::from_slice(&[0, 0])];
 
-        let coeffs = vec![FieldCtx::new(&ring.field, 0), FieldCtx::new(&ring.field, 3), FieldCtx::new(&ring.field, 5)];
+        let coeffs = vec![FieldCtx::elem(&ring.field, 0), FieldCtx::elem(&ring.field, 3), FieldCtx::elem(&ring.field, 5)];
 
         let row: P = decode_dense_row(&ring, &coeffs, &columns).unwrap();
 
@@ -123,7 +133,7 @@ mod tests {
 
         let columns = vec![Monomial::from_slice(&[1, 0]), Monomial::from_slice(&[0, 0])];
 
-        let coeffs = vec![FieldCtx::new(&ring.field, 0), FieldCtx::new(&ring.field, 0)];
+        let coeffs = vec![FieldCtx::elem(&ring.field, 0), FieldCtx::elem(&ring.field, 0)];
 
         let row: P = decode_dense_row(&ring, &coeffs, &columns).unwrap();
 
@@ -138,7 +148,7 @@ mod tests {
 
         let columns = vec![Monomial::from_slice(&[2, 0]), Monomial::from_slice(&[1, 0]), Monomial::from_slice(&[0, 0])];
 
-        let reduced_rows = vec![vec![FieldCtx::new(&ring.field, 1), FieldCtx::new(&ring.field, 0), FieldCtx::new(&ring.field, 3)]];
+        let reduced_rows = vec![vec![FieldCtx::elem(&ring.field, 1), FieldCtx::elem(&ring.field, 0), FieldCtx::elem(&ring.field, 3)]];
 
         let extracted: Vec<P> = extract_new_rows_from_dense(&ring, &symbolic_rows, &reduced_rows, &columns).unwrap();
 
@@ -153,7 +163,7 @@ mod tests {
 
         let columns = vec![Monomial::from_slice(&[2, 0]), Monomial::from_slice(&[1, 0]), Monomial::from_slice(&[0, 0])];
 
-        let reduced_rows = vec![vec![FieldCtx::new(&ring.field, 0), FieldCtx::new(&ring.field, 1), FieldCtx::new(&ring.field, 6)]];
+        let reduced_rows = vec![vec![FieldCtx::elem(&ring.field, 0), FieldCtx::elem(&ring.field, 1), FieldCtx::elem(&ring.field, 6)]];
 
         let extracted: Vec<P> = extract_new_rows_from_dense(&ring, &symbolic_rows, &reduced_rows, &columns).unwrap();
 
@@ -172,7 +182,7 @@ mod tests {
 
         let columns = vec![Monomial::from_slice(&[1, 0]), Monomial::from_slice(&[0, 0])];
 
-        let reduced_rows = vec![vec![FieldCtx::new(&ring.field, 0), FieldCtx::new(&ring.field, 0)]];
+        let reduced_rows = vec![vec![FieldCtx::elem(&ring.field, 0), FieldCtx::elem(&ring.field, 0)]];
 
         let extracted: Vec<P> = extract_new_rows_from_dense(&ring, &symbolic_rows, &reduced_rows, &columns).unwrap();
 

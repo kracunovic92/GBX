@@ -23,16 +23,16 @@ pub struct ReductionPhase<P>
 where
     P: PolynomialView,
 {
-    /// Products used to create F_d rows.
+    /// Products used to create `F_d` rows.
     pub f_d_products: Vec<UnevaluatedProduct<Monomial>>,
 
-    /// Heads HT(F_d), used for extraction/history.
+    /// Heads `HT(F_d)`, used for extraction/history.
     pub f_d_heads: Vec<Monomial>,
 
-    /// Row-echelon reduction of F_d: F̃_d.
+    /// Row-echelon reduction of `F_d`: `F̃_d`.
     pub f_d_tilde: Vec<P>,
 
-    /// Extracted rows with new heads: F̃_d⁺.
+    /// Extracted rows with new heads: `F̃_d+`.
     pub extracted_rows: Vec<P>,
 }
 

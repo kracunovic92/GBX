@@ -21,7 +21,7 @@ pub const GREVLEX: Grevlex = Grevlex;
 impl Grevlex {
     #[inline]
     fn degree_from_exps(exps: &[u32]) -> u128 {
-        exps.iter().map(|&x| x as u128).sum()
+        exps.iter().map(|&x| u128::from(x)).sum()
     }
 
     #[inline]

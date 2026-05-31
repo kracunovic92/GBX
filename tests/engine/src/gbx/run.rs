@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use std::collections::BTreeMap;
 
 use crate::gbx::config::{GbxConfig, GbxReducerKind};
@@ -6,10 +6,10 @@ use crate::gbx::parse::parse_poly_terms;
 use crate::utils::test_file_config::TestCase;
 
 use gbx_field::fp::{Fp, FpElem};
-use gbx_grobner::engine::run_f4_with_reducer;
-use gbx_grobner::linear::roman::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
-use gbx_grobner::linear::DenseF4MatrixReducer;
 use gbx_grobner::F4Options;
+use gbx_grobner::engine::run_f4_with_reducer;
+use gbx_grobner::linear::DenseF4MatrixReducer;
+use gbx_grobner::linear::roman::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
 
 use gbx_poly::monomial::Monomial;
 use gbx_poly::order::MonomialOrder;
@@ -108,7 +108,7 @@ where
     let mut terms = Vec::with_capacity(parsed.len());
 
     for (c_mod_p, exps) in parsed {
-        let coeff: FpElem = FieldCtx::new(&ring.field, c_mod_p);
+        let coeff: FpElem = FieldCtx::elem(&ring.field, c_mod_p);
         let mono = Monomial::from_slice(&exps);
         terms.push(term!(coeff, mono));
     }

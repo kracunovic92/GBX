@@ -33,7 +33,7 @@ where
     ///
     /// Each polynomial is rendered on its own line using [`PolyDisplay::pretty`].
     #[inline]
-    pub fn pretty_lines(ring: &'a RingCtx<F, O>, polys: &'a [P], vars: &'a [String]) -> Self {
+    pub const fn pretty_lines(ring: &'a RingCtx<F, O>, polys: &'a [P], vars: &'a [String]) -> Self {
         Self { ring, polys, vars, style: GbStyle::PrettyLines }
     }
 
@@ -41,7 +41,7 @@ where
     ///
     /// Each polynomial is rendered on its own line using [`PolyDisplay::tuple_dump`].
     #[inline]
-    pub fn tuple_lines(ring: &'a RingCtx<F, O>, polys: &'a [P], vars: &'a [String]) -> Self {
+    pub const fn tuple_lines(ring: &'a RingCtx<F, O>, polys: &'a [P], vars: &'a [String]) -> Self {
         Self { ring, polys, vars, style: GbStyle::TupleLines }
     }
 }

@@ -3,13 +3,17 @@
 use crate::algos::f4::error::F4Error;
 use crate::algos::f4::symbolic::types::UnevaluatedProduct;
 
-use gbx_poly::monomial::{checked_div_exact, divides, Monomial};
+use gbx_poly::monomial::{Monomial, checked_div_exact, divides};
 use gbx_poly::polynomial::PolynomialView;
 
 /// Finds the first basis reducer whose leading monomial divides `monomial`.
 ///
 /// Returns the corresponding unevaluated product `m * g_i`, where
 /// `monomial = m * LM(g_i)`.
+///
+/// # Errors
+///
+/// Returns a monomial error if the multiplier quotient cannot be computed.
 pub fn find_top_reducer_product<P>(monomial: &Monomial, basis: &[P]) -> Result<Option<UnevaluatedProduct<Monomial>>, F4Error>
 where
     P: PolynomialView,
@@ -21,6 +25,10 @@ where
 ///
 /// The returned monomial is the multiplier needed to align the reducer's
 /// leading monomial with `monomial`.
+///
+/// # Errors
+///
+/// Returns a monomial error if the multiplier quotient cannot be computed.
 pub fn find_top_reducer_index<P>(monomial: &Monomial, basis: &[P]) -> Result<Option<(usize, Monomial)>, F4Error>
 where
     P: PolynomialView,
@@ -44,6 +52,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::test_utils::test_ring;

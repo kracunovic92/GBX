@@ -1,7 +1,7 @@
 //! k-coloring encoding as a boolean polynomial system.
 
-use crate::encoding::error::EncodingError;
 use crate::Graph;
+use crate::encoding::error::EncodingError;
 
 /// Abstraction over polynomial types used for boolean encodings.
 ///
@@ -104,13 +104,13 @@ impl<P> ColoringEncoding<P> {
 /// The system enforces:
 ///
 /// 1) **Boolean constraints** for each `(v,c)`:
-/// `x_{v,c}^2 - x_{v,c} = 0`
+///    `x_{v,c}^2 - x_{v,c} = 0`
 ///
 /// 2) **Exactly-one-color per vertex** for each `v`:
-/// `(x_{v,1} + ... + x_{v,k}) - 1 = 0`
+///    `(x_{v,1} + ... + x_{v,k}) - 1 = 0`
 ///
 /// 3) **Edge constraints** for each edge `{u,v}` and each color `c`:
-/// `x_{u,c} * x_{v,c} = 0`
+///    `x_{u,c} * x_{v,c} = 0`
 ///
 /// If the system has a solution over the base field,
 /// then the graph is k-colorable.
@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn k_must_be_positive() {
         let g = Graph::new(1);
-        let b = StrBuilder::default();
+        let b = StrBuilder;
         let err = build_k_coloring_system(&g, 0, &b).unwrap_err();
         assert_eq!(err, EncodingError::InvalidK { k: 0 });
     }
@@ -239,7 +239,7 @@ mod tests {
         g.add_edge(2, 3).unwrap();
 
         let k = 2;
-        let b = StrBuilder::default();
+        let b = StrBuilder;
 
         let enc = build_k_coloring_system(&g, k, &b).unwrap();
 
@@ -253,7 +253,7 @@ mod tests {
         let mut g = Graph::new(2);
         g.add_edge(1, 2).unwrap();
 
-        let b = StrBuilder::default();
+        let b = StrBuilder;
         let enc = build_k_coloring_system(&g, 2, &b).unwrap();
 
         // Boolean constraints:

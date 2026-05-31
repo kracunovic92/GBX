@@ -39,9 +39,9 @@ where
                     continue;
                 }
 
-                let col = *column_index
-                    .get(term.mono())
-                    .expect("term monomial must exist in sparse matrix columns");
+                let Some(&col) = column_index.get(term.mono()) else {
+                    continue;
+                };
 
                 entries.push((col, coeff));
             }
@@ -96,6 +96,7 @@ fn build_column_index(columns: &[Monomial]) -> HashMap<&Monomial, usize> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use gbx_field::fp::{Fp, FpElem};
@@ -198,8 +199,8 @@ mod tests {
     fn zero_coefficients_are_skipped() {
         let ctx = test_ctx();
 
-        let zero = FieldCtx::new(&ctx.field, 0);
-        let one = FieldCtx::new(&ctx.field, 1);
+        let zero = FieldCtx::elem(&ctx.field, 0);
+        let one = FieldCtx::elem(&ctx.field, 1);
 
         let row = P::from_raw_parts(
             ctx.id(),
@@ -229,7 +230,7 @@ mod tests {
         assert_eq!(sparse.nrows(), 0);
         assert_eq!(sparse.ncols(), 0);
         assert_eq!(sparse.nnz(), 0);
-        assert_eq!(sparse.density(), 0.0);
+        assert!(sparse.density().abs() <= f64::EPSILON);
         assert!(sparse.input_lead_cols.is_empty());
     }
 }

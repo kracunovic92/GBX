@@ -12,6 +12,11 @@ use gbx_poly::ring::{FieldCtx, RingCtx};
 use std::hash::Hash;
 
 /// Compute a Gröbner basis using the default F4 engine configuration.
+///
+/// # Errors
+///
+/// Returns an error if option validation fails or the F4 engine fails while
+/// constructing, reducing, or post-processing the basis.
 pub fn f4<P, F, O>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: F4Options) -> Result<GrobnerBasis<P>>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
@@ -19,8 +24,7 @@ where
     P: PolynomialMut + PolynomialOps + PolynomialView + Clone + Send + std::marker::Sync,
     P::Coeff: Copy + Eq + Default,
     Monomial: Clone + Eq + Hash + Default,
-    <P as PolynomialView>::Coeff: Send,
-    <P as PolynomialView>::Coeff: Sync,
+    <P as PolynomialView>::Coeff: Send + Sync,
 {
     run_f4(ctx, fs, opts.validated()?)
 }

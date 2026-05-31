@@ -1,5 +1,5 @@
-use crate::graph::error::GraphError;
 use crate::GraphLike;
+use crate::graph::error::GraphError;
 use std::fmt;
 
 /// A simple undirected graph with vertices labeled `1..=n`.

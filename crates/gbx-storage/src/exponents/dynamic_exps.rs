@@ -18,24 +18,35 @@ pub struct DynExps<E = u32>(Box<[E]>);
 impl<E> DynExps<E> {
     /// Construct from a `Vec` (boxed to remove spare capacity).
     #[inline]
+    #[must_use]
     pub fn new(v: Vec<E>) -> Self {
         Self(v.into_boxed_slice())
     }
 
     /// Construct directly from a boxed slice.
     #[inline]
-    pub fn new_boxed(b: Box<[E]>) -> Self {
+    #[must_use]
+    pub const fn new_boxed(b: Box<[E]>) -> Self {
         Self(b)
     }
 
     /// Number of variables (length of the exponent vector).
     #[inline]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
+    /// Returns `true` if the exponent vector has no entries.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Borrow the exponent vector as a slice.
     #[inline]
+    #[must_use]
     pub fn as_slice(&self) -> &[E] {
         &self.0
     }
@@ -48,6 +59,7 @@ impl<E> DynExps<E> {
 
     /// Consume self and return the boxed slice.
     #[inline]
+    #[must_use]
     pub fn into_boxed_slice(self) -> Box<[E]> {
         self.0
     }
@@ -55,6 +67,9 @@ impl<E> DynExps<E> {
 
 impl DynExps<u32> {
     /// Construct from a slice of `u64`, checking that all values fit in `u32`.
+    ///
+    /// # Errors
+    /// Returns [`ExpsError::ValueOverflow`] if an input exponent does not fit in `u32`.
     #[inline]
     pub fn try_from_u64_slice(exps: &[u64]) -> Result<Self, ExpsError> {
         let mut out = Vec::with_capacity(exps.len());
@@ -68,16 +83,19 @@ impl DynExps<u32> {
     /// Construct from a slice of `i64`, interpreting negatives as an error.
     ///
     /// This is intentionally strict: exponent words are unsigned.
+    ///
+    /// # Errors
+    /// Returns [`ExpsError::NegativeValue`] for negative inputs, or
+    /// [`ExpsError::ValueOverflow`] if a nonnegative input does not fit in `u32`.
     #[inline]
     pub fn try_from_i64_slice(exps: &[i64]) -> Result<Self, ExpsError> {
         let mut out = Vec::with_capacity(exps.len());
         for &e in exps {
             if e < 0 {
-                // Reuse overflow error to avoid adding a new variant right now.
-                // If you prefer, we can add `NegativeValue { value: i64 }`.
-                return Err(ExpsError::value_overflow(e as u64));
+                return Err(ExpsError::negative_value(e));
             }
-            let e32 = u32::try_from(e as u64).map_err(|_| ExpsError::value_overflow(e as u64))?;
+            let unsigned = u64::try_from(e).map_err(|_| ExpsError::negative_value(e))?;
+            let e32 = u32::try_from(unsigned).map_err(|_| ExpsError::value_overflow(unsigned))?;
             out.push(e32);
         }
         Ok(Self::new(out))
@@ -160,7 +178,10 @@ mod tests {
 
     #[test]
     fn dyn_exps_try_from_u64_slice_checks() {
-        let e = DynExps::<u32>::try_from_u64_slice(&[1, 2, 3]).unwrap();
+        let e = match DynExps::<u32>::try_from_u64_slice(&[1, 2, 3]) {
+            Ok(exps) => exps,
+            Err(err) => panic!("small exponents should fit in u32: {err}"),
+        };
         assert_eq!(e.as_slice(), &[1, 2, 3]);
     }
 

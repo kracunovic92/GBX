@@ -8,9 +8,9 @@ echo "== clippy =="
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 
 echo "== test =="
-cargo test --workspace --all-targets --all-features
+cargo test --workspace --lib --bins --tests --all-features -- --test-threads=1
 
 echo "== doc =="
-cargo doc --workspace --no-deps --all-features -D warnings
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
 
 echo "OK"

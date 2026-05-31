@@ -12,6 +12,7 @@ use gbx_poly::polynomial::PolynomialView;
 /// The history stores the data needed by symbolic simplification without
 /// retaining the full materialized symbolic row set.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_field_names)]
 pub struct BatchHistory<P> {
     /// Products used to build the symbolic row set `F_j`.
     pub f_j_products: Vec<UnevaluatedProduct<PolyMono>>,
@@ -104,13 +105,14 @@ where
     /// Returns the number of iterations already started.
     #[inline]
     #[must_use]
-    pub fn iteration(&self) -> usize {
+    #[allow(dead_code)]
+    pub const fn iteration(&self) -> usize {
         self.iteration
     }
 
     /// Advances the iteration counter.
     #[inline]
-    pub fn advance_iteration(&mut self) {
+    pub const fn advance_iteration(&mut self) {
         self.iteration += 1;
     }
 
@@ -126,6 +128,7 @@ where
     /// Returns compact counters useful for logs and tests.
     #[inline]
     #[must_use]
+    #[allow(dead_code)]
     pub fn debug_counts(&self) -> F4StateDebugCounts {
         F4StateDebugCounts { iteration: self.iteration, basis_len: self.basis.len(), history_len: self.history.len(), pending_len: self.pending.len() }
     }
@@ -142,6 +145,7 @@ where
 
 /// Compact debug counters for an [`F4State`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub struct F4StateDebugCounts {
     /// Current iteration counter.
     pub iteration: usize,

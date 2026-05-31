@@ -1,7 +1,7 @@
 //! Entry point for constructing ring contexts.
 
-use crate::ring::builder::RingBuilder;
 use crate::ring::FieldCtx;
+use crate::ring::builder::RingBuilder;
 
 /// Ergonomic entry point for creating a [`RingCtx`](crate::ring::RingCtx).
 ///
@@ -29,6 +29,7 @@ impl Ring {
     /// assert_eq!(ring.nvars, 4);
     /// ```
     #[inline]
+    #[must_use]
     pub fn builder<F>() -> RingBuilder<F, ()>
     where
         F: FieldCtx,

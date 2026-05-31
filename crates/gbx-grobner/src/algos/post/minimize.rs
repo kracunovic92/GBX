@@ -1,7 +1,7 @@
-use crate::algos::post::PostError;
 use crate::GrobnerBasis;
+use crate::algos::post::PostError;
 
-use gbx_poly::monomial::{divides, Monomial};
+use gbx_poly::monomial::{Monomial, divides};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialOps, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
@@ -11,6 +11,11 @@ use gbx_poly::ring::{FieldCtx, RingCtx};
 /// Removes every polynomial whose leading monomial is divisible by the leading
 /// monomial of another basis element. The surviving basis elements are then
 /// made monic.
+///
+/// # Errors
+///
+/// Returns an error if leading monomials are missing unexpectedly or if making a
+/// survivor monic fails.
 pub fn minimize_in_place<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -70,6 +75,11 @@ where
 }
 
 /// Make one polynomial monic in place.
+///
+/// # Errors
+///
+/// Returns an error if the leading coefficient is missing, not invertible, or
+/// scaling fails.
 pub fn make_monic_in_place<P, F, O>(ctx: &RingCtx<F, O>, p: &mut P) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = P::Coeff>,

@@ -14,5 +14,10 @@ where
     P: PolynomialView,
 {
     /// Reduces a batch of symbolic rows and returns newly discovered rows.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if reducer-specific matrix construction, row reduction,
+    /// or polynomial extraction fails.
     fn reduce(&self, ctx: &RingCtx<F, O>, rows: &[P]) -> Result<Vec<P>>;
 }

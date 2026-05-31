@@ -33,7 +33,7 @@ mod lex;
 mod spec;
 pub(crate) mod traits;
 
-pub use grevlex::{Grevlex, GREVLEX};
-pub use lex::{Lex, LEX};
+pub use grevlex::{GREVLEX, Grevlex};
+pub use lex::{LEX, Lex};
 pub use spec::{OrderParseError, OrderSpec};
 pub use traits::MonomialOrder;

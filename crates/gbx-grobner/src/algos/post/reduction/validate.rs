@@ -1,18 +1,18 @@
 use crate::algos::post::PostError;
 use crate::f4_debug;
 
-use gbx_poly::monomial::{divides, Monomial};
+use gbx_poly::monomial::{Monomial, divides};
 use gbx_poly::polynomial::PolynomialView;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ReductionViolation {
-    pub(crate) i: usize,
-    pub(crate) j: usize,
-    pub(crate) bad_term: Monomial,
+pub struct ReductionViolation {
+    pub i: usize,
+    pub j: usize,
+    pub bad_term: Monomial,
 }
 
 /// Ensures no basis leading monomial is divisible by another.
-pub(crate) fn assert_minimal_leading_monomials<P>(basis: &[P]) -> Result<(), PostError>
+pub fn assert_minimal_leading_monomials<P>(basis: &[P]) -> Result<(), PostError>
 where
     P: PolynomialView,
 {
@@ -48,7 +48,7 @@ where
 }
 
 /// Returns tail terms that are reducible by another basis leading monomial.
-pub(crate) fn find_reduction_violations<P>(basis: &[P]) -> Vec<ReductionViolation>
+pub fn find_reduction_violations<P>(basis: &[P]) -> Vec<ReductionViolation>
 where
     P: PolynomialView,
 {
@@ -80,7 +80,7 @@ where
 }
 
 /// Ensures every basis tail is reduced against all other leading monomials.
-pub(crate) fn assert_fully_reduced_basis<P>(basis: &[P]) -> Result<(), PostError>
+pub fn assert_fully_reduced_basis<P>(basis: &[P]) -> Result<(), PostError>
 where
     P: PolynomialView,
 {
@@ -90,13 +90,13 @@ where
         return Ok(());
     }
 
-    let _first = &violations[0];
+    let first = &violations[0];
 
     f4_debug!(
         violations = violations.len(),
-        i = _first.i,
-        j = _first.j,
-        bad_term = ?_first.bad_term,
+        i = first.i,
+        j = first.j,
+        bad_term = ?first.bad_term,
         "post.reduce.not_fully_reduced"
     );
 

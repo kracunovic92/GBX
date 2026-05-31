@@ -13,7 +13,7 @@
 #[macro_export]
 macro_rules! mono {
     ($($e:expr),* $(,)?) => {{
-        $crate::monomial::Monomial::from_slice(&[$($e as u32),*])
+        $crate::monomial::Monomial::from_slice(&[$($e),*])
     }};
 }
 

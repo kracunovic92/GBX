@@ -25,33 +25,51 @@ pub enum ExpsError {
         /// The offending value.
         value: u64,
     },
+
+    /// A signed exponent input was negative.
+    NegativeValue {
+        /// The offending value.
+        value: i64,
+    },
 }
 
 impl ExpsError {
     /// Convenience constructor for arity mismatch.
     #[inline]
+    #[must_use]
     pub const fn wrong_length(expected: usize, got: usize) -> Self {
         Self::WrongLength { expected, got }
     }
 
     /// Convenience constructor for value overflow.
     #[inline]
+    #[must_use]
     pub const fn value_overflow(value: u64) -> Self {
         Self::ValueOverflow { value }
+    }
+
+    /// Convenience constructor for negative signed exponent input.
+    #[inline]
+    #[must_use]
+    pub const fn negative_value(value: i64) -> Self {
+        Self::NegativeValue { value }
     }
 }
 
 impl fmt::Display for ExpsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ExpsError::WrongLength { expected, got } => {
+            Self::WrongLength { expected, got } => {
                 write!(f, "wrong exponent length: expected {expected}, got {got}")
             }
-            ExpsError::ValueOverflow { value } => {
+            Self::ValueOverflow { value } => {
                 write!(
                     f,
                     "exponent value overflow: {value} does not fit in the chosen word size"
                 )
+            }
+            Self::NegativeValue { value } => {
+                write!(f, "negative exponent value: {value}")
             }
         }
     }

@@ -27,7 +27,11 @@ pub struct F4Options {
 
 impl F4Options {
     /// Validates this options value.
-    pub fn validate(&self) -> Result<()> {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`F4Error::InvalidBatchSize`] when `batch_size` is zero.
+    pub const fn validate(&self) -> Result<()> {
         if self.batch_size == 0 {
             return Err(F4Error::InvalidBatchSize);
         }
@@ -36,10 +40,15 @@ impl F4Options {
     }
 
     /// Validates and wraps this options value.
-    pub fn validated(self) -> Result<ValidatedF4Options> {
-        self.validate()?;
-
-        Ok(ValidatedF4Options(self))
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`Self::validate`].
+    pub const fn validated(self) -> Result<ValidatedF4Options> {
+        match self.validate() {
+            Ok(()) => Ok(ValidatedF4Options(self)),
+            Err(err) => Err(err),
+        }
     }
 }
 
@@ -70,24 +79,17 @@ pub enum F4ReducerKind {
 pub struct ValidatedF4Options(F4Options);
 
 impl ValidatedF4Options {
-    /// Borrows the inner options.
-    #[inline]
-    #[must_use]
-    pub fn as_ref(&self) -> &F4Options {
-        &self.0
-    }
-
     /// Consumes the wrapper and returns the inner options.
     #[inline]
     #[must_use]
-    pub fn into_inner(self) -> F4Options {
+    pub const fn into_inner(self) -> F4Options {
         self.0
     }
 
     /// Returns the configured reducer backend.
     #[inline]
     #[must_use]
-    pub fn reducer_kind(&self) -> F4ReducerKind {
+    pub const fn reducer_kind(&self) -> F4ReducerKind {
         self.0.reducer_kind
     }
 }
@@ -110,6 +112,7 @@ impl AsRef<F4Options> for ValidatedF4Options {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     #[test]
@@ -137,7 +140,7 @@ mod tests {
     fn validated_wraps_valid_options() {
         let opts = F4Options { batch_size: 32, reducer_kind: F4ReducerKind::Dense, ..F4Options::default() };
 
-        let validated = opts.clone().validated().unwrap();
+        let validated = opts.validated().unwrap();
 
         assert_eq!(validated.batch_size, 32);
         assert_eq!(validated.reducer_kind(), F4ReducerKind::Dense);

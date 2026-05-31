@@ -6,7 +6,7 @@ use crate::algos::f4::state::BatchHistory;
 use crate::algos::f4::simplify::rules::SourceSimplifyRules;
 use crate::algos::f4::simplify::target::RewriteTarget;
 use crate::symbolic::{ProductSource, UnevaluatedProduct};
-use gbx_poly::monomial::{checked_div_exact, divides, Monomial};
+use gbx_poly::monomial::{Monomial, checked_div_exact, divides};
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::PolynomialView;
 use gbx_poly::ring::{FieldCtx, RingCtx};
@@ -51,10 +51,7 @@ impl SimplifyIndex {
 
             let target = RewriteTarget { source: ProductSource::HistoryReducedRow { batch_index, row_index: row_index_in_f_j_tilde } };
 
-            let rules = self
-                .by_source
-                .entry(historical_product.source)
-                .or_insert_with(SourceSimplifyRules::new);
+            let rules = self.by_source.entry(historical_product.source).or_default();
 
             rules.insert_exact(historical_product.multiplier.clone(), target.clone());
 
@@ -124,7 +121,7 @@ impl SimplifyIndex {
         // Exact rewrite: (t, f) -> (1, p).
         if let Some(target) = rules.exact_rewrites.get(&product.multiplier) {
             return Ok(Some(UnevaluatedProduct {
-                source: target.source.clone(),
+                source: target.source,
                 multiplier: Monomial::one(ctx.nvars),
             }));
         }
@@ -148,7 +145,7 @@ impl SimplifyIndex {
             debug_assert_eq!(quotient.n_vars(), ctx.nvars);
 
             return Ok(Some(UnevaluatedProduct {
-                source: rewrite.target.source.clone(),
+                source: rewrite.target.source,
                 multiplier: quotient,
             }));
         }

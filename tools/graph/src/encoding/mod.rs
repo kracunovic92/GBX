@@ -6,5 +6,5 @@
 pub mod color;
 pub mod error;
 
-pub use color::{build_k_coloring_system, BoolPolyBuilder, ColoringEncoding, VarIndex};
+pub use color::{BoolPolyBuilder, ColoringEncoding, VarIndex, build_k_coloring_system};
 pub use error::EncodingError;

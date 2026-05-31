@@ -1,66 +1,47 @@
+const BASES: [u32; 5] = [2, 3, 5, 7, 11];
+
 #[inline]
-pub(crate) fn is_prime_u32(n: u32) -> bool {
-    if n < 2 {
+pub fn is_prime_u32(candidate: u32) -> bool {
+    if candidate < 2 {
         return false;
     }
 
-    for &p in &[2u32, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37] {
-        if n == p {
+    for &small_prime in &[2u32, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37] {
+        if candidate == small_prime {
             return true;
         }
 
-        if n % p == 0 {
+        if candidate % small_prime == 0 {
             return false;
         }
     }
 
-    fn mul_mod(a: u64, b: u64, m: u64) -> u64 {
-        (a * b) % m
+    let candidate64 = u64::from(candidate);
+
+    let mut odd_part = u64::from(candidate - 1);
+    let mut two_adic_power = 0u32;
+
+    while (odd_part & 1) == 0 {
+        odd_part >>= 1;
+        two_adic_power += 1;
     }
 
-    fn pow_mod(mut a: u64, mut e: u64, m: u64) -> u64 {
-        let mut acc = 1u64 % m;
-
-        while e > 0 {
-            if (e & 1) == 1 {
-                acc = mul_mod(acc, a, m);
-            }
-
-            a = mul_mod(a, a, m);
-            e >>= 1;
-        }
-
-        acc
-    }
-
-    let n64 = n as u64;
-
-    let mut d = (n - 1) as u64;
-    let mut s = 0u32;
-
-    while (d & 1) == 0 {
-        d >>= 1;
-        s += 1;
-    }
-
-    const BASES: [u32; 5] = [2, 3, 5, 7, 11];
-
-    'outer: for &a32 in &BASES {
-        if a32 >= n {
+    'outer: for &base32 in &BASES {
+        if base32 >= candidate {
             continue;
         }
 
-        let a = a32 as u64;
-        let mut x = pow_mod(a, d, n64);
+        let base = u64::from(base32);
+        let mut witness = pow_mod(base, odd_part, candidate64);
 
-        if x == 1 || x == n64 - 1 {
+        if witness == 1 || witness == candidate64 - 1 {
             continue;
         }
 
-        for _ in 1..s {
-            x = mul_mod(x, x, n64);
+        for _ in 1..two_adic_power {
+            witness = mul_mod(witness, witness, candidate64);
 
-            if x == n64 - 1 {
+            if witness == candidate64 - 1 {
                 continue 'outer;
             }
         }
@@ -69,6 +50,25 @@ pub(crate) fn is_prime_u32(n: u32) -> bool {
     }
 
     true
+}
+
+const fn mul_mod(lhs: u64, rhs: u64, modulus: u64) -> u64 {
+    (lhs * rhs) % modulus
+}
+
+const fn pow_mod(mut base: u64, mut exponent: u64, modulus: u64) -> u64 {
+    let mut acc = 1u64 % modulus;
+
+    while exponent > 0 {
+        if (exponent & 1) == 1 {
+            acc = mul_mod(acc, base, modulus);
+        }
+
+        base = mul_mod(base, base, modulus);
+        exponent >>= 1;
+    }
+
+    acc
 }
 
 #[cfg(test)]

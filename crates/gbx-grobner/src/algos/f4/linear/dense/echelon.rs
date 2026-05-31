@@ -20,6 +20,11 @@ where
 ///
 /// Pivot rows are normalized to leading coefficient one. This is forward
 /// elimination only, not reduced row-echelon form.
+///
+/// # Errors
+///
+/// Returns [`F4Error::NonInvertibleLeadingCoefficient`] when a pivot cannot be
+/// inverted in the coefficient field.
 pub fn row_echelon_dense<F, C>(field: &F, rows: &mut [Vec<C>]) -> Result<Vec<usize>>
 where
     F: FieldCtx<Elem = C>,
@@ -109,11 +114,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use gbx_field::fp::Fp;
-    use gbx_poly::ring::FieldCtx;
-
     fn field() -> Fp {
         Fp::prime(7).unwrap()
     }
@@ -143,48 +147,48 @@ mod tests {
     fn row_echelon_normalizes_pivot_rows() {
         let field = field();
 
-        let mut rows = vec![vec![field.new(2), field.new(4)], vec![field.new(0), field.new(3)]];
+        let mut rows = vec![vec![field.elem(2), field.elem(4)], vec![field.elem(0), field.elem(3)]];
 
         let pivots = row_echelon_dense(&field, &mut rows).unwrap();
 
         assert_eq!(pivots, vec![0, 1]);
-        assert_eq!(rows[0][0], field.new(1));
-        assert_eq!(rows[1][1], field.new(1));
+        assert_eq!(rows[0][0], field.elem(1));
+        assert_eq!(rows[1][1], field.elem(1));
     }
 
     #[test]
     fn row_echelon_eliminates_below_pivots() {
         let field = field();
 
-        let mut rows = vec![vec![field.new(1), field.new(2), field.new(0)], vec![field.new(3), field.new(4), field.new(1)]];
+        let mut rows = vec![vec![field.elem(1), field.elem(2), field.elem(0)], vec![field.elem(3), field.elem(4), field.elem(1)]];
 
         let pivots = row_echelon_dense(&field, &mut rows).unwrap();
 
         assert_eq!(pivots, vec![0, 1]);
-        assert_eq!(rows[1][0], field.new(0));
+        assert_eq!(rows[1][0], field.elem(0));
     }
 
     #[test]
     fn row_echelon_swaps_pivot_row_when_needed() {
         let field = field();
 
-        let mut rows = vec![vec![field.new(0), field.new(1)], vec![field.new(3), field.new(4)]];
+        let mut rows = vec![vec![field.elem(0), field.elem(1)], vec![field.elem(3), field.elem(4)]];
 
         let pivots = row_echelon_dense(&field, &mut rows).unwrap();
 
         assert_eq!(pivots, vec![0, 1]);
-        assert_eq!(rows[0][0], field.new(1));
+        assert_eq!(rows[0][0], field.elem(1));
     }
 
     #[test]
     fn row_echelon_reduces_dependent_rows_to_zero_tail() {
         let field = field();
 
-        let mut rows = vec![vec![field.new(1), field.new(2)], vec![field.new(2), field.new(4)]];
+        let mut rows = vec![vec![field.elem(1), field.elem(2)], vec![field.elem(2), field.elem(4)]];
 
         let pivots = row_echelon_dense(&field, &mut rows).unwrap();
 
         assert_eq!(pivots, vec![0]);
-        assert_eq!(rows[1], vec![field.new(0), field.new(0)]);
+        assert_eq!(rows[1], vec![field.elem(0), field.elem(0)]);
     }
 }

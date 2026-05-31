@@ -1,9 +1,9 @@
 //! GBX adapter: runtime dispatch + ring construction.
 
 use crate::gbx::config::GbxConfig;
-use crate::gbx::run::{compute_basis_in_ring, GbxRunOutput};
+use crate::gbx::run::{GbxRunOutput, compute_basis_in_ring};
 use crate::utils::test_file_config::TestCase;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 use gbx_field::fp::Fp;
 use gbx_poly::order::{Grevlex, Lex};

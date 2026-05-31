@@ -9,5 +9,9 @@ profdata/
 *.profraw
 **/Cargo.lock
 
-perf.*
+perf.data*
+out.perf*
+heaptrack.*
+flamegraph.svg
+*.folded
 */out/*

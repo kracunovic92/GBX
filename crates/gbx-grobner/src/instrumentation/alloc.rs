@@ -6,6 +6,7 @@ use std::time::Instant;
 /// Allocation traffic recorded for one profiled region.
 #[cfg(feature = "profiling-alloc")]
 #[derive(Debug, Clone, Copy, Default)]
+#[allow(clippy::struct_field_names)]
 pub struct AllocProfile {
     pub bytes_allocated: usize,
     pub bytes_deallocated: usize,
@@ -14,6 +15,7 @@ pub struct AllocProfile {
 
 #[cfg(feature = "profiling-alloc")]
 #[inline]
+#[allow(clippy::cast_precision_loss)]
 fn bytes_to_mib(bytes: usize) -> f64 {
     bytes as f64 / 1024.0 / 1024.0
 }
@@ -26,14 +28,16 @@ fn elapsed_ms(started: Instant) -> f64 {
 #[cfg(feature = "profiling-alloc")]
 impl From<stats_alloc::Stats> for AllocProfile {
     fn from(stats: stats_alloc::Stats) -> Self {
-        Self { bytes_allocated: stats.bytes_allocated, bytes_deallocated: stats.bytes_deallocated, bytes_reallocated: stats.bytes_reallocated as usize }
+        let bytes_reallocated = usize::try_from(stats.bytes_reallocated).unwrap_or_default();
+
+        Self { bytes_allocated: stats.bytes_allocated, bytes_deallocated: stats.bytes_deallocated, bytes_reallocated }
     }
 }
 
 /// Run `f` while recording allocation traffic and elapsed time for this phase.
 #[cfg(feature = "profiling-alloc")]
 pub fn with_alloc_profile<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
-    use stats_alloc::{Region, INSTRUMENTED_SYSTEM};
+    use stats_alloc::{INSTRUMENTED_SYSTEM, Region};
 
     let started = Instant::now();
     let region = Region::new(&INSTRUMENTED_SYSTEM);

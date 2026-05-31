@@ -35,17 +35,17 @@ mod algos;
 mod display;
 mod error;
 mod macros;
-mod monomial;
+mod owned;
 mod traits;
 
 /// Prelude functions
 pub mod prelude {
-    pub use super::{checked_div_exact, checked_gcd, checked_lcm, checked_lcm_degree, checked_quotient, divides, gcd_is_one, Monomial, MonomialDisplay, MonomialError, MonomialStyle, MonomialView};
+    pub use super::{Monomial, MonomialDisplay, MonomialError, MonomialStyle, MonomialView, checked_div_exact, checked_gcd, checked_lcm, checked_lcm_degree, checked_quotient, divides, gcd_is_one};
 }
 
 pub use algos::{checked_div_exact, checked_gcd, checked_lcm, checked_lcm_degree, checked_quotient, divides, gcd_is_one};
 
 pub use display::{MonomialDisplay, MonomialStyle};
 pub use error::{MonomialError, MonomialResult};
-pub use monomial::Monomial;
+pub use owned::Monomial;
 pub use traits::MonomialView;

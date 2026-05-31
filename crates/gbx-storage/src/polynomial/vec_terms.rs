@@ -19,7 +19,8 @@ impl<T> VecTerms<T> {
     /// assert!(storage.is_empty());
     /// ```
     #[inline]
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self { terms: Vec::new() }
     }
 
@@ -33,7 +34,8 @@ impl<T> VecTerms<T> {
     /// The caller is responsible for ensuring any required invariants
     /// (e.g., sorted order or merged terms).
     #[inline]
-    pub fn from_vec(terms: Vec<T>) -> Self {
+    #[must_use]
+    pub const fn from_vec(terms: Vec<T>) -> Self {
         Self { terms }
     }
 
@@ -46,6 +48,7 @@ impl<T> VecTerms<T> {
     /// - Converting back to a concrete representation
     /// - Passing ownership to another component
     #[inline]
+    #[must_use]
     pub fn into_vec(self) -> Vec<T> {
         self.terms
     }
@@ -107,7 +110,7 @@ mod tests {
     #[test]
     fn with_vec_persists_mutations() {
         let mut s = VecTerms::from_vec(vec![3, 2, 1]);
-        s.with_vec(|v| v.sort());
+        s.with_vec(|v| v.sort_unstable());
         assert_eq!(s.as_slice(), &[1, 2, 3]);
     }
 }

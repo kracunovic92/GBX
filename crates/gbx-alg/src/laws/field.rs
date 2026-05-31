@@ -17,6 +17,10 @@ use super::ring::check_ring;
 /// Note: This asserts *total invertibility for all nonzero elements in `elems`*.
 /// For correctness, your sample set should include all elements (finite field),
 /// or at least a diverse subset (for larger fields).
+///
+/// # Panics
+/// Panics if any ring, multiplication-commutativity, or nonzero-inverse law
+/// fails for the provided sample set.
 #[inline]
 pub fn check_field<T>(elems: &[T])
 where
@@ -32,9 +36,9 @@ where
         if a == z {
             continue;
         }
-        let inv = a
-            .try_inv()
-            .expect("nonzero element must be invertible in a field");
+        let Some(inv) = a.try_inv() else {
+            panic!("nonzero element must be invertible in a field: {a:?}");
+        };
         assert_eq!(a * inv, o, "inverse law failed: a*inv(a) != 1 for a={a:?}");
         assert_eq!(inv * a, o, "inverse law failed: inv(a)*a != 1 for a={a:?}");
     }

@@ -31,24 +31,28 @@ where
     /// Creates a new one-row buffer with `ncols` columns.
     ///
     /// Memory usage is `O(ncols)`, not `O(nrows * ncols)`.
+    #[must_use]
     pub fn new(ncols: usize) -> Self {
         Self { values: vec![C::default(); ncols], touched: Vec::new(), marked: vec![false; ncols] }
     }
 
     /// Number of currently touched columns.
     #[inline]
+    #[must_use]
     pub fn touched_len(&self) -> usize {
         self.touched.len()
     }
 
     /// Number of columns in the buffer.
     #[inline]
+    #[must_use]
     pub fn ncols(&self) -> usize {
         self.values.len()
     }
 
     /// Reads a coefficient.
     #[inline]
+    #[must_use]
     pub fn value_at(&self, col: usize) -> C {
         self.values[col]
     }
@@ -138,6 +142,7 @@ where
     /// nonzero column. This is simple and correct. If profiling shows this is
     /// hot, the next improvement is to maintain touched columns in a structure
     /// that supports faster leading-column lookup.
+    #[must_use]
     pub fn leading_col(&self) -> Option<usize> {
         let zero = C::default();
 
@@ -151,6 +156,11 @@ where
     /// Reduces this buffer by a normalized sparse pivot row.
     ///
     /// Assumes `pivot.lead_coeff == 1`.
+    ///
+    /// # Errors
+    ///
+    /// Currently this operation does not fail for normalized pivots, but it
+    /// returns the shared F4 result type for reducer pipeline consistency.
     pub fn reduce_by_pivot<F>(&mut self, field: &F, pivot: &SparsePivotRow<C>) -> Result<()>
     where
         F: FieldCtx<Elem = C>,
@@ -188,6 +198,11 @@ where
     /// - leading coefficient normalized to one,
     /// - tail sorted by increasing column index,
     /// - no zero entries.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`F4Error::NonInvertibleLeadingCoefficient`] when the leading
+    /// coefficient has no inverse in the coefficient field.
     pub fn to_normalized_pivot<F>(&self, field: &F, lead_col: usize) -> Result<SparsePivotRow<C>>
     where
         F: FieldCtx<Elem = C>,
@@ -229,6 +244,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     #[test]

@@ -2,14 +2,15 @@
 
 use crate::monomial::Monomial;
 use crate::order::MonomialOrder;
+use crate::polynomial::Polynomial;
 use crate::polynomial::error::{PolynomialError, PolynomialResult};
 use crate::polynomial::traits::{PolynomialMut, PolynomialView};
-use crate::polynomial::Polynomial;
 use crate::ring::{FieldCtx, RingCtx};
 use crate::term::Term;
 
 /// Minimal arithmetic hooks required by reduction and Gröbner algorithms.
 #[allow(missing_docs)]
+#[allow(clippy::missing_errors_doc)]
 pub trait PolynomialOps: PolynomialMut + Clone
 where
     Self::Coeff: Copy + Eq,

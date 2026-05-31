@@ -74,7 +74,7 @@ impl Fp {
     /// Constructs a field element by reducing `x` modulo `p`.
     #[must_use]
     #[inline]
-    pub fn new(self, x: u32) -> FpElem {
+    pub const fn elem(self, x: u32) -> FpElem {
         FpElem(x % self.p)
     }
 
@@ -144,8 +144,12 @@ impl Fp {
     pub fn mul(self, a: FpElem, b: FpElem) -> FpElem {
         debug_assert!(a.0 < self.p && b.0 < self.p);
 
-        let prod = (a.0 as u64) * (b.0 as u64);
-        FpElem((prod % (self.p as u64)) as u32)
+        let prod = u64::from(a.0) * u64::from(b.0);
+        let reduced = prod % u64::from(self.p);
+        let Ok(value) = u32::try_from(reduced) else {
+            unreachable!("reduced field product fits in u32");
+        };
+        FpElem(value)
     }
 
     /// Returns the multiplicative inverse of `a`.
@@ -160,8 +164,8 @@ impl Fp {
             return None;
         }
 
-        let p = self.p as i64;
-        let mut aa = a.0 as i64;
+        let p = i64::from(self.p);
+        let mut aa = i64::from(a.0);
         let mut b = p;
         let mut x0: i64 = 1;
         let mut x1: i64 = 0;
@@ -177,12 +181,15 @@ impl Fp {
             return None;
         }
 
-        let inv = x0.rem_euclid(p) as u32;
+        let Ok(inv) = u32::try_from(x0.rem_euclid(p)) else {
+            unreachable!("field inverse representative fits in u32");
+        };
         Some(FpElem(inv))
     }
 
     /// Computes `a / b`.
     ///
+    /// # Errors
     /// Returns [`DivByZero`] if `b == 0`.
     #[inline]
     pub fn checked_div(self, a: FpElem, b: FpElem) -> core::result::Result<FpElem, DivByZero> {
@@ -214,19 +221,19 @@ mod tests {
 
     #[test]
     fn construction_reduces_mod_p() {
-        let f = Fp::prime(7).unwrap();
+        let f = field_7();
 
-        assert_eq!(f.repr_u32(f.new(0)), 0);
-        assert_eq!(f.repr_u32(f.new(7)), 0);
-        assert_eq!(f.repr_u32(f.new(8)), 1);
+        assert_eq!(f.repr_u32(f.elem(0)), 0);
+        assert_eq!(f.repr_u32(f.elem(7)), 0);
+        assert_eq!(f.repr_u32(f.elem(8)), 1);
     }
 
     #[test]
     fn arithmetic_works() {
-        let f = Fp::prime(7).unwrap();
+        let f = field_7();
 
-        let a = f.new(5);
-        let b = f.new(6);
+        let a = f.elem(5);
+        let b = f.elem(6);
 
         assert_eq!(f.repr_u32(f.add(a, b)), 4);
         assert_eq!(f.repr_u32(f.sub(a, b)), 6);
@@ -236,33 +243,45 @@ mod tests {
 
     #[test]
     fn inverse_and_division_work() {
-        let f = Fp::prime(7).unwrap();
+        let f = field_7();
 
-        let a = f.new(5);
-        let inv = f.try_inv(a).unwrap();
+        let a = f.elem(5);
+        let Some(inv) = f.try_inv(a) else {
+            panic!("5 should be invertible modulo 7");
+        };
 
         assert_eq!(f.repr_u32(f.mul(a, inv)), 1);
 
-        let b = f.new(3);
-        let q = f.checked_div(a, b).unwrap();
+        let b = f.elem(3);
+        let q = match f.checked_div(a, b) {
+            Ok(q) => q,
+            Err(err) => panic!("division by nonzero should succeed: {err}"),
+        };
 
         assert_eq!(f.repr_u32(f.mul(q, b)), f.repr_u32(a));
     }
 
     #[test]
     fn inverse_of_zero_is_none() {
-        let f = Fp::prime(7).unwrap();
+        let f = field_7();
 
         assert_eq!(f.try_inv(f.zero()), None);
     }
 
     #[test]
     fn division_by_zero_is_error() {
-        let f = Fp::prime(7).unwrap();
+        let f = field_7();
 
-        let a = f.new(5);
+        let a = f.elem(5);
         let z = f.zero();
 
         assert!(f.checked_div(a, z).is_err());
+    }
+
+    fn field_7() -> Fp {
+        match Fp::prime(7) {
+            Ok(field) => field,
+            Err(err) => panic!("7 should define a prime field: {err}"),
+        }
     }
 }

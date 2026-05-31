@@ -1,7 +1,7 @@
 use crate::algos::f4::error::Result;
 use crate::algos::f4::options::F4Options;
 use crate::basis::GrobnerBasis;
-use crate::{minimize_in_place, reduce_in_place, BasisPostOptionsKind};
+use crate::{BasisPostOptionsKind, minimize_in_place, reduce_in_place};
 
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialReduce, PolynomialView};

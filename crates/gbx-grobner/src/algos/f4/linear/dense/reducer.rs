@@ -1,10 +1,10 @@
 //! Dense F4 matrix reducer.
 
 use crate::algos::f4::error::Result;
+use crate::linear::BatchReducer;
 use crate::linear::dense::build::build_dense_matrix;
 use crate::linear::dense::echelon::row_echelon_dense;
 use crate::linear::dense::extract::extract_new_rows_from_dense;
-use crate::linear::BatchReducer;
 
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialView};
@@ -27,6 +27,11 @@ where
 }
 
 /// Reduces symbolic rows using the dense F4 matrix backend.
+///
+/// # Errors
+///
+/// Returns an error if dense row echelon reduction fails or reduced rows cannot
+/// be decoded into polynomials.
 pub fn dense_matrix_reduce<P, F, O>(ctx: &RingCtx<F, O>, rows: &[P]) -> Result<Vec<P>>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -47,6 +52,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::test_utils::test_ring;
@@ -77,9 +83,9 @@ mod tests {
         let rows: Vec<P> = Vec::new();
         let reducer = DenseF4MatrixReducer;
 
-        let reduced = reducer.reduce(&ring, &rows).unwrap();
+        let output_rows = reducer.reduce(&ring, &rows).unwrap();
 
-        assert!(reduced.is_empty());
+        assert!(output_rows.is_empty());
     }
 
     #[test]

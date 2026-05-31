@@ -1,10 +1,14 @@
 [package]
 name = "gbx-storage"
 version.workspace = true
+description = "Reusable storage backends for exponent vectors and polynomial terms in GBX."
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
+readme = "../../README.md"
+keywords = ["storage", "polynomial", "algebra", "math"]
+categories = ["mathematics", "data-structures"]
 
 [dependencies]
 

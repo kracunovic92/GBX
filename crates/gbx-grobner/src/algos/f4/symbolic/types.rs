@@ -18,22 +18,22 @@ impl<M> UnevaluatedProduct<M> {
     /// Creates an unevaluated product from a source row and multiplier.
     #[inline]
     #[must_use]
-    pub fn new(source: ProductSource, multiplier: M) -> Self {
-        Self { source, multiplier }
+    pub const fn new(source: ProductSource, multiplier: M) -> Self {
+        Self { multiplier, source }
     }
 
     /// Creates an unevaluated product whose source is a current basis element.
     #[inline]
     #[must_use]
-    pub fn from_basis(basis_index: usize, multiplier: M) -> Self {
-        Self { source: ProductSource::Basis(basis_index), multiplier }
+    pub const fn from_basis(basis_index: usize, multiplier: M) -> Self {
+        Self { multiplier, source: ProductSource::Basis(basis_index) }
     }
 
     /// Creates an unevaluated product whose source is a reduced history row.
     #[inline]
     #[must_use]
-    pub fn from_history_reduced_row(batch_index: usize, row_index: usize, multiplier: M) -> Self {
-        Self { source: ProductSource::HistoryReducedRow { batch_index, row_index }, multiplier }
+    pub const fn from_history_reduced_row(batch_index: usize, row_index: usize, multiplier: M) -> Self {
+        Self { multiplier, source: ProductSource::HistoryReducedRow { batch_index, row_index } }
     }
 }
 
@@ -66,7 +66,7 @@ impl<P, M> SymbolicRow<P, M> {
     /// Creates a symbolic row from an unevaluated product and its materialized row.
     #[inline]
     #[must_use]
-    pub fn new(product: UnevaluatedProduct<M>, polynomial: P) -> Self {
+    pub const fn new(product: UnevaluatedProduct<M>, polynomial: P) -> Self {
         Self { product, polynomial }
     }
 
@@ -92,7 +92,7 @@ impl<P, M> SymbolicPreprocessOutput<P, M> {
     /// Creates symbolic preprocessing output from rows and symbolic heads.
     #[inline]
     #[must_use]
-    pub fn new(rows: Vec<SymbolicRow<P, M>>, symbolic_heads: Vec<M>) -> Self {
+    pub const fn new(rows: Vec<SymbolicRow<P, M>>, symbolic_heads: Vec<M>) -> Self {
         Self { rows, symbolic_heads }
     }
 
@@ -132,6 +132,7 @@ pub type PolyProduct = UnevaluatedProduct<Monomial>;
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     #[test]

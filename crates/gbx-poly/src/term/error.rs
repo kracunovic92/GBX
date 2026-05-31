@@ -14,14 +14,14 @@ pub enum TermError {
 impl From<MonomialError> for TermError {
     #[inline]
     fn from(e: MonomialError) -> Self {
-        TermError::Monomial(e)
+        Self::Monomial(e)
     }
 }
 
 impl fmt::Display for TermError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            TermError::Monomial(e) => write!(f, "monomial error: {e}"),
+            Self::Monomial(e) => write!(f, "monomial error: {e}"),
         }
     }
 }

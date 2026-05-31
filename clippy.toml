@@ -3,5 +3,3 @@ cognitive-complexity-threshold = 20
 enum-variant-name-threshold = 3
 type-complexity-threshold = 250
 warn-on-all-wildcard-imports = true
-bool_comparison = false
-redundant_clone = true

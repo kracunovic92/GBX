@@ -1,7 +1,7 @@
 use crate::cli::{CliGbxReducerKind, RunGbxOneCli};
 use crate::gbx::config::{GbxConfig, GbxReducerKind};
 use crate::utils::test_file_config::TestFile;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 pub fn run_gbx_one(args: RunGbxOneCli) -> Result<()> {
     let file = TestFile::from_path(&args.cases).with_context(|| format!("loading cases from {}", args.cases.display()))?;

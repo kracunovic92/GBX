@@ -7,6 +7,6 @@ pub mod dense;
 pub mod reducer;
 pub mod roman;
 
-pub use dense::{dense_matrix_reduce, DenseF4MatrixReducer};
+pub use dense::{DenseF4MatrixReducer, dense_matrix_reduce};
 pub use reducer::BatchReducer;
 pub use roman::*;

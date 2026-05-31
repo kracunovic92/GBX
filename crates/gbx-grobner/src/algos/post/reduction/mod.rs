@@ -9,9 +9,9 @@ mod validate;
 
 use std::time::{Duration, Instant};
 
-use crate::algos::post::minimize::minimize_in_place;
 use crate::algos::post::PostError;
-use crate::{f4_debug, f4_info, GrobnerBasis};
+use crate::algos::post::minimize::minimize_in_place;
+use crate::{GrobnerBasis, f4_debug, f4_info};
 
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialReduce, PolynomialView};
@@ -25,6 +25,11 @@ use self::validate::{assert_fully_reduced_basis, assert_minimal_leading_monomial
 /// The resulting basis is minimal, monic, and tail-reduced with respect to its
 /// own leading monomials. Tail reduction preserves the leading monomial of each
 /// surviving basis element.
+///
+/// # Errors
+///
+/// Returns an error if canonicalization, minimization, tail reduction, or final
+/// validation fails.
 pub fn reduce_in_place<P, F, O>(ctx: &RingCtx<F, O>, gb: &mut GrobnerBasis<P>) -> Result<(), PostError>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -97,12 +102,12 @@ where
     Ok(())
 }
 
-fn log_reduce_done(_input_len: usize, _final_len: usize, _violations_after_reverse: usize, _elapsed: Duration) {
+fn log_reduce_done(input_len: usize, final_len: usize, violations_after_reverse: usize, elapsed: Duration) {
     f4_info!(
-        _input_len,
-        _final_len,
-        _violations_after_reverse,
-        elapsed_ms = _elapsed.as_secs_f64() * 1000.0,
+        input_len,
+        final_len,
+        violations_after_reverse,
+        elapsed_ms = elapsed.as_secs_f64() * 1000.0,
         "post.reduce.done"
     );
 }

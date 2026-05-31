@@ -17,7 +17,7 @@ use gbx_poly::ring::{FieldCtx, RingCtx};
 /// Returns an `F4State` with initialized `basis`, `pending`, empty `history`,
 /// and `iteration = 0`.
 #[cfg_attr(feature = "instrumentation", tracing::instrument(level = "debug", name = "f4.initialize_state", skip(ctx, fs, opts, criterion),))]
-pub fn initialize_state<P, F, O>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: &F4Options, criterion: &ProductCriterion) -> Result<F4State<P>>
+pub fn initialize_state<P, F, O>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: &F4Options, criterion: ProductCriterion) -> Result<F4State<P>>
 where
     F: FieldCtx<Elem = P::Coeff>,
     O: MonomialOrder + Clone,
@@ -39,7 +39,7 @@ where
             continue;
         }
 
-        update_with_polynomial(&mut state.basis, &mut state.pending, f, criterion)?;
+        update_with_polynomial(&mut state.basis, &mut state.pending, f, &criterion)?;
     }
 
     Ok(state)

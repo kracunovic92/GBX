@@ -8,4 +8,3 @@
 //! - how many terms are currently stored in the basis?
 //!
 //! They are not full object dumps.
-

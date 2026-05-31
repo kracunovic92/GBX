@@ -40,7 +40,7 @@ impl MinDegreeSelector {
     /// Returns the maximum selected batch size.
     #[inline]
     #[must_use]
-    pub fn batch_size(&self) -> usize {
+    pub const fn batch_size(&self) -> usize {
         self.batch_size
     }
 }
@@ -57,11 +57,9 @@ impl PairSelector for MinDegreeSelector {
             return Selection { selected: Vec::new(), remaining: Vec::new() };
         }
 
-        let min_degree = pairs
-            .iter()
-            .map(CriticalPair::degree)
-            .min()
-            .expect("non-empty pair list must have a minimum degree");
+        let Some(min_degree) = pairs.iter().map(CriticalPair::degree).min() else {
+            return Selection { selected: Vec::new(), remaining: Vec::new() };
+        };
 
         let mut selected = Vec::new();
         let mut remaining = Vec::new();
@@ -84,6 +82,7 @@ impl PairSelector for MinDegreeSelector {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use crate::test_utils::test_ring;
 

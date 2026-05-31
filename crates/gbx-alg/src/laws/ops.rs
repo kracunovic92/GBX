@@ -1,6 +1,6 @@
 //! Operation-specific law checkers for `+`, `*`, `-`, `0`, `1`.
 //!
-//! These are thin wrappers around [`ops_generic`](super::ops_generic), with cleaner bounds and
+//! These are thin wrappers around the internal `ops_generic` helpers, with cleaner bounds and
 //! more ergonomic usage in ring/field checkers.
 //!
 //! Each checker validates the relevant axiom(s) on a **finite sample set** (`&[T]`).

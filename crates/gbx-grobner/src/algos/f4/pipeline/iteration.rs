@@ -3,7 +3,7 @@ use crate::algos::f4::options::ValidatedF4Options;
 use crate::algos::f4::pairs::criterion::ProductCriterion;
 use crate::algos::f4::pairs::selector::MinDegreeSelector;
 use crate::algos::f4::pipeline::insert::insert_new_rows;
-use crate::algos::f4::pipeline::reduction::{reduction_phase, ReductionPhase};
+use crate::algos::f4::pipeline::reduction::{ReductionPhase, reduction_phase};
 use crate::algos::f4::pipeline::select::select_pairs_phase;
 use crate::algos::f4::state::F4State;
 #[cfg(feature = "instrumentation")]
@@ -22,7 +22,7 @@ pub fn run_iteration<P, F, O, R>(
     opts: &ValidatedF4Options,
     selector: &mut MinDegreeSelector,
     reducer: &R,
-    criterion: &ProductCriterion,
+    criterion: ProductCriterion,
 ) -> Result<IterationOutcome>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
@@ -56,7 +56,7 @@ where
     Ok(IterationOutcome::Progress)
 }
 
-fn apply_reduction_phase<P, F, O>(ctx: &RingCtx<F, O>, state: &mut F4State<P>, phase: ReductionPhase<P>, criterion: &ProductCriterion) -> Result<()>
+fn apply_reduction_phase<P, F, O>(ctx: &RingCtx<F, O>, state: &mut F4State<P>, phase: ReductionPhase<P>, criterion: ProductCriterion) -> Result<()>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
     O: MonomialOrder + Clone + Sync,

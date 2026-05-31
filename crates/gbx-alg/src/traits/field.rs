@@ -5,7 +5,6 @@
 
 use crate::{MulAbelianMonoid, Multiplicative, Ring};
 use core::fmt;
-use std::error;
 
 /// Error returned by checked division when dividing by zero (or non-invertible element).
 ///
@@ -19,7 +18,8 @@ impl fmt::Display for DivByZero {
     }
 }
 
-impl error::Error for DivByZero {}
+#[cfg(feature = "std")]
+impl std::error::Error for DivByZero {}
 
 /// Try to get the multiplicative inverse. Returns `None` for non-invertible elements.
 ///
@@ -139,9 +139,10 @@ mod tests {
         let a = Mod7::new(5);
         let b = Mod7::new(3);
 
-        let q = a
-            .checked_div(b)
-            .expect("division by nonzero should succeed");
+        let q = match a.checked_div(b) {
+            Ok(q) => q,
+            Err(err) => panic!("division by nonzero should succeed: {err}"),
+        };
         assert_eq!(q * b, a);
     }
 

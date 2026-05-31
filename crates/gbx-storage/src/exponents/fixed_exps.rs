@@ -18,19 +18,28 @@ impl<E, const N: usize> FixedExps<E, N> {
 
     /// Length (number of variables), known at compile time.
     #[inline]
+    #[must_use]
     pub const fn len(&self) -> usize {
         N
     }
 
+    /// Returns `true` when the fixed exponent vector has zero arity.
+    #[inline]
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        N == 0
+    }
+
     /// Borrow as a slice.
     #[inline]
+    #[must_use]
     pub const fn as_slice(&self) -> &[E] {
         &self.0
     }
 
     /// Mutably borrow as a slice.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [E] {
+    pub const fn as_mut_slice(&mut self) -> &mut [E] {
         &mut self.0
     }
 }

@@ -41,12 +41,12 @@
 
 mod builder;
 mod ctx;
+mod entry;
 mod error;
 mod field;
-mod ring;
 
 pub use builder::RingBuilder;
 pub use ctx::{RingCtx, RingId};
+pub use entry::Ring;
 pub use error::{RingError, RingResult};
 pub use field::FieldCtx;
-pub use ring::Ring;

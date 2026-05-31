@@ -56,6 +56,7 @@ impl<C> SparseMatrix<C> {
     /// Returns the stored-entry density relative to the equivalent dense matrix.
     #[inline]
     #[must_use]
+    #[allow(clippy::cast_precision_loss)]
     pub fn density(&self) -> f64 {
         let dense_cells = self.dense_cells();
 
@@ -85,7 +86,7 @@ impl<C> SparseMatrixRow<C> {
     /// Creates a sparse row from owned entries.
     #[inline]
     #[must_use]
-    pub fn new(entries: Vec<(usize, C)>) -> Self {
+    pub const fn new(entries: Vec<(usize, C)>) -> Self {
         Self { entries }
     }
 

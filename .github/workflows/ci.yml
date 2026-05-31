@@ -30,11 +30,11 @@ jobs:
             # Lints
             -   run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-            # Tests (include examples/integration tests by using --all-targets)
-            -   run: cargo test --workspace --all-targets --all-features
+            # Tests (exclude Criterion bench binaries; benches run in the separate job below)
+            -   run: cargo test --workspace --lib --bins --tests --all-features -- --test-threads=1
 
             # Optional but recommended: ensure docs build without warnings (broken links, etc.)
-            -   run: cargo doc --workspace --no-deps --all-features -D warnings
+            -   run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
 
     benches:
         name: benches (compile/run) non-blocking

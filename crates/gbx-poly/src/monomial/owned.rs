@@ -18,11 +18,16 @@ pub struct Monomial {
 impl Monomial {
     /// Creates the multiplicative identity monomial `1` with `n_vars` variables.
     #[inline]
+    #[must_use]
     pub fn one(n_vars: usize) -> Self {
         Self { exps: DynExps::new(vec![0u32; n_vars]), degree: 0 }
     }
 
     /// Constructs a monomial from a borrowed exponent slice.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MonomialError::DegreeOverflow`] if the total degree overflows `u32`.
     #[inline]
     pub fn try_from_slice(exponents: &[u32]) -> MonomialResult<Self> {
         let degree = checked_degree(exponents)?;
@@ -36,12 +41,17 @@ impl Monomial {
     ///
     /// Panics if the total degree overflows `u32`.
     #[inline]
+    #[must_use]
     #[allow(clippy::expect_used)]
     pub fn from_slice(exponents: &[u32]) -> Self {
         Self::try_from_slice(exponents).expect("Monomial::from_slice failed: total degree overflow")
     }
 
     /// Constructs a monomial from an owned exponent vector without copying.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MonomialError::DegreeOverflow`] if the total degree overflows `u32`.
     #[inline]
     pub fn try_from_vec(exponents: Vec<u32>) -> MonomialResult<Self> {
         let degree = checked_degree(&exponents)?;
@@ -55,12 +65,19 @@ impl Monomial {
     ///
     /// Panics if the total degree overflows `u32`.
     #[inline]
+    #[must_use]
     #[allow(clippy::expect_used)]
     pub fn from_vec(exponents: Vec<u32>) -> Self {
         Self::try_from_vec(exponents).expect("Monomial::from_vec failed: total degree overflow")
     }
 
     /// Constructs a monomial from exactly `n_vars` exponents.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MonomialError::WrongLength`] if the iterator does not yield exactly
+    /// `n_vars` exponents, or [`MonomialError::DegreeOverflow`] if the total degree
+    /// overflows `u32`.
     #[inline]
     pub fn try_from_exponents_iter<I>(n_vars: usize, exps: I) -> MonomialResult<Self>
     where
@@ -99,29 +116,40 @@ impl Monomial {
 
     /// Returns the exponent slice.
     #[inline]
+    #[must_use]
     pub fn as_slice(&self) -> &[u32] {
         self.exps.as_slice()
     }
 
     /// Returns the number of variables.
     #[inline]
+    #[must_use]
     pub fn n_vars(&self) -> usize {
         self.exps.as_slice().len()
     }
 
     /// Returns the cached total degree.
     #[inline]
+    #[must_use]
     pub const fn degree(&self) -> u32 {
         self.degree
     }
 
     /// Returns `true` if this is the multiplicative identity monomial.
     #[inline]
-    pub fn is_one(&self) -> bool {
+    #[must_use]
+    pub const fn is_one(&self) -> bool {
         self.degree == 0
     }
 
     /// Checked multiplication.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`MonomialError::MismatchedArity`] when the monomials have different
+    /// variable counts, [`MonomialError::DegreeOverflow`] when the total degree
+    /// overflows, or [`MonomialError::ExponentOverflow`] when an individual exponent
+    /// addition overflows.
     #[inline]
     pub fn checked_mul(&self, other: &Self) -> MonomialResult<Self> {
         let n = self.n_vars();

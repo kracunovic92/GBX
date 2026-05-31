@@ -9,6 +9,11 @@ use gbx_poly::ring::FieldCtx;
 /// Runs sequential sparse-buffer echelon reduction.
 ///
 /// The returned pivot rows are normalized and sorted by leading column.
+///
+/// # Errors
+///
+/// Returns an error if a pivot row cannot be normalized because its leading
+/// coefficient is not invertible.
 pub fn sparse_echelon_sequential<F, C>(field: &F, rows: &[SparseMatrixRow<C>], ncols: usize) -> Result<Vec<SparsePivotRow<C>>>
 where
     F: FieldCtx<Elem = C>,
@@ -77,6 +82,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use gbx_field::fp::Fp;
@@ -96,7 +102,7 @@ mod tests {
     fn independent_rows_become_pivots() {
         let field = field();
 
-        let rows = vec![SparseMatrixRow::new(vec![(0, field.new(1)), (2, field.new(3))]), SparseMatrixRow::new(vec![(1, field.new(1)), (3, field.new(4))])];
+        let rows = vec![SparseMatrixRow::new(vec![(0, field.elem(1)), (2, field.elem(3))]), SparseMatrixRow::new(vec![(1, field.elem(1)), (3, field.elem(4))])];
 
         let pivots = sparse_echelon_sequential(&field, &rows, 4).unwrap();
 
@@ -109,7 +115,7 @@ mod tests {
     fn dependent_row_reduces_to_zero() {
         let field = field();
 
-        let rows = vec![SparseMatrixRow::new(vec![(0, field.new(1)), (2, field.new(3))]), SparseMatrixRow::new(vec![(0, field.new(1)), (2, field.new(3))])];
+        let rows = vec![SparseMatrixRow::new(vec![(0, field.elem(1)), (2, field.elem(3))]), SparseMatrixRow::new(vec![(0, field.elem(1)), (2, field.elem(3))])];
 
         let pivots = sparse_echelon_sequential(&field, &rows, 3).unwrap();
 
@@ -121,21 +127,21 @@ mod tests {
     fn pivots_are_normalized() {
         let field = field();
 
-        let rows = vec![SparseMatrixRow::new(vec![(0, field.new(2)), (1, field.new(4))])];
+        let rows = vec![SparseMatrixRow::new(vec![(0, field.elem(2)), (1, field.elem(4))])];
 
         let pivots = sparse_echelon_sequential(&field, &rows, 2).unwrap();
 
         assert_eq!(pivots.len(), 1);
         assert_eq!(pivots[0].lead_col, 0);
         assert_eq!(pivots[0].lead_coeff, field.one());
-        assert_eq!(pivots[0].tail, vec![(1, field.new(2))]);
+        assert_eq!(pivots[0].tail, vec![(1, field.elem(2))]);
     }
 
     #[test]
     fn empty_rows_count_as_zero_reductions() {
         let field = field();
 
-        let rows = vec![SparseMatrixRow::new(vec![]), SparseMatrixRow::new(vec![(1, field.new(1))])];
+        let rows = vec![SparseMatrixRow::new(vec![]), SparseMatrixRow::new(vec![(1, field.elem(1))])];
 
         let pivots = sparse_echelon_sequential(&field, &rows, 3).unwrap();
 

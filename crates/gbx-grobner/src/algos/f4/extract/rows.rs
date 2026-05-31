@@ -9,6 +9,11 @@ use gbx_poly::polynomial::PolynomialView;
 
 /// Extract reduced rows whose leading monomials are new relative to the
 /// original symbolic rows.
+///
+/// # Errors
+///
+/// Currently this operation does not fail, but it returns the shared F4 result
+/// type to match the extraction pipeline.
 pub fn extract_new_rows<P, O>(symbolic_rows: &[P], reduced_rows: &[P], order: &O) -> Result<Vec<P>>
 where
     O: MonomialOrder,

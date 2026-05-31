@@ -35,11 +35,11 @@ where
     O: MonomialOrder,
     P: PolynomialView<Coeff = F::Elem>,
 {
-    pub fn pretty(ring: &'a RingCtx<F, O>, poly: &'a P, vars: &'a [String]) -> Self {
+    pub const fn pretty(ring: &'a RingCtx<F, O>, poly: &'a P, vars: &'a [String]) -> Self {
         Self { ring, poly, vars, style: PolyStyle::Pretty }
     }
 
-    pub fn tuple_dump(ring: &'a RingCtx<F, O>, poly: &'a P, vars: &'a [String]) -> Self {
+    pub const fn tuple_dump(ring: &'a RingCtx<F, O>, poly: &'a P, vars: &'a [String]) -> Self {
         Self { ring, poly, vars, style: PolyStyle::TupleDump }
     }
 }
@@ -115,8 +115,10 @@ where
             write!(f, " + ")?;
         }
 
-        let abs_coeff = signed.abs() as u32;
-        let abs_term = crate::term::Term::new(ring.field.new(abs_coeff), t.mono().clone());
+        let Ok(abs_coeff) = u32::try_from(signed.unsigned_abs()) else {
+            unreachable!("signed representative magnitude is bounded by u32 modulus");
+        };
+        let abs_term = crate::term::Term::new(ring.field.elem(abs_coeff), t.mono().clone());
 
         write!(
             f,
@@ -132,14 +134,15 @@ where
     Ok(())
 }
 
+#[allow(clippy::missing_const_for_fn)]
 fn to_signed_rep(c: u32, p: Option<u32>) -> i64 {
     match p {
         Some(p) if p != 0 => {
-            let c = c as i64;
-            let p = p as i64;
+            let c = i64::from(c);
+            let p = i64::from(p);
 
             if c > p / 2 { c - p } else { c }
         }
-        _ => c as i64,
+        _ => i64::from(c),
     }
 }

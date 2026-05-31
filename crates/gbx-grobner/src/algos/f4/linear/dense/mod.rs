@@ -10,5 +10,5 @@ pub mod extract;
 pub mod reducer;
 pub mod types;
 
-pub use reducer::{dense_matrix_reduce, DenseF4MatrixReducer};
+pub use reducer::{DenseF4MatrixReducer, dense_matrix_reduce};
 pub use types::{DenseMatrix, F4Matrix, MatrixRowMeta};

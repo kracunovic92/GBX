@@ -25,7 +25,7 @@ impl MonomialOrder for Lex {
 
         for (&ai, &bi) in a.iter().zip(b.iter()) {
             match ai.cmp(&bi) {
-                Ordering::Equal => continue,
+                Ordering::Equal => {}
                 non_eq => return non_eq,
             }
         }

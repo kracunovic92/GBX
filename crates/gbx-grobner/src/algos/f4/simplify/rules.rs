@@ -29,10 +29,6 @@ pub(super) struct SourceSimplifyRules {
 }
 
 impl SourceSimplifyRules {
-    pub(super) fn new() -> Self {
-        Self { exact_rewrites: HashMap::new(), divisor_rewrites: Vec::new() }
-    }
-
     pub(super) fn insert_exact(&mut self, multiplier: Monomial, target: RewriteTarget) {
         self.exact_rewrites.insert(multiplier, target);
     }

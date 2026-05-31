@@ -25,7 +25,7 @@ pub trait GraphLike {
 }
 
 // “Public surface”
-pub use encoding::color::{build_k_coloring_system, BoolPolyBuilder, ColoringEncoding, VarIndex};
+pub use encoding::color::{BoolPolyBuilder, ColoringEncoding, VarIndex, build_k_coloring_system};
 pub use encoding::error::EncodingError;
 
 pub use graph::error::GraphError;

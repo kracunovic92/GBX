@@ -1,10 +1,14 @@
 [package]
 name = "gbx-grobner"
+description = "Groebner basis algorithms and post-processing for the GBX ecosystem."
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 version.workspace = true
+readme = "../../README.md"
+keywords = ["grobner", "polynomial", "algebra", "math"]
+categories = ["mathematics", "science"]
 
 [features]
 default = []

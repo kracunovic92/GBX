@@ -103,11 +103,15 @@ impl PendingPairs {
 
 #[inline]
 #[must_use]
-fn normalize_pair_key(i: usize, j: usize) -> (usize, usize) {
+const fn normalize_pair_key(i: usize, j: usize) -> (usize, usize) {
     if i < j { (i, j) } else { (j, i) }
 }
 
 /// Construct all admissible critical pairs from the current basis.
+///
+/// # Errors
+///
+/// Returns a monomial error if critical-pair construction fails.
 pub fn build_all_pairs<P, C>(basis: &[P], criterion: &C) -> Result<Vec<CriticalPair>>
 where
     P: PolynomialView,
@@ -131,6 +135,10 @@ where
 /// Inserts all admissible pairs involving `new_index`.
 ///
 /// This is used after appending a new basis element.
+///
+/// # Errors
+///
+/// Returns a monomial error if critical-pair construction fails.
 pub fn add_pairs_with_new_basis_element<P, C>(basis: &[P], new_index: usize, pending: &mut PendingPairs, criterion: &C) -> Result<()>
 where
     P: PolynomialView,
@@ -151,6 +159,10 @@ where
 ///
 /// Returns `Ok(None)` when the indices are equal or either basis element is
 /// zero.
+///
+/// # Errors
+///
+/// Returns a monomial error if critical-pair construction fails.
 pub fn make_pair<P>(basis: &[P], i: usize, j: usize) -> Result<Option<CriticalPair>>
 where
     P: PolynomialView,
@@ -174,6 +186,7 @@ where
 }
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use crate::algos::f4::pairs::criterion::{NoCriterion, ProductCriterion};
     use crate::test_utils::test_ring;
@@ -192,7 +205,7 @@ mod tests {
         let f1: P = poly![&ring; (1, [2, 0]), (1, [0, 0])].unwrap();
         let f2: P = poly![&ring; (1, [1, 1]), (1, [0, 0])].unwrap();
 
-        let basis = vec![f1, f2];
+        let basis = [f1, f2];
 
         let lm1 = basis[0].leading_mono().unwrap();
         let lm2 = basis[1].leading_mono().unwrap();

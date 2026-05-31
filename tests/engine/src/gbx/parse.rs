@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 
 /// Parse a polynomial string into list of (coeff_mod_p, exponent-vector) terms.
 /// `exponent-vector` length equals `vars.len()`.

@@ -13,11 +13,11 @@
 //!
 //! Reducer preparation / caching is intentionally handled outside this module.
 
-use crate::monomial::{checked_quotient, Monomial, MonomialError};
+use crate::monomial::{Monomial, MonomialError, checked_quotient};
 use crate::order::MonomialOrder;
+use crate::polynomial::PolynomialView;
 use crate::polynomial::error::PolynomialError;
 use crate::polynomial::ops::PolynomialOps;
-use crate::polynomial::PolynomialView;
 use crate::ring::{FieldCtx, RingCtx};
 use crate::term::Term;
 use thiserror::Error;
@@ -44,6 +44,7 @@ impl From<MonomialError> for ReduceError {
 
 /// Reduction / normal form operations.
 #[allow(missing_docs)]
+#[allow(clippy::missing_errors_doc)]
 pub trait PolynomialReduce: PolynomialOps
 where
     Self: Sized + Clone,

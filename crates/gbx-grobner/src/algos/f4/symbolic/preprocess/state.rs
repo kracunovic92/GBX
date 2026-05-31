@@ -76,7 +76,7 @@ where
     P: PolynomialMut + PolynomialOps + PolynomialView + Clone,
     P::Coeff: Copy + Eq + Default,
 {
-    pub(crate) fn new(ctx: &'a RingCtx<F, O>, basis: &'a [P], history: &'a [BatchHistory<P>], simplify_index: &'a SimplifyIndex) -> Self {
+    pub(crate) const fn new(ctx: &'a RingCtx<F, O>, basis: &'a [P], history: &'a [BatchHistory<P>], simplify_index: &'a SimplifyIndex) -> Self {
         Self {
             ctx,
             basis,

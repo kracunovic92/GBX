@@ -15,6 +15,11 @@ use gbx_poly::ring::{FieldCtx, RingCtx};
 ///
 /// The input products are simplified before materialization. The resulting row
 /// set is closed under top reduction by the current basis.
+///
+/// # Errors
+///
+/// Returns an error if simplification, product materialization, or top-reducer
+/// lookup fails.
 pub fn symbolic_preprocess<P, F, O>(
     ctx: &RingCtx<F, O>,
     l_d: &[UnevaluatedProduct<Monomial>],

@@ -15,31 +15,31 @@ pub struct Term<C> {
 impl<C> Term<C> {
     /// Constructs a term from coefficient and monomial.
     #[inline]
-    pub fn new(coeff: C, mono: Monomial) -> Self {
+    pub const fn new(coeff: C, mono: Monomial) -> Self {
         Self { coeff, mono }
     }
 
     /// Borrows the coefficient.
     #[inline]
-    pub fn coeff(&self) -> &C {
+    pub const fn coeff(&self) -> &C {
         &self.coeff
     }
 
     /// Borrows the monomial.
     #[inline]
-    pub fn mono(&self) -> &Monomial {
+    pub const fn mono(&self) -> &Monomial {
         &self.mono
     }
 
     /// Mutable coefficient access.
     #[inline]
-    pub fn coeff_mut(&mut self) -> &mut C {
+    pub const fn coeff_mut(&mut self) -> &mut C {
         &mut self.coeff
     }
 
     /// Mutable monomial access.
     #[inline]
-    pub fn mono_mut(&mut self) -> &mut Monomial {
+    pub const fn mono_mut(&mut self) -> &mut Monomial {
         &mut self.mono
     }
 
@@ -51,7 +51,7 @@ impl<C> Term<C> {
 
     /// Rebuilds a term from owned parts.
     #[inline]
-    pub fn from_parts(coeff: C, mono: Monomial) -> Self {
+    pub const fn from_parts(coeff: C, mono: Monomial) -> Self {
         Self::new(coeff, mono)
     }
 }
@@ -104,7 +104,7 @@ mod tests {
         assert_eq!(*t.coeff(), 7);
         assert_eq!(t.mono().exponents(), &[1, 0, 2]);
 
-        let (c2, m2) = t.clone().into_parts();
+        let (c2, m2) = t.into_parts();
 
         assert_eq!(c2, 7);
         assert_eq!(m2, m);

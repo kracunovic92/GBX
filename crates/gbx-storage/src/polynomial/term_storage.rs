@@ -32,12 +32,12 @@ pub trait TermStorage<T> {
 
     /// Remove all stored terms.
     ///
-    /// Default implementation clears via [`with_vec`].
+    /// Default implementation clears via [`Self::with_vec`].
     ///
     /// Implementations may override this for more efficient behavior.
     #[inline]
     fn clear(&mut self) {
-        self.with_vec(|v| v.clear());
+        self.with_vec(Vec::clear);
     }
 
     /// Reserve capacity for at least `additional` more terms.

@@ -3,7 +3,7 @@
 use core::cmp::Ordering;
 use core::str::FromStr;
 
-use crate::order::{MonomialOrder, GREVLEX, LEX};
+use crate::order::{GREVLEX, LEX, MonomialOrder};
 
 /// Runtime-selectable monomial order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -18,10 +18,11 @@ pub enum OrderSpec {
 impl OrderSpec {
     /// Canonical lowercase name.
     #[inline]
+    #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            OrderSpec::Lex => "lex",
-            OrderSpec::Grevlex => "grevlex",
+            Self::Lex => "lex",
+            Self::Grevlex => "grevlex",
         }
     }
 }
@@ -36,6 +37,7 @@ pub struct OrderParseError {
 impl OrderParseError {
     /// Returns the normalized input string that failed to parse.
     #[inline]
+    #[must_use]
     pub fn got(&self) -> &str {
         &self.got
     }
@@ -57,9 +59,9 @@ impl FromStr for OrderSpec {
         let key = s.trim().to_ascii_lowercase();
 
         match key.as_str() {
-            "lex" | "lexicographic" => Ok(OrderSpec::Lex),
+            "lex" | "lexicographic" => Ok(Self::Lex),
 
-            "grevlex" | "gradedrevlex" | "graded_reverse_lex" | "graded-reverse-lex" | "graded reverse lex" | "graded reverse lexicographic" => Ok(OrderSpec::Grevlex),
+            "grevlex" | "gradedrevlex" | "graded_reverse_lex" | "graded-reverse-lex" | "graded reverse lex" | "graded reverse lexicographic" => Ok(Self::Grevlex),
 
             _ => Err(OrderParseError { got: key }),
         }
@@ -70,16 +72,16 @@ impl MonomialOrder for OrderSpec {
     #[inline]
     fn cmp_exps(&self, a: &[u32], b: &[u32]) -> Ordering {
         match self {
-            OrderSpec::Lex => LEX.cmp_exps(a, b),
-            OrderSpec::Grevlex => GREVLEX.cmp_exps(a, b),
+            Self::Lex => LEX.cmp_exps(a, b),
+            Self::Grevlex => GREVLEX.cmp_exps(a, b),
         }
     }
 
     #[inline]
     fn cmp<M: crate::monomial::MonomialView>(&self, a: &M, b: &M) -> Ordering {
         match self {
-            OrderSpec::Lex => LEX.cmp(a, b),
-            OrderSpec::Grevlex => GREVLEX.cmp(a, b),
+            Self::Lex => LEX.cmp(a, b),
+            Self::Grevlex => GREVLEX.cmp(a, b),
         }
     }
 }
@@ -89,38 +91,34 @@ mod tests {
     use super::*;
     use crate::monomial::Monomial;
 
+    fn parsed(input: &str) -> OrderSpec {
+        match OrderSpec::from_str(input) {
+            Ok(order) => order,
+            Err(err) => panic!("order should parse: {err}"),
+        }
+    }
+
     #[test]
     fn parse_lex_variants() {
-        assert_eq!(OrderSpec::from_str("lex").unwrap(), OrderSpec::Lex);
-        assert_eq!(OrderSpec::from_str(" Lex ").unwrap(), OrderSpec::Lex);
-        assert_eq!(
-            OrderSpec::from_str("lexicographic").unwrap(),
-            OrderSpec::Lex
-        );
+        assert_eq!(parsed("lex"), OrderSpec::Lex);
+        assert_eq!(parsed(" Lex "), OrderSpec::Lex);
+        assert_eq!(parsed("lexicographic"), OrderSpec::Lex);
     }
 
     #[test]
     fn parse_grevlex_variants() {
-        assert_eq!(OrderSpec::from_str("grevlex").unwrap(), OrderSpec::Grevlex);
-        assert_eq!(
-            OrderSpec::from_str("GRADEDREVLEX").unwrap(),
-            OrderSpec::Grevlex
-        );
-        assert_eq!(
-            OrderSpec::from_str("graded_reverse_lex").unwrap(),
-            OrderSpec::Grevlex
-        );
-        assert_eq!(
-            OrderSpec::from_str("graded-reverse-lex").unwrap(),
-            OrderSpec::Grevlex
-        );
+        assert_eq!(parsed("grevlex"), OrderSpec::Grevlex);
+        assert_eq!(parsed("GRADEDREVLEX"), OrderSpec::Grevlex);
+        assert_eq!(parsed("graded_reverse_lex"), OrderSpec::Grevlex);
+        assert_eq!(parsed("graded-reverse-lex"), OrderSpec::Grevlex);
     }
 
     #[test]
     fn parse_unknown_is_error() {
-        let err = OrderSpec::from_str("wat").unwrap_err();
-
-        assert!(err.got().contains("wat"));
+        match OrderSpec::from_str("wat") {
+            Ok(order) => panic!("unknown order should not parse: {order:?}"),
+            Err(err) => assert!(err.got().contains("wat")),
+        }
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::time::Instant;
 
-use gbx_graph::{build_k_coloring_system, Graph};
+use gbx_graph::{Graph, build_k_coloring_system};
 
 use crate::poly_builder::GbxPolyBuilder;
 

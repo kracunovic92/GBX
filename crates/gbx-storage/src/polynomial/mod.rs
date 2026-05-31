@@ -22,7 +22,7 @@ mod tests {
         s.push(1);
         assert_eq!(s.as_slice(), &[2, 1]);
 
-        s.with_vec(|v| v.sort());
+        s.with_vec(|v| v.sort_unstable());
         assert_eq!(s.as_slice(), &[1, 2]);
 
         s.set_from_vec(vec![9]);

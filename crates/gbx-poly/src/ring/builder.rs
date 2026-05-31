@@ -3,7 +3,7 @@
 use crate::order::MonomialOrder;
 use crate::ring::ctx::RingCtx;
 use crate::ring::field::FieldCtx;
-use crate::ring::RingResult;
+use crate::ring::{RingError, RingResult};
 
 /// Builder for constructing a [`RingCtx`].
 ///
@@ -32,6 +32,7 @@ where
 {
     /// Sets the coefficient field context.
     #[inline]
+    #[must_use]
     pub fn field(mut self, field: F) -> Self {
         self.field = Some(field);
         self
@@ -39,7 +40,8 @@ where
 
     /// Sets the number of variables in the polynomial ring.
     #[inline]
-    pub fn nvars(mut self, nvars: usize) -> Self {
+    #[must_use]
+    pub const fn nvars(mut self, nvars: usize) -> Self {
         self.nvars = Some(nvars);
         self
     }
@@ -51,6 +53,7 @@ where
 {
     /// Sets the monomial order.
     #[inline]
+    #[must_use]
     pub fn order<O2>(self, order: O2) -> RingBuilder<F, O2>
     where
         O2: MonomialOrder,
@@ -66,66 +69,63 @@ where
 {
     /// Builds the ring context.
     ///
+    /// # Errors
+    ///
     /// Returns an error if the ring configuration itself is invalid.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `field` or `nvars` were not provided.
-    /// Missing `order` is prevented at compile time.
     pub fn build(self) -> RingResult<RingCtx<F, O>> {
-        RingCtx::new(
-            self.field.expect("ring builder missing field"),
-            self.order.expect("ring builder missing order"),
-            self.nvars.expect("ring builder missing nvars"),
-        )
+        let field = self.field.ok_or(RingError::MissingField)?;
+        let order = self.order.ok_or(RingError::MissingOrder)?;
+        let nvars = self.nvars.ok_or(RingError::MissingNvars)?;
+
+        RingCtx::new(field, order, nvars)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
-
     use super::*;
     use crate::order::Lex;
     use crate::ring::{Ring, RingError};
     use gbx_field::fp::Fp;
 
+    fn field_7() -> Fp {
+        match Fp::prime(7) {
+            Ok(field) => field,
+            Err(err) => panic!("7 should be prime: {err}"),
+        }
+    }
+
     #[test]
     fn builder_builds_ring() {
-        let ring = Ring::builder()
-            .field(Fp::prime(7).unwrap())
-            .order(Lex)
-            .nvars(3)
-            .build()
-            .unwrap();
+        let Ok(ring) = Ring::builder().field(field_7()).order(Lex).nvars(3).build() else {
+            panic!("valid ring should build");
+        };
 
         assert_eq!(ring.nvars, 3);
     }
 
     #[test]
     fn builder_errors_on_nvars_zero() {
-        let err = Ring::builder()
-            .field(Fp::prime(7).unwrap())
-            .order(Lex)
-            .nvars(0)
-            .build()
-            .unwrap_err();
+        let Err(err) = Ring::builder().field(field_7()).order(Lex).nvars(0).build() else {
+            panic!("zero-variable ring should be invalid");
+        };
 
         assert!(matches!(err, RingError::InvalidNvars { .. }));
     }
 
     #[test]
-    #[should_panic(expected = "ring builder missing field")]
-    fn builder_panics_when_field_missing() {
-        let _ = RingBuilder::<Fp, ()>::default().order(Lex).nvars(2).build();
+    fn builder_errors_when_field_missing() {
+        assert!(matches!(
+            RingBuilder::<Fp, ()>::default().order(Lex).nvars(2).build(),
+            Err(RingError::MissingField)
+        ));
     }
 
     #[test]
-    #[should_panic(expected = "ring builder missing nvars")]
-    fn builder_panics_when_nvars_missing() {
-        let _ = Ring::builder()
-            .field(Fp::prime(7).unwrap())
-            .order(Lex)
-            .build();
+    fn builder_errors_when_nvars_missing() {
+        assert!(matches!(
+            Ring::builder().field(field_7()).order(Lex).build(),
+            Err(RingError::MissingNvars)
+        ));
     }
 }

@@ -21,8 +21,8 @@
 //!
 //! let f = Fp::prime(7).unwrap();
 //!
-//! let a = f.new(5);
-//! let b = f.new(6);
+//! let a = f.elem(5);
+//! let b = f.elem(6);
 //!
 //! assert_eq!(f.repr_u32(f.add(a, b)), 4);
 //! assert_eq!(f.repr_u32(f.mul(a, b)), 2);

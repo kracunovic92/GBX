@@ -68,7 +68,7 @@ where
     /// Creates a human-readable formatter without custom variable names.
     ///
     /// Variables will be rendered using default monomial formatting.
-    pub fn pretty(ring: &'a RingCtx<F, O>, term: &'a T) -> Self {
+    pub const fn pretty(ring: &'a RingCtx<F, O>, term: &'a T) -> Self {
         Self { ring, term, vars: None, style: TermStyle::Pretty }
     }
 
@@ -79,11 +79,11 @@ where
     ///
     /// # Example
     ///
-    /// ```
+    /// ```text
     /// // vars = ["x", "y", "z"]
     /// // term prints as 3*x*y^2
     /// ```
-    pub fn pretty_with_vars(ring: &'a RingCtx<F, O>, term: &'a T, vars: &'a [String]) -> Self {
+    pub const fn pretty_with_vars(ring: &'a RingCtx<F, O>, term: &'a T, vars: &'a [String]) -> Self {
         Self { ring, term, vars: Some(vars), style: TermStyle::Pretty }
     }
 
@@ -94,12 +94,12 @@ where
     /// - Deterministic output
     /// - Testing and diffing
     /// - External CAS comparison
-    pub fn tuple(ring: &'a RingCtx<F, O>, term: &'a T) -> Self {
+    pub const fn tuple(ring: &'a RingCtx<F, O>, term: &'a T) -> Self {
         Self { ring, term, vars: None, style: TermStyle::Tuple }
     }
 }
 
-impl<'a, F, O, T> fmt::Display for TermDisplay<'a, F, O, T>
+impl<F, O, T> fmt::Display for TermDisplay<'_, F, O, T>
 where
     F: FieldCtx,
     O: MonomialOrder,
@@ -125,17 +125,16 @@ where
                 } else {
                     let signed = to_signed_rep(c_u, self.ring.field.modulus_u32());
                     let abs = signed.abs();
-
-                    let mono_disp = match self.vars {
-                        Some(vs) => MonomialDisplay::product_with_vars(mono, vs),
-                        None => MonomialDisplay::product(mono),
-                    };
+                    let mono_disp = self.vars.map_or_else(
+                        || MonomialDisplay::product(mono),
+                        |vs| MonomialDisplay::product_with_vars(mono, vs),
+                    );
 
                     match (signed < 0, abs) {
                         (true, 1) => write!(f, "-{mono_disp}"),
                         (false, 1) => write!(f, "{mono_disp}"),
-                        (true, _) => write!(f, "-{}*{}", abs, mono_disp),
-                        (false, _) => write!(f, "{}*{}", abs, mono_disp),
+                        (true, _) => write!(f, "-{abs}*{mono_disp}"),
+                        (false, _) => write!(f, "{abs}*{mono_disp}"),
                     }
                 }
             }
@@ -163,13 +162,14 @@ where
 /// 5  -> -2
 /// 3  ->  3
 /// ```
+#[allow(clippy::missing_const_for_fn)]
 fn to_signed_rep(c: u32, p: Option<u32>) -> i64 {
     match p {
         Some(p) if p != 0 => {
-            let c = c as i64;
-            let p = p as i64;
+            let c = i64::from(c);
+            let p = i64::from(p);
             if c > p / 2 { c - p } else { c }
         }
-        _ => c as i64,
+        _ => i64::from(c),
     }
 }

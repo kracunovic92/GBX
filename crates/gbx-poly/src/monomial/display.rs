@@ -34,7 +34,7 @@ where
     /// let s = MonomialDisplay::product(&m).to_string();
     /// ```
     #[inline]
-    pub fn product(mono: &'a M) -> Self {
+    pub const fn product(mono: &'a M) -> Self {
         Self { mono, vars: None, style: MonomialStyle::Product }
     }
 
@@ -51,7 +51,7 @@ where
     /// let s = MonomialDisplay::product_with_vars(&m, &vars).to_string();
     /// ```
     #[inline]
-    pub fn product_with_vars(mono: &'a M, vars: &'a [String]) -> Self {
+    pub const fn product_with_vars(mono: &'a M, vars: &'a [String]) -> Self {
         Self { mono, vars: Some(vars), style: MonomialStyle::Product }
     }
 
@@ -66,7 +66,7 @@ where
     /// let s = MonomialDisplay::exponents(&m).to_string();
     /// ```
     #[inline]
-    pub fn exponents(mono: &'a M) -> Self {
+    pub const fn exponents(mono: &'a M) -> Self {
         Self { mono, vars: None, style: MonomialStyle::Exponents }
     }
 }

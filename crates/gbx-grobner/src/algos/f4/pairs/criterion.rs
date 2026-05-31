@@ -57,6 +57,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::algos::f4::pairs::critical_pair::CriticalPair;

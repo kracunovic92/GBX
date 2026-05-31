@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::time::Instant;
 
 use super::types::{GbxPoly, GrevlexRing, GrobnerOutput, GrobnerStageOptions};
-use gbx_grobner::{f4, F4Options};
+use gbx_grobner::{F4Options, f4};
 
 pub fn run(ring: &GrevlexRing, polys: &[GbxPoly], _opts: GrobnerStageOptions) -> Result<GrobnerOutput> {
     let f4_opts = F4Options::default();

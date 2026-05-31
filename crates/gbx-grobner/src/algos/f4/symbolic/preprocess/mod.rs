@@ -1,6 +1,6 @@
 //! F4 symbolic preprocessing driver and state.
 
-mod preprocess;
+mod driver;
 mod state;
 
-pub use preprocess::symbolic_preprocess;
+pub use driver::symbolic_preprocess;

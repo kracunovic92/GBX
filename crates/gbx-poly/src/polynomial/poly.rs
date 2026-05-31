@@ -20,12 +20,14 @@ impl<C: Copy + Eq> Polynomial<C> {
     ///
     /// This does not normalize.
     #[inline]
-    pub fn from_raw_parts(ring_id: RingId, terms: Vec<Term<C>>) -> Self {
+    #[must_use]
+    pub const fn from_raw_parts(ring_id: RingId, terms: Vec<Term<C>>) -> Self {
         Self { ring_id, terms }
     }
 
     /// Borrows the underlying terms.
     #[inline]
+    #[must_use]
     pub fn terms_slice(&self) -> &[Term<C>] {
         &self.terms
     }
@@ -34,17 +36,23 @@ impl<C: Copy + Eq> Polynomial<C> {
     ///
     /// Direct mutation may break canonical invariants.
     #[inline]
-    pub fn terms_mut(&mut self) -> &mut Vec<Term<C>> {
+    pub const fn terms_mut(&mut self) -> &mut Vec<Term<C>> {
         &mut self.terms
     }
 
     /// Returns this polynomial's ring id tag.
     #[inline]
-    pub fn ring_id_tag(&self) -> RingId {
+    #[must_use]
+    pub const fn ring_id_tag(&self) -> RingId {
         self.ring_id
     }
 
     /// Checks that this polynomial belongs to `ctx`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PolynomialError::Ring`] when the polynomial was created in a
+    /// different ring context.
     #[inline]
     pub fn assert_same_ring<F, O>(&self, ctx: &RingCtx<F, O>) -> PolynomialResult<()>
     where
@@ -65,6 +73,11 @@ impl<C: Copy + Eq> Polynomial<C> {
     }
 
     /// Builds and normalizes a polynomial in `ctx`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if any term has the wrong number of variables or
+    /// normalization fails.
     #[inline]
     pub fn from_terms_in<F, O>(ctx: &RingCtx<F, O>, terms: Vec<Term<C>>) -> PolynomialResult<Self>
     where

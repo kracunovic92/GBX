@@ -30,7 +30,7 @@ where
 
     #[inline]
     fn coeff(&self, c: u32) -> FpElem {
-        self.ring.field.new(c)
+        self.ring.field.elem(c)
     }
 
     #[inline]

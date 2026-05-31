@@ -55,6 +55,7 @@ fn pair_side_to_product(side: PairSide<'_>) -> UnevaluatedProduct<Monomial> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use gbx_field::fp::FpElem;
@@ -81,12 +82,12 @@ mod tests {
 
         match l_d[0].source {
             ProductSource::Basis(i) => assert_eq!(i, 0),
-            _ => panic!("expected basis source"),
+            ProductSource::HistoryReducedRow { .. } => panic!("expected basis source"),
         }
 
         match l_d[1].source {
             ProductSource::Basis(i) => assert_eq!(i, 1),
-            _ => panic!("expected basis source"),
+            ProductSource::HistoryReducedRow { .. } => panic!("expected basis source"),
         }
 
         assert_eq!(l_d[0].multiplier.exponents(), &[0, 1]);

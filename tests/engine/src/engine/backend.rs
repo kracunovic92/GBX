@@ -16,9 +16,11 @@ pub struct RunMetrics {
     pub peak_memory_bytes: Option<u64>,
 
     /// Optional phase timings from GBX instrumentation.
+    #[allow(dead_code)]
     pub phases_ms: BTreeMap<String, u128>,
 
     /// Optional counters from GBX instrumentation.
+    #[allow(dead_code)]
     pub counters: BTreeMap<String, u64>,
 }
 #[derive(Debug, Clone, Default)]

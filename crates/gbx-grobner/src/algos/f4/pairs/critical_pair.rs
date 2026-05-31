@@ -1,5 +1,5 @@
 //! Critical-pair data for Buchberger-style algorithms and F4.
-use gbx_poly::monomial::{checked_lcm, checked_lcm_degree, checked_quotient, Monomial, MonomialError};
+use gbx_poly::monomial::{Monomial, MonomialError, checked_lcm, checked_lcm_degree, checked_quotient};
 
 /// One critical pair used by Buchberger-style algorithms and by F4.
 ///
@@ -35,82 +35,90 @@ impl CriticalPair {
     /// Returns the smaller stored basis index.
     #[inline]
     #[must_use]
-    pub fn i(&self) -> usize {
+    pub const fn i(&self) -> usize {
         self.i
     }
 
     /// Returns the larger stored basis index.
     #[inline]
     #[must_use]
-    pub fn j(&self) -> usize {
+    pub const fn j(&self) -> usize {
         self.j
     }
 
     /// Returns both stored basis indices.
     #[inline]
     #[must_use]
-    pub fn indices(&self) -> (usize, usize) {
+    pub const fn indices(&self) -> (usize, usize) {
         (self.i, self.j)
     }
 
     /// Returns the lcm of the two leading monomials.
     #[inline]
     #[must_use]
-    pub fn lcm(&self) -> &Monomial {
+    pub const fn lcm(&self) -> &Monomial {
         &self.lcm
     }
 
     /// Returns the total degree of the lcm.
     #[inline]
     #[must_use]
-    pub fn degree(&self) -> u32 {
+    pub const fn degree(&self) -> u32 {
         self.degree
     }
 
     /// Returns the multiplier for the `i`-side basis element.
     #[inline]
     #[must_use]
-    pub fn ti(&self) -> &Monomial {
+    pub const fn ti(&self) -> &Monomial {
         &self.ti
     }
     /// Returns the multiplier for the `j`-side basis element.
     #[inline]
     #[must_use]
-    pub fn tj(&self) -> &Monomial {
+    pub const fn tj(&self) -> &Monomial {
         &self.tj
     }
 
     /// Returns both monomial multipliers.
     #[inline]
     #[must_use]
-    pub fn multipliers(&self) -> (&Monomial, &Monomial) {
+    pub const fn multipliers(&self) -> (&Monomial, &Monomial) {
         (&self.ti, &self.tj)
     }
 
     /// Returns the `i` side of the pair.
     #[inline]
     #[must_use]
-    pub fn left(&self) -> PairSide<'_> {
+    pub const fn left(&self) -> PairSide<'_> {
         PairSide { basis_index: self.i, multiplier: &self.ti }
     }
 
     /// Returns the `j` side of the pair.
     #[inline]
     #[must_use]
-    pub fn right(&self) -> PairSide<'_> {
+    pub const fn right(&self) -> PairSide<'_> {
         PairSide { basis_index: self.j, multiplier: &self.tj }
     }
 
     /// Returns both sides of the pair.
     #[inline]
     #[must_use]
-    pub fn sides(&self) -> [PairSide<'_>; 2] {
+    pub const fn sides(&self) -> [PairSide<'_>; 2] {
         [self.left(), self.right()]
     }
 
     /// Construct a critical pair from two basis indices and their leading monomials.
     ///
     /// Indices are normalized so the stored pair always satisfies `i < j`.
+    ///
+    /// # Errors
+    ///
+    /// Returns a monomial error if lcm or quotient computation fails.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `i == j`.
     pub fn from_lms(i: usize, j: usize, lm_i: &Monomial, lm_j: &Monomial) -> Result<Self, MonomialError> {
         assert_ne!(i, j, "critical pair requires distinct basis indices");
 
@@ -138,11 +146,12 @@ impl CriticalPair {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
     use crate::test_utils::test_ring;
 
     use gbx_field::fp::FpElem;
-    use gbx_poly::monomial::{checked_lcm_degree, MonomialView};
+    use gbx_poly::monomial::{MonomialView, checked_lcm_degree};
     use gbx_poly::order::{Grevlex, Lex};
     use gbx_poly::poly;
     use gbx_poly::polynomial::{Polynomial, PolynomialView};

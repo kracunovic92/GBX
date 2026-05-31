@@ -27,6 +27,8 @@ mod tests {
     use super::*;
     use crate::{Additive, Multiplicative, Zero};
 
+    fn requires_semiring<T: Semiring>(_x: T) {}
+
     #[test]
     fn semiring_spotcheck_u32_distributivity_and_absorption() {
         let (a, b, c) = (2u32, 3, 5);
@@ -38,7 +40,6 @@ mod tests {
         assert_eq!(z.mul(a), z);
         assert_eq!(a.mul(z), z);
 
-        fn requires_semiring<T: Semiring>(_x: T) {}
         requires_semiring(1u32);
     }
 }

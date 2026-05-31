@@ -16,7 +16,7 @@ macro_rules! term {
     ($c:expr, [$($e:expr),* $(,)?]) => {{
         $crate::term::Term::new(
             $c,
-            $crate::monomial::Monomial::from_slice(&[$($e as u32),*]),
+            $crate::monomial::Monomial::from_slice(&[$($e),*]),
         )
     }};
 

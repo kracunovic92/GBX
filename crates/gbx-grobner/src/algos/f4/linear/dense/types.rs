@@ -17,7 +17,7 @@ impl<C> DenseMatrix<C> {
     /// Creates a dense matrix from owned rows and column count.
     #[inline]
     #[must_use]
-    pub fn new(rows: Vec<Vec<C>>, ncols: usize) -> Self {
+    pub const fn new(rows: Vec<Vec<C>>, ncols: usize) -> Self {
         Self { rows, ncols }
     }
 
@@ -31,7 +31,7 @@ impl<C> DenseMatrix<C> {
     /// Returns the number of columns.
     #[inline]
     #[must_use]
-    pub fn ncols(&self) -> usize {
+    pub const fn ncols(&self) -> usize {
         self.ncols
     }
 
@@ -71,7 +71,7 @@ impl<M> MatrixRowMeta<M> {
     /// Creates row metadata.
     #[inline]
     #[must_use]
-    pub fn new(leading_mono: Option<M>, source_row: usize) -> Self {
+    pub const fn new(leading_mono: Option<M>, source_row: usize) -> Self {
         Self { leading_mono, source_row }
     }
 }
@@ -96,7 +96,7 @@ impl<M, C> F4Matrix<M, C> {
     /// Creates a full F4 matrix from owned parts.
     #[inline]
     #[must_use]
-    pub fn new(matrix: DenseMatrix<C>, columns: Vec<M>, metadata: Vec<MatrixRowMeta<M>>) -> Self {
+    pub const fn new(matrix: DenseMatrix<C>, columns: Vec<M>, metadata: Vec<MatrixRowMeta<M>>) -> Self {
         Self { matrix, columns, metadata }
     }
 
@@ -110,7 +110,7 @@ impl<M, C> F4Matrix<M, C> {
     /// Returns the number of columns.
     #[inline]
     #[must_use]
-    pub fn ncols(&self) -> usize {
+    pub const fn ncols(&self) -> usize {
         self.matrix.ncols()
     }
 
@@ -131,6 +131,7 @@ impl<M, C> F4Matrix<M, C> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     #[test]

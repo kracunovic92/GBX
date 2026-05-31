@@ -1,7 +1,7 @@
 #[cfg(feature = "instrumentation")]
 pub fn init_tracing() {
     use tracing_subscriber::fmt::format::FmtSpan;
-    use tracing_subscriber::{fmt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt};
 
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,gbx_grobner=debug,graph_experiments=debug"));
 

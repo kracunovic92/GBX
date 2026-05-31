@@ -25,7 +25,7 @@ where
     /// Creates an empty worklist.
     #[inline]
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { pending: BTreeSet::new(), seen: BTreeSet::new() }
     }
 
@@ -82,6 +82,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::test_utils::test_ring;

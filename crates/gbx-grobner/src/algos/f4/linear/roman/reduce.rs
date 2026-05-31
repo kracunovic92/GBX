@@ -15,6 +15,11 @@ use gbx_poly::polynomial::{PolynomialMut, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 
 /// Reduces an F4 batch using sequential sparse-buffer echelon reduction.
+///
+/// # Errors
+///
+/// Returns an error if sparse echelon reduction fails or extracted pivots cannot
+/// be converted into polynomials.
 pub fn roman_sparse_buffer_reduce<P, F, O>(ctx: &RingCtx<F, O>, rows: &[P]) -> Result<Vec<P>>
 where
     F: FieldCtx<Elem = P::Coeff>,
@@ -44,6 +49,11 @@ where
 }
 
 /// Reduces an F4 batch using parallel sparse-buffer echelon reduction.
+///
+/// # Errors
+///
+/// Returns an error if sparse echelon reduction fails or extracted pivots cannot
+/// be converted into polynomials.
 pub fn roman_sparse_buffer_reduce_parallel<P, F, O>(ctx: &RingCtx<F, O>, rows: &[P]) -> Result<Vec<P>>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,

@@ -1,6 +1,7 @@
 //! Dense F4 matrix construction.
 
 use std::collections::{HashMap, HashSet};
+use std::hash::BuildHasher;
 
 use crate::linear::dense::types::{DenseMatrix, F4Matrix, MatrixRowMeta};
 
@@ -61,6 +62,7 @@ where
 }
 
 /// Builds a monomial-to-column-index map.
+#[must_use]
 pub fn make_col_index(columns: &[Monomial]) -> HashMap<&Monomial, usize> {
     columns
         .iter()
@@ -70,10 +72,12 @@ pub fn make_col_index(columns: &[Monomial]) -> HashMap<&Monomial, usize> {
 }
 
 /// Encodes one polynomial row into a dense coefficient vector.
-pub fn encode_dense_row<P>(row: &P, col_index: &HashMap<&Monomial, usize>, ncols: usize) -> Vec<P::Coeff>
+#[must_use]
+pub fn encode_dense_row<P, S>(row: &P, col_index: &HashMap<&Monomial, usize, S>, ncols: usize) -> Vec<P::Coeff>
 where
     P: PolynomialView,
     P::Coeff: Copy + Eq + Default,
+    S: BuildHasher,
 {
     let mut dense = vec![P::Coeff::default(); ncols];
 
@@ -88,6 +92,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::test_utils::test_ring;
@@ -144,7 +149,7 @@ mod tests {
 
         assert_eq!(
             dense,
-            vec![FieldCtx::new(&ring.field, 0), FieldCtx::new(&ring.field, 3), FieldCtx::new(&ring.field, 5),]
+            vec![FieldCtx::elem(&ring.field, 0), FieldCtx::elem(&ring.field, 3), FieldCtx::elem(&ring.field, 5),]
         );
     }
 

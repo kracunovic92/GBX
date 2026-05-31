@@ -7,7 +7,7 @@ use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialView};
 use gbx_poly::ring::{FieldCtx, RingCtx};
 
-pub fn insert_new_rows<P, F, O>(ctx: &RingCtx<F, O>, state: &mut F4State<P>, rows: Vec<P>, criterion: &ProductCriterion) -> Result<()>
+pub fn insert_new_rows<P, F, O>(ctx: &RingCtx<F, O>, state: &mut F4State<P>, rows: Vec<P>, criterion: ProductCriterion) -> Result<()>
 where
     F: FieldCtx<Elem = P::Coeff>,
     O: MonomialOrder + Clone,
@@ -25,7 +25,7 @@ where
             continue;
         }
 
-        update_with_polynomial(&mut state.basis, &mut state.pending, row, criterion)?;
+        update_with_polynomial(&mut state.basis, &mut state.pending, row, &criterion)?;
     }
 
     Ok(())

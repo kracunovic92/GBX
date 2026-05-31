@@ -1,10 +1,15 @@
 [package]
 name = "test-engine"
+description = "Comparison test runner for GBX Groebner basis outputs."
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 version.workspace = true
+readme = "../../README.md"
+keywords = ["testing", "grobner", "algebra"]
+categories = ["development-tools::testing"]
+publish = false
 
 [features]
 profile-full = [

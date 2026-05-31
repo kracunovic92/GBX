@@ -5,6 +5,7 @@ use crate::monomial::{Monomial, MonomialView};
 
 /// Returns `true` iff `a` divides `b` component-wise.
 #[inline]
+#[must_use]
 pub fn divides(a: &Monomial, b: &Monomial) -> bool {
     if a.n_vars() != b.n_vars() {
         return false;
@@ -17,6 +18,12 @@ pub fn divides(a: &Monomial, b: &Monomial) -> bool {
 }
 
 /// Computes `lcm(a, b)` component-wise.
+///
+/// # Errors
+///
+/// Returns [`MonomialError::MismatchedArity`] when the monomials have different
+/// variable counts, or [`MonomialError::DegreeOverflow`] when the lcm degree
+/// overflows `u32`.
 #[inline]
 pub fn checked_lcm(a: &Monomial, b: &Monomial) -> MonomialResult<Monomial> {
     let n = a.n_vars();
@@ -35,6 +42,12 @@ pub fn checked_lcm(a: &Monomial, b: &Monomial) -> MonomialResult<Monomial> {
 }
 
 /// Computes `deg(lcm(a, b))` without constructing the lcm monomial.
+///
+/// # Errors
+///
+/// Returns [`MonomialError::MismatchedArity`] when the monomials have different
+/// variable counts, or [`MonomialError::DegreeOverflow`] when the lcm degree
+/// overflows `u32`.
 #[inline]
 pub fn checked_lcm_degree(a: &Monomial, b: &Monomial) -> MonomialResult<u32> {
     let n = a.n_vars();
@@ -55,6 +68,11 @@ pub fn checked_lcm_degree(a: &Monomial, b: &Monomial) -> MonomialResult<u32> {
 }
 
 /// Computes `gcd(a, b)` component-wise.
+///
+/// # Errors
+///
+/// Returns [`MonomialError::MismatchedArity`] when the monomials have different
+/// variable counts.
 #[inline]
 pub fn checked_gcd(a: &Monomial, b: &Monomial) -> MonomialResult<Monomial> {
     let n = a.n_vars();
@@ -74,6 +92,7 @@ pub fn checked_gcd(a: &Monomial, b: &Monomial) -> MonomialResult<Monomial> {
 
 /// Returns `true` iff `gcd(a, b) == 1`.
 #[inline]
+#[must_use]
 pub fn gcd_is_one(a: &Monomial, b: &Monomial) -> bool {
     debug_assert_eq!(a.n_vars(), b.n_vars());
 
@@ -84,6 +103,12 @@ pub fn gcd_is_one(a: &Monomial, b: &Monomial) -> bool {
 }
 
 /// Computes `dividend / divisor` if divisible.
+///
+/// # Errors
+///
+/// Returns [`MonomialError::MismatchedArity`] when the monomials have different
+/// variable counts, or [`MonomialError::DegreeOverflow`] if the quotient degree
+/// overflows `u32`.
 #[inline]
 pub fn checked_quotient(divisor: &Monomial, dividend: &Monomial) -> MonomialResult<Option<Monomial>> {
     let n = divisor.n_vars();
@@ -106,6 +131,11 @@ pub fn checked_quotient(divisor: &Monomial, dividend: &Monomial) -> MonomialResu
 }
 
 /// Computes exact `dividend / divisor`.
+///
+/// # Errors
+///
+/// Returns [`MonomialError::NotDivisible`] when `divisor` does not divide
+/// `dividend`. Also returns the errors from [`checked_quotient`].
 #[inline]
 pub fn checked_div_exact(divisor: &Monomial, dividend: &Monomial) -> MonomialResult<Monomial> {
     checked_quotient(divisor, dividend)?.ok_or(MonomialError::NotDivisible)
@@ -131,8 +161,12 @@ mod tests {
         let a = Monomial::from_slice(&[1, 0, 2]);
         let b = Monomial::from_slice(&[3, 4, 1]);
 
-        let l = checked_lcm(&a, &b).unwrap();
-        let g = checked_gcd(&a, &b).unwrap();
+        let Ok(l) = checked_lcm(&a, &b) else {
+            panic!("lcm should succeed for matching arity");
+        };
+        let Ok(g) = checked_gcd(&a, &b) else {
+            panic!("gcd should succeed for matching arity");
+        };
 
         assert_eq!(l.exponents(), &[3, 4, 2]);
         assert_eq!(g.exponents(), &[1, 0, 1]);
@@ -143,12 +177,17 @@ mod tests {
         let divisor = Monomial::from_slice(&[1, 2, 0]);
         let dividend = Monomial::from_slice(&[4, 2, 3]);
 
-        let q = checked_quotient(&divisor, &dividend).unwrap().unwrap();
+        let Ok(Some(q)) = checked_quotient(&divisor, &dividend) else {
+            panic!("quotient should exist for divisible monomials");
+        };
 
         assert_eq!(q.exponents(), &[3, 0, 3]);
 
         let not_divisor = Monomial::from_slice(&[5, 0, 0]);
-        assert!(checked_quotient(&not_divisor, &dividend).unwrap().is_none());
+        assert!(matches!(
+            checked_quotient(&not_divisor, &dividend),
+            Ok(None)
+        ));
     }
 
     #[test]
@@ -156,8 +195,9 @@ mod tests {
         let divisor = Monomial::from_slice(&[2, 0]);
         let dividend = Monomial::from_slice(&[1, 0]);
 
-        let err = checked_div_exact(&divisor, &dividend).unwrap_err();
-
-        assert_eq!(err, MonomialError::NotDivisible);
+        assert!(matches!(
+            checked_div_exact(&divisor, &dividend),
+            Err(MonomialError::NotDivisible)
+        ));
     }
 }

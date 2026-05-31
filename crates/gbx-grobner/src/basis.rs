@@ -24,13 +24,15 @@ impl<P> GrobnerBasis<P> {
     ///
     /// Prefer [`GrobnerBasis::empty_in`] + `push` in algorithms.
     #[inline]
-    pub fn new(ring_id: RingId, polys: Vec<P>) -> Self {
+    #[must_use]
+    pub const fn new(ring_id: RingId, polys: Vec<P>) -> Self {
         Self { ring_id, polys }
     }
 
     /// Construct an empty basis tagged with `ctx.id()`.
     #[inline]
-    pub fn empty_in<F, O>(ctx: &RingCtx<F, O>) -> Self
+    #[must_use]
+    pub const fn empty_in<F, O>(ctx: &RingCtx<F, O>) -> Self
     where
         F: FieldCtx,
     {
@@ -39,11 +41,17 @@ impl<P> GrobnerBasis<P> {
 
     /// Ring id tag.
     #[inline]
-    pub fn ring_id(&self) -> RingId {
+    #[must_use]
+    pub const fn ring_id(&self) -> RingId {
         self.ring_id
     }
 
     /// Ensure the basis matches the ring context.
+    ///
+    /// # Errors
+    ///
+    /// Returns a polynomial ring error if the basis is tagged with a different
+    /// ring id.
     #[inline]
     pub fn assert_same_ring<F, O>(&self, ctx: &RingCtx<F, O>) -> Result<(), PolynomialError>
     where
@@ -55,30 +63,34 @@ impl<P> GrobnerBasis<P> {
 
     /// Borrow as slice.
     #[inline]
+    #[must_use]
     pub fn as_slice(&self) -> &[P] {
         &self.polys
     }
 
     /// Mutable access (algorithm-internal).
     #[inline]
-    pub fn as_mut_vec(&mut self) -> &mut Vec<P> {
+    pub const fn as_mut_vec(&mut self) -> &mut Vec<P> {
         &mut self.polys
     }
 
     /// Number of polynomials.
     #[inline]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.polys.len()
     }
 
     /// Empty?
     #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.polys.is_empty()
     }
 
     /// Get polynomial by index.
     #[inline]
+    #[must_use]
     pub fn get(&self, i: usize) -> Option<&P> {
         self.polys.get(i)
     }
@@ -97,6 +109,7 @@ impl<P> GrobnerBasis<P> {
 
     /// Consume into vec.
     #[inline]
+    #[must_use]
     pub fn into_vec(self) -> Vec<P> {
         self.polys
     }
@@ -136,7 +149,7 @@ impl<'a, P> IntoIterator for &'a GrobnerBasis<P> {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
 
     use super::*;
     use gbx_field::prelude::Fp;
@@ -208,7 +221,7 @@ mod tests {
         gb.retain(|_| false);
 
         assert!(gb.is_empty());
-        assert_eq!(gb.as_slice(), &[] as &[u32]);
+        assert_eq!(gb.as_slice(), &[]);
         assert_eq!(gb.ring_id(), ring.id());
     }
 

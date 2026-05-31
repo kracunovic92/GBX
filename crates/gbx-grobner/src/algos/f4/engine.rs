@@ -13,8 +13,8 @@ use crate::algos::f4::pairs::selector::MinDegreeSelector;
 use crate::algos::f4::pipeline::{initialize_state, post_process_basis, run_iteration};
 use crate::basis::GrobnerBasis;
 use crate::f4_info;
-use crate::linear::roman::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
 use crate::linear::BatchReducer;
+use crate::linear::roman::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
 
 use gbx_poly::order::MonomialOrder;
 use gbx_poly::polynomial::{PolynomialMut, PolynomialOps, PolynomialView};
@@ -25,6 +25,11 @@ use gbx_poly::ring::{FieldCtx, RingCtx};
 /// The reducer backend is selected from [`ValidatedF4Options`]. Use
 /// [`run_f4_with_reducer`] when a specific reducer implementation should be
 /// supplied explicitly, for example in benchmarks or reducer tests.
+///
+/// # Errors
+///
+/// Returns an error if state initialization, an F4 iteration, matrix reduction,
+/// or basis post-processing fails.
 pub fn run_f4<P, F, O>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: ValidatedF4Options) -> Result<GrobnerBasis<P>>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
@@ -56,6 +61,11 @@ where
 /// experimental reduction backends. The F4 control flow is identical to
 /// [`run_f4`]; only the matrix-reduction implementation is provided by the
 /// caller.
+///
+/// # Errors
+///
+/// Returns an error if state initialization, an F4 iteration, reducer execution,
+/// or basis post-processing fails.
 pub fn run_f4_with_reducer<P, F, O, R>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: ValidatedF4Options, reducer: &R) -> Result<GrobnerBasis<P>>
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
@@ -67,14 +77,14 @@ where
     let criterion = ProductCriterion;
     let mut selector = MinDegreeSelector::new(opts.batch_size);
 
-    let mut state = initialize_state(ctx, fs, &opts, &criterion)?;
+    let mut state = initialize_state(ctx, fs, &opts, criterion)?;
 
     if state.basis.is_empty() {
         return Ok(GrobnerBasis::empty_in(ctx));
     }
 
     while !state.is_done() {
-        run_iteration(ctx, &mut state, &opts, &mut selector, reducer, &criterion)?;
+        run_iteration(ctx, &mut state, &opts, &mut selector, reducer, criterion)?;
     }
 
     f4_info!("f4.engine.done");

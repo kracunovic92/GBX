@@ -16,7 +16,7 @@ pub trait FieldCtx {
     /// Constructs a field element from a raw `u32`.
     ///
     /// For prime fields, this should reduce `x` modulo the field modulus.
-    fn new(&self, x: u32) -> Self::Elem;
+    fn elem(&self, x: u32) -> Self::Elem;
 
     /// Additive identity.
     fn zero(&self) -> Self::Elem;
@@ -62,6 +62,8 @@ pub trait FieldCtx {
 
     /// Computes `a / b`.
     ///
+    /// # Errors
+    ///
     /// Returns [`DivByZero`] if `b` has no inverse.
     #[inline]
     fn checked_div(&self, a: Self::Elem, b: Self::Elem) -> Result<Self::Elem, DivByZero> {
@@ -73,8 +75,8 @@ impl FieldCtx for Fp {
     type Elem = FpElem;
 
     #[inline]
-    fn new(&self, x: u32) -> Self::Elem {
-        (*self).new(x)
+    fn elem(&self, x: u32) -> Self::Elem {
+        (*self).elem(x)
     }
 
     #[inline]
@@ -125,34 +127,41 @@ impl FieldCtx for Fp {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used)]
-
     use super::*;
+
+    fn field_7() -> Fp {
+        match Fp::prime(7) {
+            Ok(field) => field,
+            Err(err) => panic!("7 should be prime: {err}"),
+        }
+    }
 
     #[test]
     fn fp_dyn_ctx_arithmetic_works() {
-        let f = Fp::prime(7).unwrap();
+        let field = field_7();
 
-        let a = f.new(5);
-        let b = f.new(6);
+        let lhs = field.elem(5);
+        let rhs = field.elem(6);
 
-        let s = f.add(a, b);
-        assert_eq!(f.repr_u32(s), 4);
+        let sum = field.add(lhs, rhs);
+        assert_eq!(field.repr_u32(sum), 4);
 
-        let m = f.mul(a, b);
-        assert_eq!(f.repr_u32(m), 2);
+        let product = field.mul(lhs, rhs);
+        assert_eq!(field.repr_u32(product), 2);
 
-        let inv = f.try_inv(a).unwrap();
-        assert_eq!(f.repr_u32(f.mul(a, inv)), 1);
+        let Some(inverse) = field.try_inv(lhs) else {
+            panic!("nonzero element should be invertible");
+        };
+        assert_eq!(field.repr_u32(field.mul(lhs, inverse)), 1);
     }
 
     #[test]
     fn checked_div_errors_on_zero() {
-        let f = Fp::prime(7).unwrap();
+        let field = field_7();
 
-        let a = f.new(5);
-        let zero = f.zero();
+        let value = field.elem(5);
+        let zero = field.zero();
 
-        assert!(f.checked_div(a, zero).is_err());
+        assert!(field.checked_div(value, zero).is_err());
     }
 }

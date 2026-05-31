@@ -11,6 +11,10 @@ use crate::term::Term;
 /// - drops zero coefficients,
 /// - sorts descending by monomial order,
 /// - merges duplicate monomials.
+///
+/// # Errors
+///
+/// Returns a polynomial error if term normalization fails.
 pub fn normalize_terms_in<F, O>(ctx: &RingCtx<F, O>, terms: &mut Vec<Term<F::Elem>>) -> PolynomialResult<()>
 where
     F: FieldCtx,

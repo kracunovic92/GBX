@@ -33,7 +33,7 @@ macro_rules! poly {
         let __terms = vec![
             $(
                 $crate::term::Term::new(
-                    $crate::ring::FieldCtx::new(&__ctx.field, $c as u32),
+                    $crate::ring::FieldCtx::elem(&__ctx.field, $c as u32),
                     $crate::monomial::Monomial::from_slice(&[$($e as u32),*]),
                 )
             ),*
@@ -48,7 +48,7 @@ macro_rules! poly {
         let __terms = vec![
             $(
                 $crate::term::Term::new(
-                    $crate::ring::FieldCtx::new(&__ctx.field, $c as u32),
+                    $crate::ring::FieldCtx::elem(&__ctx.field, $c as u32),
                     $m,
                 )
             ),*

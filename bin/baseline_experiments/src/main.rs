@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 
 use gbx_field::fp::{Fp, FpElem};
-use gbx_grobner::{f4, F4Options};
+use gbx_grobner::{F4Options, f4};
 use gbx_poly::monomial::Monomial;
 use gbx_poly::poly;
 use gbx_poly::polynomial::Polynomial;
@@ -9,7 +9,7 @@ use gbx_poly::ring::{Ring, RingCtx};
 use gbx_poly::term::Term;
 
 #[cfg(feature = "profiling-alloc")]
-use stats_alloc::{StatsAlloc, INSTRUMENTED_SYSTEM};
+use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
 
 #[cfg(feature = "profiling-alloc")]
 #[global_allocator]
@@ -53,7 +53,7 @@ fn main() -> Result<()> {
 #[cfg(feature = "instrumentation")]
 fn init_tracing() {
     use tracing_subscriber::fmt::format::FmtSpan;
-    use tracing_subscriber::{fmt, EnvFilter};
+    use tracing_subscriber::{EnvFilter, fmt};
 
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,gbx_grobner=debug,baseline_experiments=debug"));
 
@@ -118,7 +118,7 @@ fn cyclic_sum(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>, width: usize) -> Res
 fn poly_from_terms(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>, terms: &[(u32, [u32; 7])]) -> Result<P> {
     let terms = terms
         .iter()
-        .map(|(coeff, exps)| Term::new(ring.field.new(*coeff), Monomial::from_slice(exps)))
+        .map(|(coeff, exps)| Term::new(ring.field.elem(*coeff), Monomial::from_slice(exps)))
         .collect::<Vec<_>>();
 
     P::from_terms_in(ring, terms).map_err(Into::into)

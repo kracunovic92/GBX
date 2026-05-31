@@ -12,7 +12,7 @@ use cli::{Cli, Command};
 use pipeline::types::GrobnerStageOptions;
 
 #[cfg(feature = "profiling-alloc")]
-use stats_alloc::{StatsAlloc, INSTRUMENTED_SYSTEM};
+use stats_alloc::{INSTRUMENTED_SYSTEM, StatsAlloc};
 
 #[cfg(feature = "profiling-alloc")]
 #[global_allocator]

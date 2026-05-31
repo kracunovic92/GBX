@@ -6,8 +6,8 @@
 //! - `e <u> <v>`
 //! - comment lines starting with `c`
 
-use crate::io::error::DimacsError;
 use crate::Graph;
+use crate::io::error::DimacsError;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -37,8 +37,6 @@ pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
         }
 
         match line.as_bytes()[0] {
-            b'c' => continue,
-
             b'p' => {
                 if graph.is_some() {
                     return Err(DimacsError::DuplicateProblemLine { line_no: 0 });
@@ -79,8 +77,7 @@ pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
             }
 
             _ => {
-                // ignore unknown lines (DIMACS variants sometimes include extra info)
-                continue;
+                // Ignore comments and unknown lines (DIMACS variants sometimes include extra info).
             }
         }
     }
@@ -96,6 +93,9 @@ pub fn read_dimacs<R: BufRead>(reader: R) -> Result<Graph, DimacsError> {
 /// Convenience helper to read a DIMACS file from a given path into a [`Graph`].
 ///
 /// Thin wrapper over [`read_dimacs`].
+///
+/// # Errors
+/// Returns [`DimacsError`] if the file cannot be opened, read, or parsed.
 pub fn read_dimacs_file(path: impl AsRef<Path>) -> Result<Graph, DimacsError> {
     let file = File::open(path)?;
     read_dimacs(BufReader::new(file))

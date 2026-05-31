@@ -21,15 +21,8 @@ impl<'a, M, O> OrderedMono<'a, M, O> {
     /// Creates an ordered monomial key.
     #[inline]
     #[must_use]
-    pub fn new(mono: M, order: &'a O) -> Self {
+    pub const fn new(mono: M, order: &'a O) -> Self {
         Self { mono, order }
-    }
-
-    /// Borrows the wrapped monomial.
-    #[inline]
-    #[must_use]
-    pub fn as_ref(&self) -> &M {
-        &self.mono
     }
 
     /// Consumes the key and returns the wrapped monomial.
@@ -94,22 +87,29 @@ impl<'a, M, O> OrderedProduct<'a, M, O> {
     /// Creates an ordered product key.
     #[inline]
     #[must_use]
-    pub fn new(source: ProductSource, multiplier: M, order: &'a O) -> Self {
+    pub const fn new(source: ProductSource, multiplier: M, order: &'a O) -> Self {
         Self { source, multiplier: OrderedMono::new(multiplier, order) }
     }
 
     /// Returns the product source.
     #[inline]
     #[must_use]
-    pub fn source(&self) -> ProductSource {
+    pub const fn source(&self) -> ProductSource {
         self.source
     }
 
     /// Returns the ordered multiplier key.
     #[inline]
     #[must_use]
-    pub fn multiplier(&self) -> &OrderedMono<'a, M, O> {
+    pub const fn multiplier(&self) -> &OrderedMono<'a, M, O> {
         &self.multiplier
+    }
+}
+
+impl<M, O> AsRef<M> for OrderedMono<'_, M, O> {
+    #[inline]
+    fn as_ref(&self) -> &M {
+        &self.mono
     }
 }
 
@@ -157,6 +157,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used)]
     use super::*;
 
     use crate::algos::f4::symbolic::types::ProductSource;
