@@ -1,6 +1,7 @@
 //! Dense F4 matrix reducer.
 
 use crate::algos::f4::error::Result;
+use crate::instrumentation::profile::{count, counters, with_profile_phase};
 use crate::linear::BatchReducer;
 use crate::linear::dense::build::build_dense_matrix;
 use crate::linear::dense::echelon::row_echelon_dense;
@@ -43,11 +44,36 @@ where
         return Ok(Vec::new());
     }
 
-    let mut matrix = build_dense_matrix(rows, &ctx.order);
+    let mut build_counters = counters();
+    build_counters.insert("rows_in", count(rows.len()));
+    build_counters.insert(
+        "terms_in",
+        count(rows.iter().map(PolynomialView::len).sum()),
+    );
 
-    row_echelon_dense(&ctx.field, &mut matrix.matrix.rows)?;
+    let mut matrix = with_profile_phase("f4.dense.build_matrix", build_counters, || {
+        build_dense_matrix(rows, &ctx.order)
+    });
 
-    extract_new_rows_from_dense::<P, F, O>(ctx, rows, &matrix.matrix.rows, &matrix.columns)
+    let mut reduce_counters = counters();
+    reduce_counters.insert("matrix_rows", count(matrix.nrows()));
+    reduce_counters.insert("matrix_cols", count(matrix.ncols()));
+    reduce_counters.insert(
+        "dense_cells",
+        count(matrix.nrows().saturating_mul(matrix.ncols())),
+    );
+
+    with_profile_phase("f4.dense.row_echelon", reduce_counters, || {
+        row_echelon_dense(&ctx.field, &mut matrix.matrix.rows)
+    })?;
+
+    let mut extract_counters = counters();
+    extract_counters.insert("matrix_rows", count(matrix.nrows()));
+    extract_counters.insert("matrix_cols", count(matrix.ncols()));
+
+    with_profile_phase("f4.dense.extract", extract_counters, || {
+        extract_new_rows_from_dense::<P, F, O>(ctx, rows, &matrix.matrix.rows, &matrix.columns)
+    })
 }
 
 #[cfg(test)]

@@ -6,6 +6,7 @@ use crate::extract::rows::extract_new_rows;
 use crate::symbolic::UnevaluatedProduct;
 
 use crate::algos::f4::simplify::SimplifyIndex;
+use crate::instrumentation::profile::{count, counters, with_profile_phase};
 use crate::linear::BatchReducer;
 use gbx_poly::monomial::Monomial;
 use gbx_poly::order::MonomialOrder;
@@ -64,15 +65,42 @@ where
     P::Coeff: Copy + Eq + Default,
     R: BatchReducer<P, F, O>,
 {
-    let f_d = symbolic_preprocess(ctx, l_d, basis, history, simplify_index)?;
+    let mut symbolic_counters = counters();
+    symbolic_counters.insert("l_d_rows", count(l_d.len()));
+    symbolic_counters.insert("basis_size", count(basis.len()));
+    symbolic_counters.insert("history_batches", count(history.len()));
+
+    let f_d = with_profile_phase("f4.symbolic_preprocess", symbolic_counters, || {
+        symbolic_preprocess(ctx, l_d, basis, history, simplify_index)
+    })?;
 
     let (f_d_rows, f_d_products, f_d_heads) = f_d.into_rows_parts();
 
-    let f_d_tilde = reducer.reduce(ctx, &f_d_rows)?;
+    let mut reducer_counters = counters();
+    reducer_counters.insert("rows_in", count(f_d_rows.len()));
+    reducer_counters.insert(
+        "terms_in",
+        count(f_d_rows.iter().map(PolynomialView::len).sum()),
+    );
 
-    let extracted_rows = extract_new_rows(&f_d_rows, &f_d_tilde, &ctx.order)?;
+    let f_d_tilde = with_profile_phase("f4.reducer", reducer_counters, || {
+        reducer.reduce(ctx, &f_d_rows)
+    })?;
 
-    let extracted_rows = normalize_extracted_rows(ctx, opts, extracted_rows)?;
+    let mut extract_counters = counters();
+    extract_counters.insert("symbolic_rows", count(f_d_rows.len()));
+    extract_counters.insert("reduced_rows", count(f_d_tilde.len()));
+
+    let extracted_rows = with_profile_phase("f4.extract_new_rows", extract_counters, || {
+        extract_new_rows(&f_d_rows, &f_d_tilde, &ctx.order)
+    })?;
+
+    let mut normalize_counters = counters();
+    normalize_counters.insert("rows", count(extracted_rows.len()));
+
+    let extracted_rows = with_profile_phase("f4.normalize_extracted", normalize_counters, || {
+        normalize_extracted_rows(ctx, opts, extracted_rows)
+    })?;
 
     Ok(ReductionPhase { f_d_products, f_d_heads, f_d_tilde, extracted_rows })
 }

@@ -3,7 +3,6 @@ members = [
     "crates/gbx-alg",
     "crates/gbx-field",
     "crates/gbx-poly",
-    "crates/gbx-storage",
     "tests/engine",
     "tools/graph",
     "bin/graph_experiments"
@@ -22,7 +21,6 @@ version = "0.1.0"
 [workspace.dependencies]
 gbx-alg = { path = "crates/gbx-alg" }
 gbx-field = { path = "crates/gbx-field" }
-gbx-storage = { path = "crates/gbx-storage" }
 gbx-poly = { path = "crates/gbx-poly" }
 
 thiserror = "2"
@@ -86,4 +84,3 @@ debug = true
 overflow-checks = true
 debug-assertions = true
 lto = "off"
-

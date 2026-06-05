@@ -1,7 +1,5 @@
 use core::fmt;
 
-use gbx_storage::exponents::DynExps;
-
 use crate::monomial::display::MonomialDisplay;
 use crate::monomial::error::{MonomialError, MonomialResult};
 use crate::monomial::traits::MonomialView;
@@ -11,7 +9,7 @@ use crate::monomial::traits::MonomialView;
 /// Stores an exponent vector and a cached total degree.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Monomial {
-    exps: DynExps<u32>,
+    exps: Box<[u32]>,
     degree: u32,
 }
 
@@ -20,7 +18,7 @@ impl Monomial {
     #[inline]
     #[must_use]
     pub fn one(n_vars: usize) -> Self {
-        Self { exps: DynExps::new(vec![0u32; n_vars]), degree: 0 }
+        Self { exps: vec![0u32; n_vars].into_boxed_slice(), degree: 0 }
     }
 
     /// Constructs a monomial from a borrowed exponent slice.
@@ -32,7 +30,7 @@ impl Monomial {
     pub fn try_from_slice(exponents: &[u32]) -> MonomialResult<Self> {
         let degree = checked_degree(exponents)?;
 
-        Ok(Self { exps: DynExps::new(exponents.to_vec()), degree })
+        Ok(Self { exps: exponents.into(), degree })
     }
 
     /// Constructs a monomial from a borrowed exponent slice.
@@ -56,7 +54,7 @@ impl Monomial {
     pub fn try_from_vec(exponents: Vec<u32>) -> MonomialResult<Self> {
         let degree = checked_degree(&exponents)?;
 
-        Ok(Self { exps: DynExps::new(exponents), degree })
+        Ok(Self { exps: exponents.into_boxed_slice(), degree })
     }
 
     /// Constructs a monomial from an owned exponent vector without copying.
@@ -111,21 +109,21 @@ impl Monomial {
             return Err(MonomialError::WrongLength { expected: n_vars, got: n_vars + 1 + extra_rest });
         }
 
-        Ok(Self { exps: DynExps::new(v), degree })
+        Ok(Self { exps: v.into_boxed_slice(), degree })
     }
 
     /// Returns the exponent slice.
     #[inline]
     #[must_use]
     pub fn as_slice(&self) -> &[u32] {
-        self.exps.as_slice()
+        &self.exps
     }
 
     /// Returns the number of variables.
     #[inline]
     #[must_use]
     pub fn n_vars(&self) -> usize {
-        self.exps.as_slice().len()
+        self.exps.len()
     }
 
     /// Returns the cached total degree.
@@ -177,14 +175,14 @@ impl Monomial {
             );
         }
 
-        Ok(Self { exps: DynExps::new(out), degree })
+        Ok(Self { exps: out.into_boxed_slice(), degree })
     }
 }
 
 impl MonomialView for Monomial {
     #[inline]
     fn exponents(&self) -> &[u32] {
-        self.exps.as_slice()
+        &self.exps
     }
 
     #[inline]

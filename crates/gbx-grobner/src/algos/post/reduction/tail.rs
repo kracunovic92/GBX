@@ -158,13 +158,13 @@ where
     let violations = find_reduction_violations(gb.as_slice());
 
     if !violations.is_empty() {
-        let first = &violations[0];
+        let _first = &violations[0];
 
         f4_debug!(
             violations = violations.len(),
-            i = first.i,
-            j = first.j,
-            bad_term = ?first.bad_term,
+            i = _first.i,
+            j = _first.j,
+            bad_term = ?_first.bad_term,
             "post.reduce.selective_cleanup.failed"
         );
 
@@ -270,7 +270,7 @@ where
     Ok((lm, lt, tail))
 }
 
-fn finish_tail_reduction<P, F, O>(ctx: &RingCtx<F, O>, original: &P, previous_leading_mono: &Monomial, previous_leading_term: Term<P::Coeff>, reduced_tail: P, i: usize) -> Result<P, PostError>
+fn finish_tail_reduction<P, F, O>(ctx: &RingCtx<F, O>, _original: &P, previous_leading_mono: &Monomial, previous_leading_term: Term<P::Coeff>, reduced_tail: P, _i: usize) -> Result<P, PostError>
 where
     F: FieldCtx<Elem = P::Coeff>,
     O: MonomialOrder,
@@ -287,10 +287,10 @@ where
 
     if new_lm.as_ref() != Some(previous_leading_mono) {
         f4_debug!(
-            i,
+            _i,
             old_lm = ?previous_leading_mono,
             new_lm = ?new_lm,
-            original_terms = original.len(),
+            original_terms = _original.len(),
             result_terms = result.len(),
             "post.reduce.tail.leading_monomial_changed"
         );

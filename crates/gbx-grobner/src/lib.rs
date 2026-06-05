@@ -25,7 +25,10 @@ mod instrumentation;
 /// Test helpers for constructing small polynomial rings.
 pub mod test_utils;
 
-pub use algos::{BasisPostOptionsKind, F4Error, F4Options, PostError, Result, engine, extract, f4, linear, make_monic_in_place, minimize_in_place, pairs, reduce_in_place, symbolic, types};
+pub use algos::{
+    BasisPostOptionsKind, F4Error, F4Options, F4ReducerKind, PostError, Result, engine, extract, f4, linear, make_monic_in_place, minimize_in_place, pairs, reduce_in_place, symbolic, types,
+};
 pub use basis::GrobnerBasis;
 pub use display::{GbDisplay, GbStyle};
 pub use error::BuchbergerError;
+pub use instrumentation::profile::{ProfileEvent, clear_profile_events, take_profile_events};

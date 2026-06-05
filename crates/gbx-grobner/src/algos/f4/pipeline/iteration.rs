@@ -8,7 +8,7 @@ use crate::algos::f4::pipeline::select::select_pairs_phase;
 use crate::algos::f4::state::F4State;
 #[cfg(feature = "instrumentation")]
 use crate::f4_info;
-use crate::instrumentation::alloc::with_alloc_profile;
+use crate::instrumentation::profile::{count, counters, with_profile_phase};
 use crate::linear::BatchReducer;
 use crate::types::IterationOutcome;
 use gbx_poly::order::MonomialOrder;
@@ -33,23 +33,27 @@ where
 {
     state.advance_iteration();
 
-    let batch = select_pairs_phase(state, selector);
+    let mut select_counters = counters();
+    select_counters.insert("basis_size", count(state.basis.len()));
+    select_counters.insert("pending_pairs_before", count(state.pending.len()));
+
+    let batch = with_profile_phase("f4.select_pairs", select_counters, || {
+        select_pairs_phase(state, selector)
+    });
 
     if batch.selected_pairs.is_empty() {
         return Ok(IterationOutcome::Done);
     }
 
-    let phase = with_alloc_profile("f4.reduction_phase", || {
-        reduction_phase(
-            ctx,
-            opts,
-            &batch.l_d,
-            &state.basis,
-            &state.history,
-            reducer,
-            &state.simplify_index,
-        )
-    })?;
+    let phase = reduction_phase(
+        ctx,
+        opts,
+        &batch.l_d,
+        &state.basis,
+        &state.history,
+        reducer,
+        &state.simplify_index,
+    )?;
 
     apply_reduction_phase(ctx, state, phase, criterion)?;
 
@@ -73,7 +77,16 @@ where
     #[cfg(feature = "instrumentation")]
     let pending_before_insert = state.pending.len();
 
-    insert_new_rows(ctx, state, extracted_rows, criterion)?;
+    let extracted_count = extracted_rows.len();
+
+    let mut insert_counters = counters();
+    insert_counters.insert("basis_before", count(state.basis.len()));
+    insert_counters.insert("pending_before", count(state.pending.len()));
+    insert_counters.insert("rows_inserted", count(extracted_count));
+
+    with_profile_phase("f4.insert_new_rows", insert_counters, || {
+        insert_new_rows(ctx, state, extracted_rows, criterion)
+    })?;
 
     #[cfg(feature = "instrumentation")]
     f4_info!(

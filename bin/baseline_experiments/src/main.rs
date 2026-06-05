@@ -1,7 +1,10 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use gbx_field::fp::{Fp, FpElem};
-use gbx_grobner::{F4Options, f4};
+use gbx_grobner::{BasisPostOptionsKind, F4Options, F4ReducerKind, ProfileEvent, clear_profile_events, f4, take_profile_events};
 use gbx_poly::monomial::Monomial;
 use gbx_poly::poly;
 use gbx_poly::polynomial::Polynomial;
@@ -18,6 +21,8 @@ static GLOBAL: &StatsAlloc<std::alloc::System> = &INSTRUMENTED_SYSTEM;
 type P = Polynomial<FpElem>;
 
 fn main() -> Result<()> {
+    let cli = Cli::parse()?;
+
     init_tracing();
 
     let field = Fp::prime(32003).context("invalid modulus p")?;
@@ -32,22 +37,294 @@ fn main() -> Result<()> {
 
     println!("case=cyclic7");
     println!("field=Fp(32003)");
-    println!("order=lp");
+    println!("order=grevlex");
     println!("nvars=7");
     println!("generators={}", generators.len());
 
-    let opts = F4Options::default();
+    let opts = F4Options { batch_size: cli.batch_size, reducer_kind: cli.reducer, post: cli.post, ..F4Options::default() };
 
-    let started = std::time::Instant::now();
+    println!("reducer={}", reducer_name(opts.reducer_kind));
+    println!("batch_size={}", opts.batch_size);
+    println!("post={}", post_name(opts.post));
+
+    clear_profile_events();
+
+    let started = Instant::now();
 
     let gb = f4(&ring, generators.iter().cloned(), opts)?;
 
     let elapsed = started.elapsed();
+    let profile_events = take_profile_events();
+    let peak_rss_bytes = peak_rss_bytes();
 
     println!("basis_size={}", gb.as_slice().len());
     println!("elapsed_ms={}", elapsed.as_millis());
+    if let Some(peak) = peak_rss_bytes {
+        println!("peak_rss_bytes={peak}");
+    }
+
+    if let Some(out_dir) = cli.profile_out {
+        write_profile_artifacts(
+            &out_dir,
+            RunSummary {
+                run_id: run_id(),
+                case: "cyclic7",
+                field: "Fp(32003)",
+                order: "grevlex",
+                reducer: reducer_name(opts.reducer_kind),
+                batch_size: opts.batch_size,
+                post: post_name(opts.post),
+                nvars: 7,
+                generators: generators.len(),
+                basis_size: gb.as_slice().len(),
+                elapsed_ms: elapsed.as_millis(),
+                peak_rss_bytes,
+            },
+            &profile_events,
+        )?;
+    }
 
     Ok(())
+}
+
+#[derive(Debug)]
+struct Cli {
+    profile_out: Option<PathBuf>,
+    reducer: F4ReducerKind,
+    batch_size: usize,
+    post: BasisPostOptionsKind,
+}
+
+impl Default for Cli {
+    fn default() -> Self {
+        let opts = F4Options::default();
+
+        Self { profile_out: None, reducer: opts.reducer_kind, batch_size: opts.batch_size, post: opts.post }
+    }
+}
+
+impl Cli {
+    fn parse() -> Result<Self> {
+        let mut args = std::env::args_os().skip(1);
+        let mut cli = Self::default();
+
+        while let Some(arg) = args.next() {
+            if arg == "--profile-out" {
+                let Some(path) = args.next() else {
+                    bail!("--profile-out requires an output directory");
+                };
+
+                cli.profile_out = Some(PathBuf::from(path));
+            } else if arg == "--reducer" {
+                let Some(value) = args.next() else {
+                    bail!("--reducer requires one of: dense, roman, roman-parallel");
+                };
+
+                cli.reducer = parse_reducer(&value.to_string_lossy())?;
+            } else if arg == "--batch-size" {
+                let Some(value) = args.next() else {
+                    bail!("--batch-size requires a positive integer");
+                };
+
+                cli.batch_size = value
+                    .to_string_lossy()
+                    .parse()
+                    .context("--batch-size must be a positive integer")?;
+            } else if arg == "--post" {
+                let Some(value) = args.next() else {
+                    bail!("--post requires one of: none, minimal, reduced");
+                };
+
+                cli.post = parse_post(&value.to_string_lossy())?;
+            } else {
+                bail!("unknown argument: {}", arg.to_string_lossy());
+            }
+        }
+
+        Ok(cli)
+    }
+}
+
+#[derive(Debug, Clone)]
+struct RunSummary {
+    run_id: String,
+    case: &'static str,
+    field: &'static str,
+    order: &'static str,
+    reducer: &'static str,
+    batch_size: usize,
+    post: &'static str,
+    nvars: usize,
+    generators: usize,
+    basis_size: usize,
+    elapsed_ms: u128,
+    peak_rss_bytes: Option<u64>,
+}
+
+fn write_profile_artifacts(out_dir: &Path, run: RunSummary, events: &[ProfileEvent]) -> Result<()> {
+    std::fs::create_dir_all(out_dir).with_context(|| format!("creating profile output directory {}", out_dir.display()))?;
+
+    write_run_tsv(&out_dir.join("run.tsv"), &run)?;
+    write_phases_tsv(&out_dir.join("phases.tsv"), &run.run_id, events)?;
+    write_environment_txt(&out_dir.join("environment.txt"))?;
+
+    Ok(())
+}
+
+fn write_run_tsv(path: &Path, run: &RunSummary) -> Result<()> {
+    let mut out = String::new();
+
+    out.push_str("run_id\tcase\tfield\torder\treducer\tbatch_size\tpost\tnvars\tgenerators\tbasis_size\telapsed_ms\tpeak_rss_bytes\n");
+    out.push_str(&format!(
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+        run.run_id,
+        run.case,
+        run.field,
+        run.order,
+        run.reducer,
+        run.batch_size,
+        run.post,
+        run.nvars,
+        run.generators,
+        run.basis_size,
+        run.elapsed_ms,
+        run.peak_rss_bytes
+            .map(|v| v.to_string())
+            .unwrap_or_default(),
+    ));
+
+    std::fs::write(path, out).with_context(|| format!("writing {}", path.display()))
+}
+
+fn write_phases_tsv(path: &Path, run_id: &str, events: &[ProfileEvent]) -> Result<()> {
+    let mut out = String::new();
+
+    out.push_str("run_id\tindex\tphase\telapsed_ms\tbytes_allocated\tbytes_deallocated\tbytes_reallocated\tcounters\n");
+
+    for (index, event) in events.iter().enumerate() {
+        let allocations = event.allocations;
+        let counters = event
+            .counters
+            .iter()
+            .map(|(key, value)| format!("{key}={value}"))
+            .collect::<Vec<_>>()
+            .join(";");
+
+        out.push_str(&format!(
+            "{}\t{}\t{}\t{:.6}\t{}\t{}\t{}\t{}\n",
+            run_id,
+            index,
+            event.phase,
+            event.elapsed_ms,
+            allocations
+                .map(|a| a.bytes_allocated.to_string())
+                .unwrap_or_default(),
+            allocations
+                .map(|a| a.bytes_deallocated.to_string())
+                .unwrap_or_default(),
+            allocations
+                .map(|a| a.bytes_reallocated.to_string())
+                .unwrap_or_default(),
+            counters,
+        ));
+    }
+
+    std::fs::write(path, out).with_context(|| format!("writing {}", path.display()))
+}
+
+fn write_environment_txt(path: &Path) -> Result<()> {
+    let mut out = String::new();
+
+    out.push_str(&format!("timestamp_unix={}\n", unix_timestamp_secs()));
+    out.push_str(&format!(
+        "git_commit={}\n",
+        command_output("git", &["rev-parse", "HEAD"]).unwrap_or_default()
+    ));
+    out.push_str(&format!("git_dirty={}\n", git_dirty()));
+    out.push_str(&format!(
+        "rustc={}\n",
+        command_output("rustc", &["--version"]).unwrap_or_default()
+    ));
+    out.push_str("cargo_profile=release_recommended_for_thesis_runs\n");
+
+    std::fs::write(path, out).with_context(|| format!("writing {}", path.display()))
+}
+
+fn run_id() -> String {
+    format!("baseline-{}", unix_timestamp_secs())
+}
+
+fn unix_timestamp_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
+}
+
+fn command_output(program: &str, args: &[&str]) -> Option<String> {
+    let output = Command::new(program).args(args).output().ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+fn git_dirty() -> bool {
+    Command::new("git")
+        .args(["diff", "--quiet"])
+        .status()
+        .map(|status| !status.success())
+        .unwrap_or(false)
+}
+
+fn peak_rss_bytes() -> Option<u64> {
+    let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
+
+    let rc = unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) };
+
+    if rc != 0 {
+        return None;
+    }
+
+    let usage = unsafe { usage.assume_init() };
+
+    Some((usage.ru_maxrss as u64) * 1024)
+}
+
+fn parse_reducer(value: &str) -> Result<F4ReducerKind> {
+    match value {
+        "dense" => Ok(F4ReducerKind::Dense),
+        "roman" => Ok(F4ReducerKind::Roman),
+        "roman-parallel" | "roman_parallel" => Ok(F4ReducerKind::RomanParallel),
+        _ => bail!("unknown reducer '{value}', expected one of: dense, roman, roman-parallel"),
+    }
+}
+
+fn reducer_name(reducer: F4ReducerKind) -> &'static str {
+    match reducer {
+        F4ReducerKind::Dense => "dense",
+        F4ReducerKind::Roman => "roman",
+        F4ReducerKind::RomanParallel => "roman-parallel",
+    }
+}
+
+fn parse_post(value: &str) -> Result<BasisPostOptionsKind> {
+    match value {
+        "none" => Ok(BasisPostOptionsKind::None),
+        "minimal" => Ok(BasisPostOptionsKind::Minimal),
+        "reduced" => Ok(BasisPostOptionsKind::Reduced),
+        _ => bail!("unknown post mode '{value}', expected one of: none, minimal, reduced"),
+    }
+}
+
+fn post_name(post: BasisPostOptionsKind) -> &'static str {
+    match post {
+        BasisPostOptionsKind::None => "none",
+        BasisPostOptionsKind::Minimal => "minimal",
+        BasisPostOptionsKind::Reduced => "reduced",
+    }
 }
 
 #[cfg(feature = "instrumentation")]

@@ -102,12 +102,12 @@ where
     Ok(())
 }
 
-fn log_reduce_done(input_len: usize, final_len: usize, violations_after_reverse: usize, elapsed: Duration) {
+fn log_reduce_done(_input_len: usize, _final_len: usize, _violations_after_reverse: usize, _elapsed: Duration) {
     f4_info!(
-        input_len,
-        final_len,
-        violations_after_reverse,
-        elapsed_ms = elapsed.as_secs_f64() * 1000.0,
+        _input_len,
+        _final_len,
+        _violations_after_reverse,
+        elapsed_ms = _elapsed.as_secs_f64() * 1000.0,
         "post.reduce.done"
     );
 }

@@ -36,6 +36,7 @@ profile-full = [
 
 [dependencies]
 anyhow = "1"
+libc = "0.2"
 
 gbx-poly = { path = "../../crates/gbx-poly" }
 gbx-field = { path = "../../crates/gbx-field" }

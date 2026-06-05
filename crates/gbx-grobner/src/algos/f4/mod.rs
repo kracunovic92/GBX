@@ -36,4 +36,4 @@ pub mod symbolic;
 
 pub use api::f4;
 pub use error::{F4Error, Result};
-pub use options::F4Options;
+pub use options::{F4Options, F4ReducerKind};
