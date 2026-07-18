@@ -12,6 +12,9 @@ pub struct Monomial {
     exps: Box<[u32]>,
     degree: u32,
 }
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct MonomialId(u32);
 
 impl Monomial {
     /// Creates the multiplicative identity monomial `1` with `n_vars` variables.

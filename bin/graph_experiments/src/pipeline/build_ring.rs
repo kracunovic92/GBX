@@ -18,13 +18,13 @@ pub fn run(nvars: usize, p: u32) -> Result<BuildRingOutput> {
         .context("failed to build ring")?;
 
     let vars = make_var_names_1_based(nvars);
-    let build_ms = t0.elapsed().as_millis();
+    let build_seconds = t0.elapsed().as_secs_f64();
 
     println!("--- build_ring ---");
-    println!("ring_build: {build_ms} ms");
+    println!("ring_build_seconds={build_seconds:.6}");
     println!("ring: nvars={}, order=Grevlex, field=Fp(p={p})", ring.nvars);
 
-    Ok(BuildRingOutput { ring, vars, build_ms })
+    Ok(BuildRingOutput { ring, vars, build_seconds })
 }
 
 fn make_var_names_1_based(nvars: usize) -> Vec<String> {

@@ -19,8 +19,10 @@ std = []
 gbx-alg = { path = "../gbx-alg", default-features = false }
 gbx-field = { path = "../gbx-field", default-features = false }
 thiserror = "2.0.18"
-criterion = "0.8.1"
 tracing = "0.1.44"
+
+[dev-dependencies]
+criterion = { workspace = true, features = ["html_reports"] }
 
 [lints]
 workspace = true

@@ -39,7 +39,7 @@ where
         count(rows.iter().map(PolynomialView::len).sum()),
     );
 
-    let sparse = with_profile_phase("f4.roman.build_matrix", build_counters, || {
+    let sparse = with_profile_phase("f4.roman.build_sparse_matrix", build_counters, || {
         build_sparse_matrix(rows, &ctx.order)
     });
 
@@ -58,20 +58,29 @@ where
     reduce_counters.insert("matrix_cols", count(columns.len()));
     reduce_counters.insert(
         "matrix_nnz",
-        count(sparse_rows.iter().map(|row| row.nnz()).sum()),
+        count(
+            sparse_rows
+                .iter()
+                .map(crate::linear::roman::row::SparseMatrixRow::nnz)
+                .sum(),
+        ),
     );
 
-    let pivots = with_profile_phase("f4.roman.sparse_echelon", reduce_counters, || {
-        sparse_echelon_sequential(&ctx.field, &sparse_rows, columns.len())
-    })?;
+    let pivots = with_profile_phase(
+        "f4.roman.sparse_echelon_sequential",
+        reduce_counters,
+        || sparse_echelon_sequential(&ctx.field, &sparse_rows, columns.len()),
+    )?;
 
     let mut extract_counters = counters();
     extract_counters.insert("pivots", count(pivots.len()));
     extract_counters.insert("columns", count(columns.len()));
 
-    with_profile_phase("f4.roman.extract", extract_counters, || {
-        extract_new_rows_from_sparse_pivots::<P, F, O>(ctx, &pivots, &columns, &input_lead_cols)
-    })
+    with_profile_phase(
+        "f4.roman.extract_new_rows_from_sparse_pivots",
+        extract_counters,
+        || extract_new_rows_from_sparse_pivots::<P, F, O>(ctx, &pivots, &columns, &input_lead_cols),
+    )
 }
 
 /// Reduces an F4 batch using parallel sparse-buffer echelon reduction.
@@ -98,9 +107,11 @@ where
         count(rows.iter().map(PolynomialView::len).sum()),
     );
 
-    let sparse = with_profile_phase("f4.roman_parallel.build_matrix", build_counters, || {
-        build_sparse_matrix(rows, &ctx.order)
-    });
+    let sparse = with_profile_phase(
+        "f4.roman_parallel.build_sparse_matrix",
+        build_counters,
+        || build_sparse_matrix(rows, &ctx.order),
+    );
 
     f4_info!(
         rows = sparse.nrows(),
@@ -117,18 +128,27 @@ where
     reduce_counters.insert("matrix_cols", count(columns.len()));
     reduce_counters.insert(
         "matrix_nnz",
-        count(sparse_rows.iter().map(|row| row.nnz()).sum()),
+        count(
+            sparse_rows
+                .iter()
+                .map(crate::linear::roman::row::SparseMatrixRow::nnz)
+                .sum(),
+        ),
     );
 
-    let pivots = with_profile_phase("f4.roman_parallel.sparse_echelon", reduce_counters, || {
-        sparse_echelon_parallel(&ctx.field, &sparse_rows, columns.len())
-    })?;
+    let pivots = with_profile_phase(
+        "f4.roman_parallel.sparse_echelon_parallel",
+        reduce_counters,
+        || sparse_echelon_parallel(&ctx.field, &sparse_rows, columns.len()),
+    )?;
 
     let mut extract_counters = counters();
     extract_counters.insert("pivots", count(pivots.len()));
     extract_counters.insert("columns", count(columns.len()));
 
-    with_profile_phase("f4.roman_parallel.extract", extract_counters, || {
-        extract_new_rows_from_sparse_pivots::<P, F, O>(ctx, &pivots, &columns, &input_lead_cols)
-    })
+    with_profile_phase(
+        "f4.roman_parallel.extract_new_rows_from_sparse_pivots",
+        extract_counters,
+        || extract_new_rows_from_sparse_pivots::<P, F, O>(ctx, &pivots, &columns, &input_lead_cols),
+    )
 }

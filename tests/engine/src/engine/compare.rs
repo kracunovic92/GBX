@@ -7,10 +7,10 @@ pub enum CompareStatus {
 }
 
 impl CompareStatus {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            CompareStatus::Match => "MATCH",
-            CompareStatus::Mismatch => "MISMATCH",
+            Self::Match => "MATCH",
+            Self::Mismatch => "MISMATCH",
         }
     }
 }

@@ -102,7 +102,7 @@ fn validate_generators(ctx: &TestContext<'_>) -> Result<(), MapError> {
     Ok(())
 }
 fn build_ring_decl(char_part: &str, vars_csv: &str, order: &str) -> String {
-    format!("ring R = {},({}),{};", char_part, vars_csv, order)
+    format!("ring R = {char_part},({vars_csv}),{order};")
 }
 
 fn build_ideal_decl(generators: &[String]) -> String {

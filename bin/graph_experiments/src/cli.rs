@@ -82,6 +82,22 @@ pub enum Command {
         #[arg(long, default_value_t = true)]
         normalize_remainders: bool,
 
+        /// F4 reducer backend: dense, roman, or roman-parallel.
+        #[arg(long, default_value = "roman-parallel")]
+        reducer: String,
+
+        /// F4 pair batch size.
+        #[arg(long, default_value_t = 64)]
+        batch_size: usize,
+
+        /// F4 basis post-processing mode: none, minimal, or reduced.
+        #[arg(long, default_value = "reduced")]
+        post: String,
+
+        /// Directory for run.tsv, phases.tsv, phase_totals.tsv, and environment.txt.
+        #[arg(long)]
+        profile_out: Option<PathBuf>,
+
         /// Dump the resulting basis (pretty).
         #[arg(long)]
         dump_basis: bool,

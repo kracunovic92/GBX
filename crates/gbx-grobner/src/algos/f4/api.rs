@@ -21,7 +21,7 @@ pub fn f4<P, F, O>(ctx: &RingCtx<F, O>, fs: impl IntoIterator<Item = P>, opts: F
 where
     F: FieldCtx<Elem = P::Coeff> + Sync,
     O: MonomialOrder + Clone + Sync,
-    P: PolynomialMut + PolynomialOps + PolynomialView + Clone + Send + std::marker::Sync,
+    P: PolynomialMut + PolynomialOps + PolynomialView + Clone + Send + Sync,
     P::Coeff: Copy + Eq + Default,
     Monomial: Clone + Eq + Hash + Default,
     <P as PolynomialView>::Coeff: Send + Sync,

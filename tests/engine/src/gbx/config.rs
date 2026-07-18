@@ -10,7 +10,7 @@ impl GbxReducerKind {
         vec![Self::Dense, Self::Roman, Self::RomanParallel]
     }
 
-    pub fn as_str(self) -> &'static str {
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Dense => "dense",
             Self::Roman => "roman",
@@ -18,7 +18,7 @@ impl GbxReducerKind {
         }
     }
 
-    pub fn backend_name(self) -> &'static str {
+    pub const fn backend_name(self) -> &'static str {
         match self {
             Self::Dense => "gbx_dense",
             Self::Roman => "gbx_roman",
@@ -33,7 +33,7 @@ pub struct GbxConfig {
 }
 
 impl GbxConfig {
-    pub fn new(reducer: GbxReducerKind) -> Self {
+    pub const fn new(reducer: GbxReducerKind) -> Self {
         Self { reducer }
     }
 }

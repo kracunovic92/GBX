@@ -19,7 +19,7 @@ pub struct TestCase {
 
 impl TestFile {
     pub fn from_str(s: &str) -> Result<Self> {
-        let parsed: TestFile = toml::from_str(s).context("Failed to parse TOML")?;
+        let parsed: Self = toml::from_str(s).context("Failed to parse TOML")?;
         Ok(parsed)
     }
 

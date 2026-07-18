@@ -9,6 +9,7 @@ pub struct OutputLayout {
 }
 
 impl OutputLayout {
+    #[allow(clippy::needless_pass_by_value)]
     pub fn new(base: PathBuf) -> Self {
         Self { runs: base.join("runs"), compare: base.join("compare"), summary: base.join("summary") }
     }

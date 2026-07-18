@@ -54,7 +54,7 @@ impl F4Options {
 
 impl Default for F4Options {
     fn default() -> Self {
-        Self { batch_size: 64, normalize_inputs: true, normalize_extracted: true, safety_reduce_extracted: true, post: BasisPostOptionsKind::Reduced, reducer_kind: F4ReducerKind::Roman }
+        Self { batch_size: 64, normalize_inputs: true, normalize_extracted: true, safety_reduce_extracted: true, post: BasisPostOptionsKind::Reduced, reducer_kind: F4ReducerKind::RomanParallel }
     }
 }
 

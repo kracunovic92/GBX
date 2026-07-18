@@ -35,13 +35,14 @@ impl Backend for SingularBackend {
         Ok(GeneratedScript { text: prog.script })
     }
 
-    #[tracing::instrument(skip_all, fields(case = %_case.name, backend = "singular"))]
-    fn execute(&self, _case: &TestCase, script: &GeneratedScript) -> Result<BackendRun> {
+    #[tracing::instrument(skip_all, fields(case = %case.name, backend = "singular"))]
+    fn execute(&self, case: &TestCase, script: &GeneratedScript) -> Result<BackendRun> {
+        let _ = case;
         let rr = run_singular_script(&self.cfg.bin, &script.text).context("running Singular")?;
 
         let pretty_lines = Self::normalize_basis(extract_gb_lines(&rr.stdout));
 
-        let compute_time_ms = extract_time_ms(&rr.stdout).unwrap_or_else(|| rr.wall_time.as_millis());
+        let compute_time_ms = extract_time_ms(&rr.stdout).unwrap_or(rr.wall_time.as_millis());
 
         Ok(BackendRun {
             ok: rr.ok,

@@ -90,13 +90,14 @@ where
         return Ok(());
     }
 
-    let _first = &violations[0];
+    let first = &violations[0];
+    let _ = first;
 
     f4_debug!(
         violations = violations.len(),
-        i = _first.i,
-        j = _first.j,
-        bad_term = ?_first.bad_term,
+        i = first.i,
+        j = first.j,
+        bad_term = ?first.bad_term,
         "post.reduce.not_fully_reduced"
     );
 

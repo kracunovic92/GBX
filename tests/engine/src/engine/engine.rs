@@ -9,10 +9,11 @@ use crate::utils::paths::OutputLayout;
 use crate::utils::sanitize_filename::sanitize_filename;
 use crate::utils::test_file_config::{TestCase, TestFile};
 use anyhow::{Context, Result};
+use std::fmt::Write as _;
 use tracing::info;
 
 #[tracing::instrument(skip_all, fields(cases_path = %cfg.cases_path.display(), out_dir = %cfg.out_dir.display()))]
-pub fn run_runner(cfg: EngineConfig) -> Result<()> {
+pub fn run_runner(cfg: &EngineConfig) -> Result<()> {
     let file = TestFile::from_path(&cfg.cases_path).with_context(|| format!("loading cases from {}", cfg.cases_path.display()))?;
 
     let layout = OutputLayout::new(cfg.out_dir.clone());
@@ -71,8 +72,8 @@ fn run_case(layout: &OutputLayout, case: &TestCase, singular: &SingularBackend, 
 
     let singular_name = singular.name();
 
-    let singular_stats_path = layout.run_stats_file(&*singular_name, &stem);
-    persist_backend_stats(&singular_stats_path, &*singular_name, &singular_run)?;
+    let singular_stats_path = layout.run_stats_file(&singular_name, &stem);
+    persist_backend_stats(&singular_stats_path, &singular_name, &singular_run)?;
 
     let mut gbx_results = Vec::new();
 
@@ -93,17 +94,17 @@ fn run_case(layout: &OutputLayout, case: &TestCase, singular: &SingularBackend, 
             gbx_start.elapsed().as_millis(),
         );
 
-        let gbx_stats_path = layout.run_stats_file(&*gbx_name, &stem);
-        persist_backend_stats(&gbx_stats_path, &*gbx_name, &gbx_run)?;
+        let gbx_stats_path = layout.run_stats_file(&gbx_name, &stem);
+        persist_backend_stats(&gbx_stats_path, &gbx_name, &gbx_run)?;
 
         gbx_results.push((gbx_name, gbx_run));
     }
 
-    let compare_report = build_case_compare_report(case, &*singular_name, &singular_run, &gbx_results);
+    let compare_report = build_case_compare_report(case, &singular_name, &singular_run, &gbx_results);
 
     write_text(layout.compare_file(&stem), compare_report)?;
 
-    let summary = build_case_summary(case, &*singular_name, &singular_run, &gbx_results);
+    let summary = build_case_summary(case, &singular_name, &singular_run, &gbx_results);
 
     write_text(layout.summary_file(&stem), summary)?;
 
@@ -114,11 +115,11 @@ fn run_case(layout: &OutputLayout, case: &TestCase, singular: &SingularBackend, 
     Ok(())
 }
 
-fn build_case_compare_report(case: &TestCase, singular_name: &str, singular_run: &BackendRun, gbx_results: &Vec<(String, BackendRun)>) -> String {
+fn build_case_compare_report(case: &TestCase, singular_name: &str, singular_run: &BackendRun, gbx_results: &[(String, BackendRun)]) -> String {
     let mut out = String::new();
 
-    out.push_str(&format!("case: {}\n", case.name));
-    out.push_str(&format!("reference: {singular_name}\n\n"));
+    let _ = writeln!(out, "case: {}", case.name);
+    let _ = writeln!(out, "reference: {singular_name}\n");
 
     for (gbx_name, gbx_run) in gbx_results {
         out.push_str(&build_compare_report(
@@ -134,13 +135,13 @@ fn build_case_compare_report(case: &TestCase, singular_name: &str, singular_run:
     out
 }
 
-fn build_case_summary(case: &TestCase, singular_name: &str, singular_run: &BackendRun, gbx_results: &Vec<(String, BackendRun)>) -> String {
+fn build_case_summary(case: &TestCase, singular_name: &str, singular_run: &BackendRun, gbx_results: &[(String, BackendRun)]) -> String {
     let mut out = String::new();
 
-    out.push_str(&format!("case={}\n", case.name));
-    out.push_str(&format!("field={}\n", case.field));
-    out.push_str(&format!("p={}\n", case.p));
-    out.push_str(&format!("order={}\n", case.order));
+    let _ = writeln!(out, "case={}", case.name);
+    let _ = writeln!(out, "field={}", case.field);
+    let _ = writeln!(out, "p={}", case.p);
+    let _ = writeln!(out, "order={}", case.order);
     out.push('\n');
 
     out.push_str("backend,ok,match_vs_singular,compute_time_ms,peak_memory_bytes\n");

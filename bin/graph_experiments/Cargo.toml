@@ -38,6 +38,7 @@ profile-full = [
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+libc = "0.2"
 
 gbx-graph = { path = "../../tools/graph", features = ["dimacs"] }
 gbx-poly = { path = "../../crates/gbx-poly" }

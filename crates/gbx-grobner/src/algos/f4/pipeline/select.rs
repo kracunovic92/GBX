@@ -2,7 +2,6 @@ use crate::algos::f4::pairs::critical_pair::CriticalPair;
 use crate::algos::f4::pairs::selector::{MinDegreeSelector, PairSelector};
 use crate::algos::f4::state::F4State;
 
-use crate::pairs::PairSide;
 use crate::symbolic::{ProductSource, UnevaluatedProduct};
 use gbx_poly::monomial::Monomial;
 use gbx_poly::polynomial::PolynomialView;
@@ -43,14 +42,15 @@ fn build_l_d(pairs: &[CriticalPair]) -> Vec<UnevaluatedProduct<Monomial>> {
     let mut l_d = Vec::with_capacity(pairs.len() * 2);
 
     for pair in pairs {
-        l_d.push(pair_side_to_product(pair.left()));
-        l_d.push(pair_side_to_product(pair.right()));
+        let left = pair.left();
+        let right = pair.right();
+
+        l_d.push(UnevaluatedProduct { source: ProductSource::Basis(left.basis_index), multiplier: left.multiplier.clone() });
+
+        l_d.push(UnevaluatedProduct { source: ProductSource::Basis(right.basis_index), multiplier: right.multiplier.clone() });
     }
 
     l_d
-}
-fn pair_side_to_product(side: PairSide<'_>) -> UnevaluatedProduct<Monomial> {
-    UnevaluatedProduct { source: ProductSource::Basis(side.basis_index), multiplier: side.multiplier.clone() }
 }
 
 #[cfg(test)]

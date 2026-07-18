@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use crate::engine::backend::{Backend, BackendRun, GeneratedScript};
@@ -14,15 +15,12 @@ pub fn execute_backend_for_case<B: Backend>(backend: &B, case: &TestCase) -> Res
 pub fn persist_backend_stats(path: &Path, backend_name: &str, run: &BackendRun) -> Result<()> {
     let mut s = String::new();
 
-    s.push_str(&format!("backend={backend_name}\n"));
-    s.push_str(&format!("ok={}\n", run.ok));
-    s.push_str(&format!(
-        "compute_time_ms={}\n",
-        run.metrics.compute_time_ms
-    ));
+    let _ = writeln!(s, "backend={backend_name}");
+    let _ = writeln!(s, "ok={}", run.ok);
+    let _ = writeln!(s, "compute_time_ms={}", run.metrics.compute_time_ms);
 
     if let Some(v) = run.metrics.peak_memory_bytes {
-        s.push_str(&format!("peak_memory_bytes={v}\n"));
+        let _ = writeln!(s, "peak_memory_bytes={v}");
     } else {
         s.push_str("peak_memory_bytes=\n");
     }

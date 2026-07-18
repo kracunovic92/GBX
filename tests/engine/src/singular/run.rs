@@ -68,12 +68,12 @@ pub fn run_singular_script(singular_bin: &str, script: &str) -> Result<RunResult
         Ok(stderr)
     });
 
-    let pid = child.id() as libc::pid_t;
+    let pid = libc::pid_t::try_from(child.id()).context("Singular child pid does not fit pid_t")?;
 
     let mut status: libc::c_int = 0;
     let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
 
-    let waited = unsafe { libc::wait4(pid, &mut status, 0, usage.as_mut_ptr()) };
+    let waited = unsafe { libc::wait4(pid, &raw mut status, 0, usage.as_mut_ptr()) };
 
     if waited < 0 {
         return Err(std::io::Error::last_os_error()).context("wait4 failed for Singular");
@@ -94,11 +94,15 @@ pub fn run_singular_script(singular_bin: &str, script: &str) -> Result<RunResult
     let ok = exited_successfully(status);
 
     // Linux: ru_maxrss is in KiB.
-    let peak_memory_bytes = Some((usage.ru_maxrss as u64) * 1024);
+    let peak_memory_bytes = Some(
+        u64::try_from(usage.ru_maxrss)
+            .unwrap_or_default()
+            .saturating_mul(1024),
+    );
 
     Ok(RunResult { ok, stdout, stderr, wall_time: wall, peak_memory_bytes })
 }
 
-fn exited_successfully(status: libc::c_int) -> bool {
+const fn exited_successfully(status: libc::c_int) -> bool {
     libc::WIFEXITED(status) && libc::WEXITSTATUS(status) == 0
 }

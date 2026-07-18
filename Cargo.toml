@@ -3,10 +3,12 @@ members = [
     "crates/gbx-alg",
     "crates/gbx-field",
     "crates/gbx-poly",
+    "crates/gbx-grobner",
     "tests/engine",
     "tools/graph",
-    "bin/graph_experiments"
-    , "crates/gbx-grobner", "bin/baseline_experiments"]
+    "bin/graph_experiments",
+    "bin/baseline_experiments",
+]
 
 exclude = ["bin"]
 resolver = "3"

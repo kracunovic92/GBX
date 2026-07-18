@@ -1,10 +1,11 @@
 #![allow(missing_docs)]
+#![allow(clippy::expect_used, clippy::missing_panics_doc)]
 
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use gbx_field::fp::{Fp, FpElem};
-use gbx_poly::monomial::Monomial;
-use gbx_poly::order::Lex;
-use gbx_poly::polynomial::{Polynomial, PolynomialReduce};
+use gbx_poly::monomial::{Monomial, checked_lcm, checked_quotient, divides, gcd_is_one};
+use gbx_poly::order::{Grevlex, Lex, MonomialOrder};
+use gbx_poly::polynomial::{Polynomial, PolynomialMut, PolynomialOps, PolynomialReduce};
 use gbx_poly::ring::{Ring, RingCtx};
 use gbx_poly::term::Term;
 use std::hint::black_box;
@@ -66,9 +67,220 @@ fn make_reducers(ring: &RingCtx<Fp, Lex>, n: usize) -> Vec<P> {
         .collect()
 }
 
+fn make_dense_poly(ring: &RingCtx<Fp, Lex>, term_count: usize) -> P {
+    let terms = (0..term_count)
+        .map(|i| {
+            let coeff = u32::try_from((i % 251) + 1).expect("coefficient fixture fits in u32");
+            let e0 = u32::try_from((term_count - i) % 17).expect("exponent fixture fits in u32");
+            let e1 = u32::try_from((i * 3) % 11).expect("exponent fixture fits in u32");
+            let e2 = u32::try_from((i * 5) % 7).expect("exponent fixture fits in u32");
+            let e3 = u32::try_from(i % 5).expect("exponent fixture fits in u32");
+
+            term(ring, coeff, &[e0, e1, e2, e3])
+        })
+        .collect();
+
+    P::from_terms_in(ring, terms).expect("dense benchmark polynomial should be valid")
+}
+
+fn make_monomial_pairs(nvars: usize, count: usize) -> Vec<(Monomial, Monomial)> {
+    (0..count)
+        .map(|i| {
+            let a = (0..nvars)
+                .map(|j| u32::try_from((i + (j * 3)) % 13).expect("exponent fixture fits in u32"))
+                .collect::<Vec<_>>();
+            let b = (0..nvars)
+                .map(|j| u32::try_from(((i * 2) + j) % 17).expect("exponent fixture fits in u32"))
+                .collect::<Vec<_>>();
+
+            (Monomial::from_vec(a), Monomial::from_vec(b))
+        })
+        .collect()
+}
+
 // ----------------------------
 // Benches
 // ----------------------------
+
+fn bench_monomial_ops(c: &mut Criterion) {
+    let mut group = c.benchmark_group("monomial_ops");
+
+    for nvars in [3usize, 8, 16] {
+        let pairs = make_monomial_pairs(nvars, 512);
+
+        group.bench_with_input(
+            BenchmarkId::new("divides_batch", nvars),
+            &pairs,
+            |b, pairs| {
+                b.iter(|| {
+                    let mut hits = 0usize;
+
+                    for (a, b) in black_box(pairs) {
+                        if divides(a, b) {
+                            hits += 1;
+                        }
+                    }
+
+                    black_box(hits);
+                });
+            },
+        );
+
+        group.bench_with_input(BenchmarkId::new("lcm_batch", nvars), &pairs, |b, pairs| {
+            b.iter(|| {
+                let mut degree_sum = 0u32;
+
+                for (a, b) in black_box(pairs) {
+                    let lcm = checked_lcm(a, b).expect("matching arity lcm should succeed");
+                    degree_sum = degree_sum.wrapping_add(lcm.degree());
+                }
+
+                black_box(degree_sum);
+            });
+        });
+
+        group.bench_with_input(
+            BenchmarkId::new("quotient_batch", nvars),
+            &pairs,
+            |b, pairs| {
+                b.iter(|| {
+                    let mut hits = 0usize;
+
+                    for (a, b) in black_box(pairs) {
+                        if checked_quotient(a, b)
+                            .expect("matching arity quotient should succeed")
+                            .is_some()
+                        {
+                            hits += 1;
+                        }
+                    }
+
+                    black_box(hits);
+                });
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("gcd_is_one_batch", nvars),
+            &pairs,
+            |b, pairs| {
+                b.iter(|| {
+                    let mut hits = 0usize;
+
+                    for (a, b) in black_box(pairs) {
+                        if gcd_is_one(a, b) {
+                            hits += 1;
+                        }
+                    }
+
+                    black_box(hits);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+fn bench_order_cmp(c: &mut Criterion) {
+    let pairs = make_monomial_pairs(8, 1024);
+    let lex = Lex;
+    let grevlex = Grevlex;
+    let mut group = c.benchmark_group("monomial_order");
+
+    group.bench_function("lex_cmp_batch", |b| {
+        b.iter(|| {
+            let mut greater = 0usize;
+
+            for (a, b) in black_box(&pairs) {
+                if lex.cmp(a, b).is_gt() {
+                    greater += 1;
+                }
+            }
+
+            black_box(greater);
+        });
+    });
+
+    group.bench_function("grevlex_cmp_batch", |b| {
+        b.iter(|| {
+            let mut greater = 0usize;
+
+            for (a, b) in black_box(&pairs) {
+                if grevlex.cmp(a, b).is_gt() {
+                    greater += 1;
+                }
+            }
+
+            black_box(greater);
+        });
+    });
+
+    group.finish();
+}
+
+fn bench_polynomial_ops(c: &mut Criterion) {
+    let ring = ring();
+    let mut group = c.benchmark_group("polynomial_ops");
+
+    for size in [16usize, 64, 256] {
+        let lhs = make_dense_poly(&ring, size);
+        let rhs = make_dense_poly(&ring, size);
+        let mono = Monomial::from_slice(&[3, 1, 2, 0]);
+        let coeff = ring.field.elem(7);
+
+        group.bench_with_input(
+            BenchmarkId::new("from_terms_in", size),
+            &size,
+            |b, &size| {
+                b.iter(|| {
+                    let poly = make_dense_poly(black_box(&ring), black_box(size));
+                    black_box(poly);
+                });
+            },
+        );
+
+        group.bench_with_input(BenchmarkId::new("add_canonical", size), &size, |b, _| {
+            b.iter(|| {
+                let sum = black_box(&lhs)
+                    .add_canonical(black_box(&ring), black_box(&rhs))
+                    .expect("addition benchmark should succeed");
+                black_box(sum);
+            });
+        });
+
+        group.bench_with_input(BenchmarkId::new("mul_canonical", size), &size, |b, _| {
+            b.iter(|| {
+                let product = black_box(&lhs)
+                    .mul_canonical(black_box(&ring), black_box(&rhs))
+                    .expect("multiplication benchmark should succeed");
+                black_box(product);
+            });
+        });
+
+        group.bench_with_input(
+            BenchmarkId::new("sub_scaled_monomial_multiple", size),
+            &size,
+            |b, _| {
+                b.iter(|| {
+                    let mut out = black_box(lhs.clone());
+                    out.sub_scaled_monomial_multiple_in_place(
+                        black_box(&ring),
+                        black_box(&rhs),
+                        black_box(&mono),
+                        black_box(coeff),
+                    )
+                    .expect("sub scaled monomial multiple benchmark should succeed");
+                    out.normalize_in_place(black_box(&ring))
+                        .expect("normalization benchmark should succeed");
+                    black_box(out);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
 
 fn bench_normal_form(c: &mut Criterion) {
     let ring = ring();
@@ -116,5 +328,11 @@ fn bench_normal_form(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_normal_form);
+criterion_group!(
+    benches,
+    bench_monomial_ops,
+    bench_order_cmp,
+    bench_polynomial_ops,
+    bench_normal_form
+);
 criterion_main!(benches);

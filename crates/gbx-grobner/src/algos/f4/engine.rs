@@ -12,7 +12,6 @@ use crate::algos::f4::pairs::criterion::ProductCriterion;
 use crate::algos::f4::pairs::selector::MinDegreeSelector;
 use crate::algos::f4::pipeline::{initialize_state, post_process_basis, run_iteration};
 use crate::basis::GrobnerBasis;
-use crate::f4_info;
 use crate::instrumentation::profile::{count, counters, with_profile_phase};
 use crate::linear::BatchReducer;
 use crate::linear::roman::{RomanParallelSparseBufferReducer, RomanSparseBufferReducer};
@@ -78,9 +77,7 @@ where
     let criterion = ProductCriterion;
     let mut selector = MinDegreeSelector::new(opts.batch_size);
 
-    let mut state = with_profile_phase("f4.initialize_state", counters(), || {
-        initialize_state(ctx, fs, &opts, criterion)
-    })?;
+    let mut state = initialize_state(ctx, fs, &opts, criterion)?;
 
     if state.basis.is_empty() {
         return Ok(GrobnerBasis::empty_in(ctx));
@@ -89,8 +86,6 @@ where
     while !state.is_done() {
         run_iteration(ctx, &mut state, &opts, &mut selector, reducer, criterion)?;
     }
-
-    f4_info!("f4.engine.done");
 
     let mut post_counters = counters();
     post_counters.insert("basis_size", count(state.basis.len()));

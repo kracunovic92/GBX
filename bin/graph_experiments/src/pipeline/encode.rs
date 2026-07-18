@@ -12,18 +12,18 @@ pub fn run(graph: &Graph, k: usize, ring: &GrevlexRing) -> Result<EncodeOutput> 
 
     let t0 = Instant::now();
     let enc = build_k_coloring_system(graph, k, &builder)?;
-    let encode_ms = t0.elapsed().as_millis();
+    let encode_seconds = t0.elapsed().as_secs_f64();
 
     let num_vars = enc.num_vars();
     let polynomials = enc.polynomials;
 
     println!("--- encode ---");
-    println!("encode: {encode_ms} ms");
+    println!("encode_seconds={encode_seconds:.6}");
     println!(
         "system: num_vars={}, input_polys={}",
         num_vars,
         polynomials.len()
     );
 
-    Ok(EncodeOutput { polynomials, num_vars, encode_ms })
+    Ok(EncodeOutput { polynomials, num_vars, encode_seconds })
 }

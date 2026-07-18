@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, bail};
 
-/// Parse a polynomial string into list of (coeff_mod_p, exponent-vector) terms.
+/// Parse a polynomial string into list of (`coeff_mod_p`, exponent-vector) terms.
 /// `exponent-vector` length equals `vars.len()`.
 ///
 /// Minimal grammar (good enough for your TOML cases):
@@ -14,12 +14,13 @@ use anyhow::{Context, Result, bail};
 /// - "x^2 + y^2 - 1"
 /// - "x^3 - y"
 /// - "3x^2y - 7xy + 2"
+#[allow(clippy::too_many_lines)]
 pub fn parse_poly_terms(input: &str, vars: &[String], p: u32) -> Result<Vec<(u32, Vec<u32>)>> {
     if vars.is_empty() {
         bail!("vars must be non-empty");
     }
     if p <= 1 {
-        bail!("Fp requires p>1, got {}", p);
+        bail!("Fp requires p>1, got {p}");
     }
 
     let s = input.trim();
@@ -87,8 +88,7 @@ pub fn parse_poly_terms(input: &str, vars: &[String], p: u32) -> Result<Vec<(u32
         loop {
             skip_ws(pos);
             match peek(*pos) {
-                None => break,
-                Some('+') | Some('-') => break,
+                None | Some('+' | '-') => break,
                 Some('*') => {
                     *pos += 1;
                     continue;
@@ -130,7 +130,13 @@ pub fn parse_poly_terms(input: &str, vars: &[String], p: u32) -> Result<Vec<(u32
             }
 
             // unknown token
-            let ch = peek(*pos).unwrap();
+            let Some(ch) = peek(*pos) else {
+                bail!(
+                    "unexpected end of input at position {} in '{}'",
+                    *pos,
+                    input
+                );
+            };
             bail!(
                 "unexpected character '{}' at position {} in '{}'",
                 ch,
@@ -189,10 +195,13 @@ pub fn parse_poly_terms(input: &str, vars: &[String], p: u32) -> Result<Vec<(u32
 }
 
 fn mod_u32_from_i64(x: i64, p: u32) -> u32 {
-    let p_i64 = p as i64;
+    let p_i64 = i64::from(p);
     let mut r = x % p_i64;
     if r < 0 {
         r += p_i64;
     }
-    r as u32
+    let Ok(value) = u32::try_from(r) else {
+        unreachable!("reduced coefficient is in the u32 modulus range");
+    };
+    value
 }

@@ -58,10 +58,11 @@ fn main() -> Result<()> {
     let peak_rss_bytes = peak_rss_bytes();
 
     println!("basis_size={}", gb.as_slice().len());
-    println!("elapsed_ms={}", elapsed.as_millis());
     if let Some(peak) = peak_rss_bytes {
         println!("peak_rss_bytes={peak}");
     }
+    println!("elapsed_seconds={:.6}", elapsed.as_secs_f64());
+    print_phase_summary(&profile_events, elapsed.as_secs_f64());
 
     if let Some(out_dir) = cli.profile_out {
         write_profile_artifacts(
@@ -77,7 +78,7 @@ fn main() -> Result<()> {
                 nvars: 7,
                 generators: generators.len(),
                 basis_size: gb.as_slice().len(),
-                elapsed_ms: elapsed.as_millis(),
+                elapsed_seconds: elapsed.as_secs_f64(),
                 peak_rss_bytes,
             },
             &profile_events,
@@ -157,7 +158,7 @@ struct RunSummary {
     nvars: usize,
     generators: usize,
     basis_size: usize,
-    elapsed_ms: u128,
+    elapsed_seconds: f64,
     peak_rss_bytes: Option<u64>,
 }
 
@@ -166,6 +167,12 @@ fn write_profile_artifacts(out_dir: &Path, run: RunSummary, events: &[ProfileEve
 
     write_run_tsv(&out_dir.join("run.tsv"), &run)?;
     write_phases_tsv(&out_dir.join("phases.tsv"), &run.run_id, events)?;
+    write_phase_totals_tsv(
+        &out_dir.join("phase_totals.tsv"),
+        &run.run_id,
+        events,
+        run.elapsed_seconds,
+    )?;
     write_environment_txt(&out_dir.join("environment.txt"))?;
 
     Ok(())
@@ -174,9 +181,9 @@ fn write_profile_artifacts(out_dir: &Path, run: RunSummary, events: &[ProfileEve
 fn write_run_tsv(path: &Path, run: &RunSummary) -> Result<()> {
     let mut out = String::new();
 
-    out.push_str("run_id\tcase\tfield\torder\treducer\tbatch_size\tpost\tnvars\tgenerators\tbasis_size\telapsed_ms\tpeak_rss_bytes\n");
+    out.push_str("run_id\tcase\tfield\torder\treducer\tbatch_size\tpost\tnvars\tgenerators\tbasis_size\telapsed_seconds\tpeak_rss_bytes\n");
     out.push_str(&format!(
-        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
+        "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{:.6}\t{}\n",
         run.run_id,
         run.case,
         run.field,
@@ -187,7 +194,7 @@ fn write_run_tsv(path: &Path, run: &RunSummary) -> Result<()> {
         run.nvars,
         run.generators,
         run.basis_size,
-        run.elapsed_ms,
+        run.elapsed_seconds,
         run.peak_rss_bytes
             .map(|v| v.to_string())
             .unwrap_or_default(),
@@ -199,7 +206,7 @@ fn write_run_tsv(path: &Path, run: &RunSummary) -> Result<()> {
 fn write_phases_tsv(path: &Path, run_id: &str, events: &[ProfileEvent]) -> Result<()> {
     let mut out = String::new();
 
-    out.push_str("run_id\tindex\tphase\telapsed_ms\tbytes_allocated\tbytes_deallocated\tbytes_reallocated\tcounters\n");
+    out.push_str("run_id\tindex\tphase\telapsed_seconds\tbytes_allocated\tbytes_deallocated\tbytes_reallocated\tcounters\n");
 
     for (index, event) in events.iter().enumerate() {
         let allocations = event.allocations;
@@ -215,7 +222,7 @@ fn write_phases_tsv(path: &Path, run_id: &str, events: &[ProfileEvent]) -> Resul
             run_id,
             index,
             event.phase,
-            event.elapsed_ms,
+            event.elapsed_seconds,
             allocations
                 .map(|a| a.bytes_allocated.to_string())
                 .unwrap_or_default(),
@@ -226,6 +233,96 @@ fn write_phases_tsv(path: &Path, run_id: &str, events: &[ProfileEvent]) -> Resul
                 .map(|a| a.bytes_reallocated.to_string())
                 .unwrap_or_default(),
             counters,
+        ));
+    }
+
+    std::fs::write(path, out).with_context(|| format!("writing {}", path.display()))
+}
+
+#[derive(Debug, Clone)]
+struct PhaseSummary {
+    phase: &'static str,
+    calls: usize,
+    elapsed_seconds: f64,
+    bytes_allocated: u64,
+    bytes_deallocated: u64,
+    bytes_reallocated: u64,
+}
+
+fn phase_summaries(events: &[ProfileEvent]) -> Vec<PhaseSummary> {
+    let mut summaries = Vec::<PhaseSummary>::new();
+
+    for event in events {
+        let Some(summary) = summaries
+            .iter_mut()
+            .find(|summary| summary.phase == event.phase)
+        else {
+            let allocations = event.allocations.unwrap_or_default();
+            summaries.push(PhaseSummary {
+                phase: event.phase,
+                calls: 1,
+                elapsed_seconds: event.elapsed_seconds,
+                bytes_allocated: allocations.bytes_allocated,
+                bytes_deallocated: allocations.bytes_deallocated,
+                bytes_reallocated: allocations.bytes_reallocated,
+            });
+            continue;
+        };
+
+        summary.calls += 1;
+        summary.elapsed_seconds += event.elapsed_seconds;
+
+        if let Some(allocations) = event.allocations {
+            summary.bytes_allocated = summary
+                .bytes_allocated
+                .saturating_add(allocations.bytes_allocated);
+            summary.bytes_deallocated = summary
+                .bytes_deallocated
+                .saturating_add(allocations.bytes_deallocated);
+            summary.bytes_reallocated = summary
+                .bytes_reallocated
+                .saturating_add(allocations.bytes_reallocated);
+        }
+    }
+
+    summaries
+}
+
+fn print_phase_summary(events: &[ProfileEvent], run_elapsed_seconds: f64) {
+    let summaries = phase_summaries(events);
+
+    if summaries.is_empty() {
+        println!("phase_timing_seconds=none");
+        return;
+    }
+
+    println!("phase_timing_seconds:");
+    println!(
+        "{:<58} {:>7} {:>14} {:>9} {:>16} {:>16} {:>16}",
+        "phase", "calls", "seconds", "run_%", "alloc_bytes", "dealloc_bytes", "realloc_bytes"
+    );
+
+    for summary in summaries {
+        let percent = if run_elapsed_seconds > 0.0 { summary.elapsed_seconds * 100.0 / run_elapsed_seconds } else { 0.0 };
+
+        println!(
+            "{:<58} {:>7} {:>14.6} {:>8.2}% {:>16} {:>16} {:>16}",
+            summary.phase, summary.calls, summary.elapsed_seconds, percent, summary.bytes_allocated, summary.bytes_deallocated, summary.bytes_reallocated,
+        );
+    }
+}
+
+fn write_phase_totals_tsv(path: &Path, run_id: &str, events: &[ProfileEvent], run_elapsed_seconds: f64) -> Result<()> {
+    let mut out = String::new();
+
+    out.push_str("run_id\tphase\tcalls\telapsed_seconds\trun_percent\tbytes_allocated\tbytes_deallocated\tbytes_reallocated\n");
+
+    for summary in phase_summaries(events) {
+        let percent = if run_elapsed_seconds > 0.0 { summary.elapsed_seconds * 100.0 / run_elapsed_seconds } else { 0.0 };
+
+        out.push_str(&format!(
+            "{}\t{}\t{}\t{:.6}\t{:.2}\t{}\t{}\t{}\n",
+            run_id, summary.phase, summary.calls, summary.elapsed_seconds, percent, summary.bytes_allocated, summary.bytes_deallocated, summary.bytes_reallocated,
         ));
     }
 
@@ -346,6 +443,32 @@ fn init_tracing() {
 #[cfg(not(feature = "instrumentation"))]
 fn init_tracing() {}
 
+fn cyclic6_generators(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>) -> Result<Vec<P>> {
+    let g1: P = poly![
+        ring;
+        (1, [1, 0, 0, 0, 0, 0]),
+        (1, [0, 1, 0, 0, 0, 0]),
+        (1, [0, 0, 1, 0, 0, 0]),
+        (1, [0, 0, 0, 1, 0, 0]),
+        (1, [0, 0, 0, 0, 1, 0]),
+        (1, [0, 0, 0, 0, 0, 1])
+    ]?;
+
+    let g2 = cyclic_sum(ring, 2)?;
+    let g3 = cyclic_sum(ring, 3)?;
+    let g4 = cyclic_sum(ring, 4)?;
+    let g5 = cyclic_sum(ring, 5)?;
+
+    let g6: P = poly![
+        ring;
+        (1_u32, [1, 1, 1, 1, 1, 1]),
+        (32002_u32, [0, 0, 0, 0, 0, 0])
+    ]?;
+
+    Ok(vec![g1, g2, g3, g4, g5, g6])
+}
+
+#[allow(dead_code)]
 fn cyclic7_generators(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>) -> Result<Vec<P>> {
     let g1: P = poly![
         ring;
@@ -374,9 +497,9 @@ fn cyclic7_generators(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>) -> Result<Ve
 }
 
 fn cyclic_sum(ring: &RingCtx<Fp, gbx_poly::order::Grevlex>, width: usize) -> Result<P> {
-    debug_assert!((1..=6).contains(&width));
+    debug_assert!((1..=7).contains(&width));
 
-    let terms = (0..7)
+    let terms = (0..6)
         .map(|start| {
             let mut exps = [0_u32; 7];
 

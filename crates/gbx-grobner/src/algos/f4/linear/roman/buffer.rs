@@ -16,65 +16,91 @@ use crate::algos::f4::error::{F4Error, Result};
 use crate::linear::roman::row::{SparseMatrixRow, SparsePivotRow};
 use gbx_poly::ring::FieldCtx;
 
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
+
 /// Dense temporary accumulator used to reduce one sparse matrix row.
+///
+/// This is still one dense row, not a dense matrix.
+///
+/// Important invariant:
+/// - `touched` is for clearing only.
+/// - `active_heap` is for leading-column lookup.
 #[derive(Debug, Clone)]
 pub struct DenseReductionBuffer<C> {
     values: Vec<C>,
+
+    /// Columns that were ever written since the last clear.
+    /// Used only to clear the row cheaply.
     touched: Vec<usize>,
-    marked: Vec<bool>,
+
+    /// Whether a column is already in `touched`.
+    touched_mark: Vec<bool>,
+
+    /// Candidate nonzero columns.
+    ///
+    /// This is lazy: zero columns may remain in the heap until `leading_col()`
+    /// removes them.
+    active_heap: BinaryHeap<Reverse<usize>>,
+
+    /// Whether a column is currently queued in `active_heap`.
+    queued: Vec<bool>,
 }
 
 impl<C> DenseReductionBuffer<C>
 where
     C: Copy + Eq + Default,
 {
-    /// Creates a new one-row buffer with `ncols` columns.
-    ///
-    /// Memory usage is `O(ncols)`, not `O(nrows * ncols)`.
     #[must_use]
     pub fn new(ncols: usize) -> Self {
-        Self { values: vec![C::default(); ncols], touched: Vec::new(), marked: vec![false; ncols] }
+        Self { values: vec![C::default(); ncols], touched: Vec::new(), touched_mark: vec![false; ncols], active_heap: BinaryHeap::new(), queued: vec![false; ncols] }
     }
 
-    /// Number of currently touched columns.
     #[inline]
     #[must_use]
     pub fn touched_len(&self) -> usize {
         self.touched.len()
     }
 
-    /// Number of columns in the buffer.
     #[inline]
     #[must_use]
     pub fn ncols(&self) -> usize {
         self.values.len()
     }
 
-    /// Reads a coefficient.
     #[inline]
     #[must_use]
     pub fn value_at(&self, col: usize) -> C {
         self.values[col]
     }
 
-    /// Clears only columns that were touched since the last clear.
     #[inline]
     pub fn clear(&mut self) {
         let zero = C::default();
 
         for &col in &self.touched {
             self.values[col] = zero;
-            self.marked[col] = false;
+            self.touched_mark[col] = false;
+            self.queued[col] = false;
         }
 
         self.touched.clear();
+        self.active_heap.clear();
     }
 
     #[inline]
     fn mark_touched(&mut self, col: usize) {
-        if !self.marked[col] {
-            self.marked[col] = true;
+        if !self.touched_mark[col] {
+            self.touched_mark[col] = true;
             self.touched.push(col);
+        }
+    }
+
+    #[inline]
+    fn queue_active(&mut self, col: usize) {
+        if !self.queued[col] {
+            self.queued[col] = true;
+            self.active_heap.push(Reverse(col));
         }
     }
 
@@ -82,14 +108,12 @@ where
     fn write_value(&mut self, col: usize, value: C) {
         if value != C::default() {
             self.mark_touched(col);
+            self.queue_active(col);
         }
 
         self.values[col] = value;
     }
 
-    /// Loads a sparse matrix row into the buffer.
-    ///
-    /// The buffer must be clear before this is called.
     pub fn load_sparse_row(&mut self, row: &SparseMatrixRow<C>) {
         debug_assert!(
             self.touched.is_empty(),
@@ -107,9 +131,6 @@ where
         }
     }
 
-    /// Loads a sparse pivot row into the buffer.
-    ///
-    /// This is mostly useful for tests and debugging.
     pub fn load_pivot_row(&mut self, pivot: &SparsePivotRow<C>) {
         debug_assert!(
             self.touched.is_empty(),
@@ -138,29 +159,23 @@ where
 
     /// Finds the current leading nonzero column.
     ///
-    /// Current implementation scans touched columns and returns the minimum
-    /// nonzero column. This is simple and correct. If profiling shows this is
-    /// hot, the next improvement is to maintain touched columns in a structure
-    /// that supports faster leading-column lookup.
+    /// This mutates the heap by lazily removing stale zero columns.
     #[must_use]
-    pub fn leading_col(&self) -> Option<usize> {
+    pub fn leading_col(&mut self) -> Option<usize> {
         let zero = C::default();
 
-        self.touched
-            .iter()
-            .copied()
-            .filter(|&col| self.values[col] != zero)
-            .min()
+        while let Some(&Reverse(col)) = self.active_heap.peek() {
+            if self.values[col] != zero {
+                return Some(col);
+            }
+
+            self.active_heap.pop();
+            self.queued[col] = false;
+        }
+
+        None
     }
 
-    /// Reduces this buffer by a normalized sparse pivot row.
-    ///
-    /// Assumes `pivot.lead_coeff == 1`.
-    ///
-    /// # Errors
-    ///
-    /// Currently this operation does not fail for normalized pivots, but it
-    /// returns the shared F4 result type for reducer pipeline consistency.
     pub fn reduce_by_pivot<F>(&mut self, field: &F, pivot: &SparsePivotRow<C>) -> Result<()>
     where
         F: FieldCtx<Elem = C>,
@@ -173,10 +188,11 @@ where
         }
 
         // Cancel leading column.
+        //
+        // We do not remove it from the heap here.
+        // `leading_col()` will lazily discard it.
         self.values[pivot.lead_col] = zero;
 
-        // Sparse AXPY:
-        // buffer[col] -= factor * pivot[col]
         for &(col, pivot_coeff) in &pivot.tail {
             let old = self.values[col];
             let sub = field.mul(factor, pivot_coeff);
@@ -184,6 +200,7 @@ where
 
             if new != zero {
                 self.mark_touched(col);
+                self.queue_active(col);
             }
 
             self.values[col] = new;
@@ -192,17 +209,6 @@ where
         Ok(())
     }
 
-    /// Converts the current buffer into a normalized sparse pivot row.
-    ///
-    /// The returned pivot row has:
-    /// - leading coefficient normalized to one,
-    /// - tail sorted by increasing column index,
-    /// - no zero entries.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`F4Error::NonInvertibleLeadingCoefficient`] when the leading
-    /// coefficient has no inverse in the coefficient field.
     pub fn to_normalized_pivot<F>(&self, field: &F, lead_col: usize) -> Result<SparsePivotRow<C>>
     where
         F: FieldCtx<Elem = C>,

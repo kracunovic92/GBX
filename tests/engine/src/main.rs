@@ -21,10 +21,10 @@ fn main() -> Result<()> {
 
     if let Some(command) = cli.command {
         return match command {
-            Command::RunGbxOne(args) => crate::gbx::child::run_gbx_one(args),
+            Command::RunGbxOne(args) => crate::gbx::child::run_gbx_one(&args),
         };
     }
 
     let cfg = EngineConfig::from(cli);
-    run_runner(cfg)
+    run_runner(&cfg)
 }

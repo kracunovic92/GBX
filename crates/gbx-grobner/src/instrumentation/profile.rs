@@ -24,7 +24,7 @@ pub struct AllocProfile {
 #[derive(Debug, Clone)]
 pub struct ProfileEvent {
     pub phase: &'static str,
-    pub elapsed_ms: f64,
+    pub elapsed_seconds: f64,
     pub allocations: Option<AllocProfile>,
     pub counters: BTreeMap<&'static str, u64>,
 }
@@ -39,7 +39,7 @@ thread_local! {
 /// Creates an empty counter map.
 #[inline]
 #[must_use]
-pub fn counters() -> ProfileCounters {
+pub const fn counters() -> ProfileCounters {
     BTreeMap::new()
 }
 
@@ -60,10 +60,10 @@ pub fn with_profile_phase<T>(phase: &'static str, counters: ProfileCounters, f: 
 
         let result = f();
 
-        let elapsed_ms = elapsed_ms(started);
+        let elapsed_seconds = elapsed_seconds(started);
         let allocations = Some(AllocProfile::from(region.change()));
 
-        record_profile_event(ProfileEvent { phase, elapsed_ms, allocations, counters });
+        record_profile_event(ProfileEvent { phase, elapsed_seconds, allocations, counters });
 
         result
     }
@@ -74,9 +74,9 @@ pub fn with_profile_phase<T>(phase: &'static str, counters: ProfileCounters, f: 
 
         let result = f();
 
-        let elapsed_ms = elapsed_ms(started);
+        let elapsed_seconds = elapsed_seconds(started);
 
-        record_profile_event(ProfileEvent { phase, elapsed_ms, allocations: None, counters });
+        record_profile_event(ProfileEvent { phase, elapsed_seconds, allocations: None, counters });
 
         result
     }
@@ -99,17 +99,17 @@ pub fn clear_profile_events() {
 }
 
 #[inline]
-fn elapsed_ms(started: Instant) -> f64 {
-    started.elapsed().as_secs_f64() * 1000.0
+fn elapsed_seconds(started: Instant) -> f64 {
+    started.elapsed().as_secs_f64()
 }
 
 #[cfg(feature = "profiling-alloc")]
 impl From<stats_alloc::Stats> for AllocProfile {
     fn from(stats: stats_alloc::Stats) -> Self {
-        let bytes_allocated = u64::try_from(stats.bytes_allocated).unwrap_or(u64::MAX);
-        let bytes_deallocated = u64::try_from(stats.bytes_deallocated).unwrap_or(u64::MAX);
-        let bytes_reallocated = u64::try_from(stats.bytes_reallocated).unwrap_or(u64::MAX);
-
-        Self { bytes_allocated, bytes_deallocated, bytes_reallocated }
+        Self {
+            bytes_allocated: u64::try_from(stats.bytes_allocated).unwrap_or(u64::MAX),
+            bytes_deallocated: u64::try_from(stats.bytes_deallocated).unwrap_or(u64::MAX),
+            bytes_reallocated: u64::try_from(stats.bytes_reallocated).unwrap_or(u64::MAX),
+        }
     }
 }

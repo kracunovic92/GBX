@@ -1,5 +1,6 @@
 use anyhow::Result;
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 
 use crate::engine::backend::{Backend, BackendRun, BasisArtifacts, GeneratedScript, RunMetrics};
 use crate::gbx::adapter::gbx_compute_basis;
@@ -67,7 +68,7 @@ fn format_input_dump(case: &TestCase, reducer: GbxReducerKind) -> String {
     s.push_str("generators:\n");
 
     for (i, g) in case.generators.iter().enumerate() {
-        s.push_str(&format!("  {}: {}\n", i + 1, g));
+        let _ = writeln!(s, "  {}: {}", i + 1, g);
     }
 
     s

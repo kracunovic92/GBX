@@ -74,7 +74,7 @@ where
         symbolic_preprocess(ctx, l_d, basis, history, simplify_index)
     })?;
 
-    let (f_d_rows, f_d_products, f_d_heads) = f_d.into_rows_parts();
+    let (f_d_rows, f_d_products, f_d_heads) = with_profile_phase("f4.into_rows_parts", counters(), || f_d.into_rows_parts());
 
     let mut reducer_counters = counters();
     reducer_counters.insert("rows_in", count(f_d_rows.len()));

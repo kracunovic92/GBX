@@ -1,262 +1,118 @@
-# Profiling Guide for GBX
+# Basic Profiling
 
-This guide collects the commands and workflow used to profile the GBX workspace, especially
-long-running Gröbner basis runs such as:
+Use `baseline_experiments` as the simple profiling target.
 
-cargo run -p graph_experiments --release -- grobner instances/myciel3.col -k 4 --dump-basis
+## Run
 
-The goal is to determine:
+```sh
+scripts/profile-baseline.sh
+```
 
-- which functions are hot
-- how much time is spent in them
-- which functions call them
-- whether the bottleneck is reduction, normalization, pair update, or allocation
+This builds:
 
-------------------------------------------------------------
+```sh
+RUSTFLAGS="-C force-frame-pointers=yes" cargo build -p baseline_experiments --release
+```
 
-## 1. Build Setup for Profiling
+Then records:
 
-Always profile an optimized build **with debug symbols**.
+```sh
+perf record --call-graph fp -F 199 -o <run-dir>/perf.data -- \
+  target/release/baseline_experiments
+```
 
-Add this to the workspace root `Cargo.toml`:
+The run directory is created under:
 
-[profile.release]
-debug = true
-strip = "none"
+```text
+results/profiles/<timestamp>-baseline/
+```
 
-Build with frame pointers enabled:
+Files:
 
-RUSTFLAGS="-C force-frame-pointers=yes" cargo build -p graph_experiments --release
+```text
+perf.data
+perf-report.txt
+perf-report-self.txt
+stdout.log
+stderr.log
+```
 
-Why:
+Open with Hotspot:
 
-- `--release` gives realistic optimized behavior
-- `debug = true` allows perf to resolve symbols
-- frame pointers improve stack traces
+```sh
+scripts/profile-baseline.sh results/profiles --hotspot
+```
 
-Verify debug sections exist:
+Use another output root:
 
-readelf -S target/release/graph_experiments | grep debug
+```sh
+scripts/profile-baseline.sh /tmp/gbx-profiles
+```
 
-You should see sections like:
+## If `perf.data` Looks Empty
 
-.debug_info
-.debug_line
+Check stderr first:
 
-------------------------------------------------------------
+```sh
+cat results/profiles/<run>/stderr.log
+```
 
-## 2. Run the Binary Directly
+Common causes:
 
-Prefer running the built binary instead of `cargo run`:
+- perf permissions are blocked
+- the program exits too quickly to collect useful samples
+- symbols are missing because the binary was not built with debug info
 
-target/release/graph_experiments grobner instances/myciel3.col -k 4 --dump-basis
+Check perf permissions:
 
-This avoids cargo wrapper overhead in the profiler.
+```sh
+cat /proc/sys/kernel/perf_event_paranoid
+```
 
-------------------------------------------------------------
+If it prints `3`, normal user-space profiling is blocked and `perf.data` may be
+empty.
 
-## 3. Find the Process PID
+Temporary local fix:
 
-To attach a profiler:
-
-pgrep -af graph_experiments
-
-Example output:
-
-62075 target/release/graph_experiments grobner instances/myciel3.col -k 4 --dump-basis
-
-PID is the first number.
-
-Alternative:
-
-ps aux | grep graph_experiments
-
-Or run in background:
-
-target/release/graph_experiments grobner instances/myciel3.col -k 4 --dump-basis &
-echo $!
-
-------------------------------------------------------------
-
-## 4. Enable perf Permissions
-
-If perf complains about permissions:
-
+```sh
 echo -1 | sudo tee /proc/sys/kernel/perf_event_paranoid
+```
 
-To make permanent add to `/etc/sysctl.conf`:
+Check that debug sections exist:
 
-kernel.perf_event_paranoid = -1
+```sh
+readelf -S target/release/baseline_experiments | grep debug
+```
 
-Then apply:
+## Inspect
 
-sudo sysctl -p
+Inclusive report:
 
-------------------------------------------------------------
+```sh
+less results/profiles/<run>/perf-report.txt
+```
 
-## 5. Record a Profile
+Self-time report:
 
-Attach for 60 seconds:
+```sh
+less results/profiles/<run>/perf-report-self.txt
+```
 
-perf record --call-graph fp -F 199 -p <PID> -- sleep 60
+Hotspot:
 
-Example:
+```sh
+hotspot results/profiles/<run>/perf.data
+```
 
-perf record --call-graph fp -F 199 -p 62075 -- sleep 60
+## What To Look For
 
-Explanation:
+If `normalize_terms_in` dominates, polynomial normalization is the immediate
+target.
 
---call-graph fp  : better stack traces
--F 199           : sampling frequency
-sleep 60         : record exactly 60 seconds
+If sort functions dominate, term ordering/merging is likely expensive.
 
-------------------------------------------------------------
+If monomial quotient/divisibility dominates, reducer scanning or pair handling
+is doing repeated monomial work.
 
-## 6. Inspect the Profile
-
-Install demangler once:
-
-cargo install rustfilt
-
-Then inspect:
-
-perf report --stdio | rustfilt | head -200
-
-To see **self time only**:
-
-perf report --stdio --no-children | rustfilt | head -200
-
-------------------------------------------------------------
-
-## 7. Decode Raw Addresses
-
-If perf shows addresses like:
-
-0x8fb4f
-
-Decode them:
-
-addr2line -e target/release/graph_experiments -f -C 0x8fb4f
-
-Multiple addresses:
-
-addr2line -e target/release/graph_experiments -f -C 0x8fb4f 0x8fb58 0x8fb40
-
-------------------------------------------------------------
-
-## 8. Generate Flamegraphs from perf.data
-
-Clone FlameGraph tools:
-
-git clone https://github.com/brendangregg/FlameGraph.git
-export PATH="$PATH:$(pwd)/FlameGraph"
-
-Create folded stacks:
-
-perf script | rustfilt | stackcollapse-perf.pl > out.folded
-
-Generate SVG:
-
-flamegraph.pl out.folded > flamegraph.svg
-
-Open:
-
-xdg-open flamegraph.svg
-
-------------------------------------------------------------
-
-## 9. Using cargo-flamegraph
-
-Install:
-
-cargo install flamegraph
-
-Run:
-
-cargo flamegraph -p graph_experiments --release -- \
-grobner instances/myciel3.col -k 4 --dump-basis
-
-Limit runtime:
-
-timeout 120s cargo flamegraph -p graph_experiments --release -- \
-grobner instances/myciel3.col -k 4 --dump-basis
-
-------------------------------------------------------------
-
-## 10. Quick Command Reference
-
-Build for profiling:
-
-RUSTFLAGS="-C force-frame-pointers=yes" cargo build -p graph_experiments --release
-
-Run binary:
-
-target/release/graph_experiments grobner instances/myciel3.col -k 4 --dump-basis
-
-Find PID:
-
-pgrep -af graph_experiments
-
-Record profile:
-
-perf record --call-graph fp -F 199 -p <PID> -- sleep 60
-
-View report:
-
-perf report --stdio | rustfilt | head -200
-
-Self time only:
-
-perf report --stdio --no-children | rustfilt | head -200
-
-Generate flamegraph:
-
-perf script | rustfilt | stackcollapse-perf.pl > out.folded
-flamegraph.pl out.folded > flamegraph.svg
-
-Decode addresses:
-
-addr2line -e target/release/graph_experiments -f -C <offset>
-
-------------------------------------------------------------
-
-## 11. Interpreting Hotspots
-
-If `normalize_terms_in` dominates:
-
-- polynomial normalization is too expensive
-
-If `core::slice::sort::*` dominates:
-
-- sorting terms is the bottleneck
-
-If `checked_quotient` dominates:
-
-- reducer scanning / monomial divisibility is expensive
-
-If allocator functions dominate:
-
-- too many temporary allocations
-
-------------------------------------------------------------
-
-## 12. Current GBX Profiling Conclusion
-
-Current profiles show:
-
-Main hotspot:
-normalize_terms_in
-
-Inside it:
-core::slice::sort
-
-Second hotspot:
-checked_quotient
-
-This indicates the largest optimization opportunity is reducing
-how often full polynomial normalization is performed.
-"""
-
-path = "/mnt/data/gbx_profiling.md"
-pypandoc.convert_text(text, "md", format="md", outputfile=path, extra_args=['--standalone'])
-path
+If allocator functions dominate, look for temporary vectors in symbolic
+preprocessing, matrix construction, row buffers, and normalization.

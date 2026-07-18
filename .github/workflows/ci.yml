@@ -52,6 +52,15 @@ jobs:
                 with:
                     workspaces: "./ -> target"
 
-            # Keep non-blocking (benches can be flaky/noisy on shared runners)
-            -   run: cargo bench --workspace
+            # Keep non-blocking (benches can be flaky/noisy on shared runners).
+            # `--quick` gives a smoke signal while full local runs keep the
+            # statistically useful history in target/criterion.
+            -   run: cargo bench --workspace -- --quick
                 continue-on-error: true
+
+            -   uses: actions/upload-artifact@v4
+                if: always()
+                with:
+                    name: criterion-reports
+                    path: target/criterion
+                    if-no-files-found: ignore

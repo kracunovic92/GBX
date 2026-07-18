@@ -221,7 +221,8 @@ mod tests {
         gb.retain(|_| false);
 
         assert!(gb.is_empty());
-        assert_eq!(gb.as_slice(), &[]);
+        let empty: &[u32] = &[];
+        assert_eq!(gb.as_slice(), empty);
         assert_eq!(gb.ring_id(), ring.id());
     }
 
